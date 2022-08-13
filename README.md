@@ -99,6 +99,8 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 17 | msleep | u16 duration | | |
 18 | settime | u8 id | u16 time | |
 19 | gettime | u8 id | u16 time | |
+18 | setdate | u8 id | u16 time | |
+19 | getdate | u8 id | u16 time | |
 20 | map | u16 dst | u24 src | |
 
 Please check the [System API](#system-api) for more information about each of these call and their parameters.

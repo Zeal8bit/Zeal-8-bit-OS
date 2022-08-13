@@ -1,6 +1,8 @@
         IFNDEF VFS_H
         DEFINE VFS_H
 
+        INCLUDE "time_h.asm"
+
         ; Filesystem list, useful when mounting a disk
         ; We can have at most 16 filesystems at the moment
         DEFGROUP {
@@ -46,29 +48,16 @@
 
         ; File stats structure, filled by zos_vfs_dstat and zos_vfs_stat
         DEFVARS 0 {
-                file_size_t     DS.B 4 ; Little-endian
-                file_date_t     DS.B 8
-                file_name_t     DS.B 16 ; Includes the extension
+                file_size_t     DS.B 4  ; Little-endian
+                file_date_t     DS.B DATE_STRUCT_SIZE ; Check time_h.asm file for more info about this structure
+                file_name_t     DS.B 16 ; Includes the extension and the '.'
                 file_end_t      DS.B 1
         }
 
+        ; For the moment, make sure that the total length of the file structure is 28 bytes
+        ASSERT(file_end_t == 28)
+
         DEFC STAT_STRUCT_SIZE = file_end_t
-
-        ; Date structure contained in file stats.
-        ; All the values are in BCD format!
-        ; TODO: move this to date/time component
-        DEFVARS 0 {
-                date_year_t     DS.B 2
-                date_month_t    DS.B 1
-                date_day_t      DS.B 1
-                date_date_t     DS.B 1
-                date_hours_t    DS.B 1
-                date_minutes_t  DS.B 1
-                date_seconds_t  DS.B 1
-                date_end_t      DS.B 1
-        }
-
-        DEFC DATE_STRUCT_SIZE = date_end_t
         
         ; Misc
         DEFC VFS_WORK_BUFFER_SIZE = 64
@@ -90,23 +79,5 @@
         EXTERN zos_vfs_rm
         EXTERN zos_vfs_mount
         EXTERN zos_vfs_dup
-
-
-        EXTERN zos_vfs_init_syscall
-        EXTERN zos_vfs_read_syscall
-        EXTERN zos_vfs_write_syscall
-        EXTERN zos_vfs_open_syscall
-        EXTERN zos_vfs_close_syscall
-        EXTERN zos_vfs_dstat_syscall
-        EXTERN zos_vfs_stat_syscall
-        EXTERN zos_vfs_seek_syscall
-        EXTERN zos_vfs_ioctl_syscall
-        EXTERN zos_vfs_mkdir_syscall
-        EXTERN zos_vfs_getdir_syscall
-        EXTERN zos_vfs_chdir_syscall
-        EXTERN zos_vfs_rddir_syscall
-        EXTERN zos_vfs_rm_syscall
-        EXTERN zos_vfs_mount_syscall
-        EXTERN zos_vfs_dup_syscall
 
         ENDIF

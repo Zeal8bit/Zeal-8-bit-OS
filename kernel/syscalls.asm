@@ -1,17 +1,18 @@
         INCLUDE "errors_h.asm"
         INCLUDE "vfs_h.asm"
+        INCLUDE "time_h.asm"
         INCLUDE "mmu_h.asm"
         INCLUDE "utils_h.asm"
 
-        SECTION SYSCALL_ROUTINES
-zos_sys_msleep:
-zos_sys_settime:
-zos_sys_gettime:
-zos_sys_map:
-zos_sys_exit:
-zos_sys_exec:
-        ret
+        EXTERN zos_loader_exit
+        EXTERN zos_loader_exec
 
+        DEFC SYSCALL_MAP_NUMBER = (syscall_map - zos_syscalls_table) / 2
+        DEFC SYSCALL_MAP_ROUTINE = zos_sys_map
+
+        SECTION SYSCALL_ROUTINES
+
+        ; Initializer called at system startup, BSS is cleaned when called.
         PUBLIC zos_sys_init
 zos_sys_init:
         ; Set up the beginning of the JP SYSCALL instruction, we have the high byte of SYSCALL address
@@ -19,6 +20,38 @@ zos_sys_init:
         ld a, 0xc3
         ld (_zos_sys_jump), a
         ret
+
+        ; Map a physical memory address to the virtual address space.
+        ; Prerequisite:
+        ;       [SP] - Backup of HL. Pop it from the stack at first to get H original value.
+        ; Parameters:
+        ;       DE - Destination address in virtual memory.
+        ;            This will be rounded down to the target closest page bound.
+        ;            For example, passing 0x5000 here, would in fact trigger a
+        ;            remap of the page startingat 0x4000.
+        ;       HBC - Upper 24-bits of the physical address to map.
+        ;             For example, to map 0x10_0000, HBL must be equal to 0x1000.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A
+zos_sys_map:
+        ; Get the register H value. 
+        pop hl
+        ; Get the page index out of the virtual address pointed by DE
+        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(D, E)
+        ; If the destination address is the first page (where the current code lies), return
+        ; an error
+        or a
+        jr z, _zos_sys_map_error
+        ; Pass the 24-bit address to the MMU.
+        ; Can only alter A, but can use the stack to save other registers.
+        MMU_MAP_PHYS_HBC_TO_PAGE_A()
+        ret
+_zos_sys_map_error:
+        ld a, ERR_INVALID_VIRT_PAGE
+        ret
+
 
         ; Routine that shall be called as soon as a syscall has been requested.
         ; It will map the kernel RAM before operating, then perform the syscall,
@@ -31,7 +64,6 @@ zos_sys_init:
 zos_sys_perform_syscall:
         ; Here, we cannot use kernel RAM, nor the kernel stack as the kernel RAM has not been
         ; mapped yet.
-        MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
         ; A contains the user's mapped page, we need it when the kernel stack is mapped,
         ; as it is required to restore the page, so save HL (on the user stack) and
         ; use HL to store A.
@@ -47,6 +79,13 @@ zos_sys_perform_syscall:
         ;       This snippet of code would re-enable interrupts!
         push hl ; A may contain a parameter (for seek), use HL to save A
         ld h, a
+        ; Just before performing the "normal" syscall process, check if the call is MAP
+        ; In fact, MAP must not modify any other MMU page than the ones given as a 
+        ; parameter. Then, let's check it now.
+        ld a, l
+        cp SYSCALL_MAP_NUMBER
+        jp z, SYSCALL_MAP_ROUTINE
+        ; The syscall to execute is not MAP, continue the normal process.
         ; Map the kernel RAM to the kernel RAM to the second page (and not third), as such
         ; We will have access to both the user's stack and the kernel stack
         ; TODO: Document the fact that user's stack needs to be in the last page (same as kernel page)
@@ -55,15 +94,19 @@ zos_sys_perform_syscall:
         ld l, a
         ; Map the kernel RAM to the second page now.
         MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_2, MMU_KERNEL_PHYS_PAGE)
-        ; Both the kernel RAM and the user's RAM (stack) are available. HOWEVER, any kernel's RAM operation
+        ; Both the kernel RAM and the user's RAM (stack) are available. HOWEVER, any kernel RAM operation
         ; needs to be accompagnied by an offset, as it not mapped where it should be (page 3).
         ld a, h
         ld (_zos_user_a - MMU_VIRT_PAGES_SIZE), a       ; Save original A parameter from the user
         ; Get and save the last page number too as this is where the kernel RAM will be mapped
         MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
-        ld (_zos_user_page_idx - MMU_VIRT_PAGES_SIZE), a
-        ; Restore the original page 2
+        ld (_zos_user_page_3 - MMU_VIRT_PAGES_SIZE), a
+        ; Let's save page 1 here, it may be useful
+        MMU_GET_PAGE_NUMBER(MMU_PAGE_1)
+        ld (_zos_user_page_1 - MMU_VIRT_PAGES_SIZE), a
+        ; Restore the original page 2 (but save it still in kernel RAM)
         ld a, l
+        ld (_zos_user_page_2 - MMU_VIRT_PAGES_SIZE), a
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ; Retrieve the original HL, but keep it on the stack. Map the kernel RAM in the last virtual page.
         pop hl
@@ -100,12 +143,45 @@ zos_sys_perform_syscall:
         ld sp, (_zos_user_sp)
         ; Keep the return value in H, we can do this because HL is never a return register
         ld h, a
-        ; Get back the original index of the last virtual page and set it
-        ld a, (_zos_user_page_idx)
+        ; Restore back all the user's virtual pages
+        ld a, (_zos_user_page_1)
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
+        ld a, (_zos_user_page_2)
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
+        ld a, (_zos_user_page_3)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
         ; Restore return value in A, restore HL and exit
         ld a, h
         pop hl
+        ret
+
+
+        ; Routine to remap a buffer from page 3 to page 2.
+        ; This is handy if the user buffer is in the last page, but the kernel
+        ; RAM is mapped at that spot.
+        ; Parameters:
+        ;       XY - Virtual address of the buffer to remap
+        ; Returns:
+        ;       XY - New address of the buffer if it was in page 3.
+        ;            Unmodified if buffer not in page 3.
+        PUBLIC zos_sys_remap_bc_page_2
+        PUBLIC zos_sys_remap_de_page_2
+zos_sys_remap_bc_page_2:
+        ld a, b
+        jr _zos_sys_remap_buffer
+zos_sys_remap_de_page_2:
+        ld a, d
+_zos_sys_remap_buffer:
+        ; In practice the pages are aligned on 8-bit, no need for the
+        ; lowest byte.
+        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(A, A)
+        cp 3
+        ret nz
+        ; TODO: Have an API for this (BC - PAGE_SIZE)
+        res 6, b        ; BC - 16KB
+        ; Map user's page 3 into page 2
+        ld a, (_zos_user_page_3)
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ret
 
         ; Routine to map a buffer pointed by DE into any page except the page
@@ -122,11 +198,10 @@ zos_sys_perform_syscall:
         PUBLIC zos_sys_reserve_page_1
 zos_sys_reserve_page_1:
         ld hl, 0
-        ld a, d
-        ; Keep the upper two bits only as we have 4 pages
-        rlca
-        rlca
-        and 3
+        ; Get the page index to where DE is located
+        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(D, E)
+        ; Result is in A
+        or a
         ; If the page it is mapped to is 0, then we won't remap it
         ; because it means the kernel is trying to print something.
         ret z
@@ -185,7 +260,9 @@ zos_sys_restore_pages:
         PUBLIC _zos_kernel_sp
 _zos_user_sp: DEFS 2
 _zos_user_a:  DEFS 1
-_zos_user_page_idx: DEFS 1
+_zos_user_page_1: DEFS 1
+_zos_user_page_2: DEFS 1
+_zos_user_page_3: DEFS 1
         ; The following flag marks whether a syscall is in progress.
 _zos_syscall_ongoing: DEFS 1
 
@@ -196,25 +273,29 @@ _zos_sys_jump: DEFS 3   ; Store jp nnnn instruction (3 bytes)
         PUBLIC zos_syscalls_table
         ALIGN 0x100
 zos_syscalls_table:
-	DEFW zos_vfs_read
-	DEFW zos_vfs_write
-	DEFW zos_vfs_open
-	DEFW zos_vfs_close
-	DEFW zos_vfs_dstat
-	DEFW zos_vfs_stat
-	DEFW zos_vfs_seek
-	DEFW zos_vfs_ioctl
-	DEFW zos_vfs_mkdir
-	DEFW zos_vfs_getdir
-	DEFW zos_vfs_chdir
-	DEFW zos_vfs_rddir
-	DEFW zos_vfs_rm
-	DEFW zos_vfs_mount
-	DEFW zos_sys_exit
-	DEFW zos_sys_exec
-	DEFW zos_vfs_dup
-	DEFW zos_sys_msleep
-	DEFW zos_sys_settime
-	DEFW zos_sys_gettime
-	DEFW zos_sys_map
+        DEFW zos_vfs_read
+        DEFW zos_vfs_write
+        DEFW zos_vfs_open
+        DEFW zos_vfs_close
+        DEFW zos_vfs_dstat
+        DEFW zos_vfs_stat
+        DEFW zos_vfs_seek
+        DEFW zos_vfs_ioctl
+        DEFW zos_vfs_mkdir
+        DEFW zos_vfs_getdir
+        DEFW zos_vfs_chdir
+        DEFW zos_vfs_rddir
+        DEFW zos_vfs_rm
+        DEFW zos_vfs_mount
+        DEFW zos_loader_exit
+        DEFW zos_loader_exec
+        DEFW zos_vfs_dup
+        DEFW zos_time_msleep
+        DEFW zos_time_settime
+        DEFW zos_time_gettime
+        ; Keep a label on map syscall as it will be treated differently
+        ; from other syscalls. In practice, we will not load the address
+        ; from here. We will call the function directly.
+syscall_map:
+        DEFW SYSCALL_MAP_ROUTINE
 

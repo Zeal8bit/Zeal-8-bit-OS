@@ -3,11 +3,12 @@
         INCLUDE "mmu_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "vfs_h.asm"
+        INCLUDE "log_h.asm"
 
-        EXTERN zos_log_error
-        EXTERN zos_log_message
-        EXTERN zos_vfs_dstat
         EXTERN _zos_kernel_sp
+        EXTERN zos_vfs_open_internal
+        EXTERN zos_vfs_read_internal
+        EXTERN zos_vfs_dstat_internal
 
         DEFC TWO_PAGES_SIZE_UPPER_BYTE = (MMU_VIRT_PAGES_SIZE >> 8) * 2
 
@@ -27,7 +28,7 @@ zos_load_file:
         ; Set flags to read-only
         ld h, O_RDONLY
         ; HL is preserved
-        call zos_vfs_open
+        call zos_vfs_open_internal
         ; File descriptor in A
         ; Error if the descriptor is less than 0
         or a
@@ -36,7 +37,7 @@ zos_load_file:
         ; (the system is is the first bank, so we have 3 free banks)
         ld de, _file_stats
         ld h, a
-        call zos_vfs_dstat
+        call zos_vfs_dstat_internal
         ; H still contains dev number, DE contains the status structure address.
         ; Put the structure address in HL instead and so the dev number will be in D
         ex de, hl 
@@ -85,7 +86,7 @@ zos_load_file:
         ld bc, MMU_VIRT_PAGES_SIZE
         ld h, d
         ld de, MMU_PAGE1_VIRT_ADDR
-        call zos_vfs_read
+        call zos_vfs_read_internal
         ; Check A for any error
         or a
         jp nz, _zos_load_failed_with_pop
@@ -108,7 +109,7 @@ zos_load_file:
         ; Prepare H with the dev number
         ld h, d
         ld de, MMU_PAGE2_VIRT_ADDR
-        call zos_vfs_read
+        call zos_vfs_read_internal
         or a
         jp nz, _zos_load_failed 
         or b
@@ -133,7 +134,7 @@ _zos_load_one_call:
         ld de, MMU_PAGE1_VIRT_ADDR
         ; Push HL as required by VFS routines
         push bc
-        call zos_vfs_read
+        call zos_vfs_read_internal
         or a
         jp nz, _zos_load_failed
         ; Check that BC is equal to the initial value
@@ -171,6 +172,19 @@ _zos_load_failed:
         call zos_log_message
 _loop:  halt
         jp _loop
+
+        ; TODO: Syscall exec
+        PUBLIC zos_loader_exec
+zos_loader_exec:
+        ld a, ERR_NOT_IMPLEMENTED
+        ret
+
+        ; TODO: Syscall exit
+        PUBLIC zos_loader_exit
+zos_loader_exit:
+        ld a, ERR_NOT_IMPLEMENTED
+        ret
+
 
 _load_error_1: DEFM "Could not load ", 0
 _load_error_2: DEFM " initialization file\n", 0

@@ -6,6 +6,8 @@
         INCLUDE "drivers_h.asm"
         INCLUDE "utils_h.asm"
 
+        EXTERN zos_sys_remap_bc_page_2
+        EXTERN zos_sys_remap_de_page_2
         EXTERN zos_driver_find_by_name
         EXTERN zos_log_stdout_ready
         EXTERN strncat
@@ -91,7 +93,7 @@ zos_vfs_restore_std:
         ; Routine to set the default stdout of the system
         ; This is where the logs will go by defaults
         ; Parameters:
-        ;       HL - Pointer to the driver
+        ;       HL - Pointer to the driver. Must be in Kernel BSS or TEXT.
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
         ; Alters:
@@ -118,7 +120,7 @@ _zos_vfs_set_stdout_no_set:
 
         ; Routine to set the default stdin of the system
         ; Parameters:
-        ;       HL - Pointer to the driver
+        ;       HL - Pointer to the driver. Must be in Kernel BSS or TEXT.
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
         ; Alters:
@@ -157,7 +159,15 @@ _zos_vfs_invalid_parameter:
         ; Alters:
         ;       A
         PUBLIC zos_vfs_open
+        ; Internal one doesn't perform a buffer address check
+        PUBLIC zos_vfs_open_internal
 zos_vfs_open:
+        push bc
+        call zos_sys_remap_bc_page_2
+        call zos_vfs_open_internal
+        pop bc
+        ret
+zos_vfs_open_internal:
         push hl
         push de
         push bc
@@ -165,7 +175,7 @@ zos_vfs_open:
         ld a, b
         or c
         jp z, _zos_vfs_open_ret_invalid
-        ; Cehck flags consistency
+        ; Check flags consistency
         call zos_vfs_check_opn_flags
         or a
         jp nz, _zos_vfs_open_ret_err
@@ -364,16 +374,23 @@ _zos_vfs_open_ret_invalid:
 
         ; Read the given dev number
         ; Parameters:
-        ;       H  - Number of the dev to write to
-        ;       DE - Buffer to store the bytes read from the dev, the buffer must NOT cross page boundary
-        ;       BC - Size of the buffer passed, maximum size is a page size
+        ;       H  - Number of the dev to write to.
+        ;       DE - Buffer to store the bytes read from the dev, the buffer must NOT cross page boundary.
+        ;       BC - Size of the buffer passed, maximum size is a page size.
         ; Returns:
         ;       A  - 0 on success, error value else
         ;       BC - Number of bytes filled in DE.
         ; Alters:
         ;       A, BC
         PUBLIC zos_vfs_read
+        PUBLIC zos_vfs_read_internal
 zos_vfs_read:
+        push de
+        call zos_sys_remap_de_page_2
+        call zos_vfs_read_internal
+        pop de
+        ret
+zos_vfs_read_internal:
         push hl
         push de
         call zof_vfs_get_entry
@@ -437,8 +454,8 @@ _zos_vfs_read_isfile:
 
         ; Write to the given dev number.
         ; Parameters:
-        ;       H  - Number of the dev to write to
-        ;       DE - Buffer to write to the dev. the buffer must NOT cross page boundary.
+        ;       H  - Number of the dev to write to.
+        ;       DE - Buffer to write to. The buffer must NOT cross page boundary.
         ;       BC - Size of the buffer passed. Maximum size is a page size.
         ; Returns:
         ;       A  - 0 on success, error value else
@@ -447,6 +464,12 @@ _zos_vfs_read_isfile:
         ;       A, HL, BC
         PUBLIC zos_vfs_write
 zos_vfs_write:
+        push de
+        call zos_sys_remap_de_page_2
+        call zos_vfs_write_internal
+        pop de
+        ret
+zos_vfs_write_internal:
         push hl
         ; We use the same flow as the one for the read function
         push de
@@ -551,7 +574,14 @@ _zos_vfs_popdehl_ret:
         ; Returns:
         ;       A - 0 on success, error else
         PUBLIC zos_vfs_dstat
+        PUBLIC zos_vfs_dstat_internal
 zos_vfs_dstat:
+        push de
+        call zos_sys_remap_de_page_2
+        call zos_vfs_dstat_internal
+        pop de
+        ret
+zos_vfs_dstat_internal:
         push hl
         ; Check DE parameter
         ld a, d
@@ -840,18 +870,15 @@ zos_check_buffer_size:
         jr z, zos_check_buffer_size_invalidparam
         push de
         ; BC is less than a page size, get the page number of DE
-        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS()
+        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(D, E)
         ; Page index of DE in A, calculate page index for the last buffer address:
         ; DE+BC-1
         ld h, d
         ld l, e
-        adc hl, bc
+        add hl, bc
         dec hl
         ld d, a ; Save the page index in D
-        ; Echange HL and DE as MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS needs the address in DE
-        ex de, hl
-        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS()
-        ex de, hl
+        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(H, L)
         ; Compare D and A, they must be equal
         sub d
         pop de

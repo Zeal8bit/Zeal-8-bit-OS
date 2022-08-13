@@ -10,6 +10,7 @@
                 ERR_NO_SUCH_ENTRY,
                 ERR_INVALID_PARAMETER,
                 ERR_INVALID_VIRT_PAGE,
+                ERR_INVALID_PHYS_ADDRESS,
                 ERR_INVALID_OFFSET,
                 ERR_INVALID_NAME,
                 ERR_INVALID_PATH,

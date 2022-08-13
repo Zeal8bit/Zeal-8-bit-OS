@@ -19,7 +19,7 @@
                 rawtable_name_t    DS.B 16  ; 16 char max for the name, including extension
                 rawtable_size_t    DS.B 4   ; 32-bit file size
                 rawtable_offset_t  DS.B 4   ; 32-bit offset in the device itself
-                rawtable_date_t    DS.B 8   ; Same as file_date_t, check vfs_h.asm
+                rawtable_date_t    DS.B DATE_STRUCT_SIZE ; Same as file_date_t, check vfs_h.asm
                 rawtable_end_t     DS.B 1   ; End of entry
                 ; Total of 32 bytes per entry
         }

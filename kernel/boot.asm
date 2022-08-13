@@ -2,14 +2,13 @@
         INCLUDE "errors_h.asm"
         INCLUDE "mmu_h.asm"
         INCLUDE "target_h.asm"
+        INCLUDE "log_h.asm"
+        INCLUDE "vfs_h.asm"
 
         ; Forward declaraction of symbols used below
         EXTERN zos_drivers_init
         EXTERN zos_vfs_init
         EXTERN zos_sys_init
-        EXTERN zos_log_init
-        EXTERN zos_log_warning
-        EXTERN zos_log_message
         EXTERN zos_vfs_restore_std
         EXTERN zos_disks_init
         EXTERN zos_disks_get_default
@@ -32,7 +31,8 @@ zos_entry:
         ld sp, CONFIG_KERNEL_STACK_ADDR
 
         ; If a hook has been installed for cold boot, call it
-        IF CONFIG_COLDBOOT_HOOK
+        IF CONFIG_KERNEL_COLDBOOT_HOOK
+        EXTERN target_coldboot
         call target_coldboot
         ENDIF
 
@@ -77,7 +77,9 @@ zos_entry:
         jp zos_load_file
 
 _zos_default_init:
-        DEFM "A:/init.bin", 0
+        CONFIG_KERNEL_INIT_EXECUTABLE
+        DEFM 0  ; NULL-byte after the string
+
         ; Define the boilerplate to print as soon as 
         ; a logging function is available
         PUBLIC zos_boilerplate
@@ -87,4 +89,6 @@ zos_boilerplate:
 zos_time_warning:
         DEFM "Time unavailable: ERR_NOT_IMPLEMENTED\n", 0
 zos_kernel_ready:
-        DEFM "Kernel ready.\nLoading file A:/init.bin at address 0x4000\n\n", 0
+        DEFM "Kernel ready.\nLoading file "
+        CONFIG_KERNEL_INIT_EXECUTABLE
+        DEFM " at address 0x4000\n\n", 0
