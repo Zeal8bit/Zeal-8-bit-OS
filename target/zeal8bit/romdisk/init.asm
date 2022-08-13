@@ -1,18 +1,21 @@
+        INCLUDE "syscalls_h.asm"
+
         ORG 0x4000
 
-        DEFC DEV_STDOUT = 0
-
-        MACRO SYSCALL _
-                rst 0x8
-        ENDM
-main:
-        ; Try to print a message on the screen
-        ld hl, DEV_STDOUT << 8 | 1
+_start:
+        ; Try to print a message on the screen,
+        ld h, DEV_STDOUT
+        ; Put the buffer address in DE
         ld de, welcome
+        ; Pass the buffer size in BC
         ld bc, welcome_end - welcome
-        SYSCALL()
-loop:   jp loop
+        ; Call WRITE!
+        SYSCALL_WRITE()
+
+loop:   halt
+        jp loop
 
 welcome:
-        DEFM "Success: init progam loaded!\n", 0
+        DEFM "Hello, world!\nI am init the program, I am part of a romdisk.\n"
+        DEFM "If you can see this message on screen, the kernel did its job.\n", 0
 welcome_end:

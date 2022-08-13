@@ -19,18 +19,17 @@
         PUBLIC zos_log_init
 zos_log_init:
         ; Initialize the prefix buffer with '( ) ' 
-        ld hl, _log_prefix
-        ld (hl), '('
-        inc hl
-        inc hl
-        ld (hl), ')'
-        inc hl
-        ld (hl), ' '
+        ld de, _log_esc
+        ld hl, _log_dummy_prefix
+        ld bc, _log_dummy_prefix_end - _log_dummy_prefix
+        ldir
         ; Set the logging to buffer first
         ld a, LOG_IN_BUFFER
         ld (_log_property), a
         ret
 
+_log_dummy_prefix: DEFM 0x1b, "[30m( ) "
+_log_dummy_prefix_end:
 
         ; Routine called as soon as stdout is set in the VFS
         ; In our case, we will print the system boilerplate
@@ -68,17 +67,36 @@ zos_log_stdout_ready:
 
         PUBLIC zos_log_error
 zos_log_error:
+        IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
+        ; Set the color to red (31) in the escape sequence
+        ld a, '1'
+        ld (_log_esc + 3), a
+        ENDIF
+
         ld a, 'E'
         jr zos_log_message
 
         PUBLIC zos_log_warning
 zos_log_warning:
+        IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
+        ; Set the color to yellow (33) in the escape sequence
+        ld a, '3'
+        ld (_log_esc + 3), a
+        ENDIF
+
         ld a, 'W'
         jr zos_log_message
 
         PUBLIC zos_log_info
 zos_log_info:
+        IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
+        ; Set the color to green (32) in the escape sequence
+        ld a, '2'
+        ld (_log_esc + 3), a
+        ENDIF
+
         ld a, 'I'
+        ; Fallthrough
 
         ; Log a message in the log buffer or STDOUT
         ; Parameters:
@@ -103,12 +121,19 @@ zos_log_message:
         ; Check if we need to print the prefix
         ld a, b
         or a
+ IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
+        push af
+ ENDIF
         jp z, _zos_log_no_prefix
         ; Set the letter to put in the ( )
         ld (_log_prefix + 1), a
+ IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
+        ld de, _log_esc
+        ld bc, _log_esc_end - _log_esc
+ ELSE
         ld de, _log_prefix
-        ; TODO: Add some escape chars for colors if supported?
-        ld bc, 4
+        ld bc, _log_esc_end - _log_prefix        
+ ENDIF
         push hl
         call _zos_log_call_write
         pop hl
@@ -117,6 +142,12 @@ _zos_log_no_prefix:
         call strlen
         ex de, hl
         call _zos_log_call_write
+ IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
+        ; If Z flag is NOT set, we had a prefix, we have to write
+        ; the end of the escape sequence
+        pop af
+        call nz, _zos_log_write_end_seq
+ ENDIF
         pop de
         pop hl
 _zos_log_popbc_ret:
@@ -127,6 +158,13 @@ _zos_log_buffer:
         pop bc
         ret
         
+        IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
+_zos_log_write_end_seq:
+        ld de, _log_postfix
+        ld bc, _log_postfix_end - _log_postfix
+        jp _zos_log_call_write
+        ENDIF
+
         ; Private routine to call the driver's write function
         ; Parameters:
         ;       DE - Buffer to print
@@ -164,13 +202,21 @@ _zos_log_invalid_parameters:
         ld a, ERR_INVALID_PARAMETER
         ret
 
+_log_postfix: DEFB 0x1b, '[', '0', 'm' ; Escape sequence
+_log_postfix_end:
+
         SECTION KERNEL_BSS
 _log_plate_printed: DEFS 1
-_log_write_fun: DEFS 2
-_log_property: DEFS 1
-_log_prefix: DEFS 4 ; RAM for '(W) ' (4 chars)
+_log_write_fun:     DEFS 2
+_log_property:      DEFS 1
+_log_esc:           DEFS 5 ; RAM for '\x1b[XYm'
+_log_prefix:        DEFS 4 ; RAM for '(W) ' where XY is escape sequence code (4 chars)
+_log_esc_end:
+
+        ASSERT(_log_dummy_prefix_end - _log_dummy_prefix == _log_esc_end - _log_esc)
+
 
         IF CONFIG_LOG_BUFFER_SIZE > 0
-_log_index: DEFS 2
+_log_index:  DEFS 2
 _log_buffer: DEFS CONFIG_LOG_BUFFER_SIZE
         ENDIF

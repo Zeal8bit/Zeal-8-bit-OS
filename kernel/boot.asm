@@ -8,6 +8,8 @@
         EXTERN zos_vfs_init
         EXTERN zos_sys_init
         EXTERN zos_log_init
+        EXTERN zos_log_warning
+        EXTERN zos_log_message
         EXTERN zos_vfs_restore_std
         EXTERN zos_disks_init
         EXTERN zos_disks_get_default
@@ -63,15 +65,26 @@ zos_entry:
         ; Set up the syscalls
         call zos_sys_init
 
+        ; Check if we have current time
+        ld hl, zos_time_warning
+        call zos_log_warning
+
         ; Load the init file from the default disk drive
+        ld hl, zos_kernel_ready
+        xor a
+        call zos_log_message
         ld hl, _zos_default_init
         jp zos_load_file
 
 _zos_default_init:
-        DEFM "init.bin", 0
+        DEFM "A:/init.bin", 0
         ; Define the boilerplate to print as soon as 
         ; a logging function is available
         PUBLIC zos_boilerplate
 zos_boilerplate:
         INCBIN "version.txt"
         DEFB "\n", 0
+zos_time_warning:
+        DEFM "Time unavailable: ERR_NOT_IMPLEMENTED\n", 0
+zos_kernel_ready:
+        DEFM "Kernel ready.\nLoading file A:/init.bin at address 0x4000\n\n", 0
