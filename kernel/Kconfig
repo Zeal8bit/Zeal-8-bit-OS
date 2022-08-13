@@ -9,4 +9,12 @@ menu "Kernel configuration"
                         This value defines the top of the stack in the virtual memory.
                         This address must point to RAM.  
 
+        config KERNEL_MAX_LOADED_DRIVERS
+                int "Maximum number of loaded drivers"
+                default 16
+                range 0 255
+                help
+                        Maximum number of drivers that can be loaded into the kernel.
+                        This is valid for both loaded drivers at compile time and at runtime.
+                        Must be a power of 2.
 endmenu

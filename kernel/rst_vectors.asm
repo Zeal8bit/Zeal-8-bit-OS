@@ -44,8 +44,9 @@ rst_vector_10:
     nop
     nop
     nop
+zop_call_hl:
 rst_vector_18:
-    nop
+    jp (hl)
     nop
     nop
     nop
@@ -90,3 +91,13 @@ rst_vector_38:
     nop
     nop
     nop
+
+    ; Assert that these reset vectors are at the right place
+    ASSERT(rst_vector_0  = 0x00)
+    ASSERT(rst_vector_8  = 0x08)
+    ASSERT(rst_vector_10 = 0x10)
+    ASSERT(rst_vector_18 = 0x18)
+    ASSERT(rst_vector_20 = 0x20)
+    ASSERT(rst_vector_28 = 0x28)
+    ASSERT(rst_vector_30 = 0x30)
+    ASSERT(rst_vector_38 = 0x38)

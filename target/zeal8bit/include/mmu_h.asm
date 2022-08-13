@@ -23,7 +23,13 @@
     ; will be stored. 
     ; Physical address 0x08_0000 will be mapped to 0xC000
     MACRO MMU_INIT _
+        MMU_MAP_PHYS_ADDR(MMU_PAGE_1, 0x089000)
+        MMU_MAP_PHYS_ADDR(MMU_PAGE_2, 0x08A000)
         MMU_MAP_PHYS_ADDR(MMU_PAGE_3, 0x088000)
+    ENDM
+
+    MACRO MMU_MAP_SYSTEM_RAM PAGE_NB
+        MMU_MAP_PHYS_ADDR(PAGE_NB, 0x088000)
     ENDM
 
     ENDIF ; MMU_H

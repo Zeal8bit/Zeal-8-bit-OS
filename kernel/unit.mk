@@ -1,5 +1,5 @@
 
-SRCS = boot.asm rst_vectors.asm
+SRCS = rst_vectors.asm boot.asm  drivers.asm strutils.asm
 
 #ifeq ($(CONFIG_BOOL), y)
 #    SRCS += file.asm

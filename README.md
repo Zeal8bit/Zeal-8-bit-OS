@@ -170,6 +170,7 @@ Here is the example of a simple driver registration:
 my_driver0_init:
         ; Register itself to the VFS
         ; Do something
+        xor a ; Success
         ret
 my_driver0_read:
         ; Do something
