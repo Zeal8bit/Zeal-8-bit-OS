@@ -87,12 +87,12 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 5 | stat | u16 name | u16 dst | |
 6 | seek | u8 dev | u32 offset | |
 7 | ioctl | u8 dev | u8 cmd | u16 arg |
-8 | mount | u8 dev | u8 letter | u8 fs |
-9 | mkdir | u16 path | | |
-10 | getdir | u16 path | u16 size | |
-11 | chdir | u16 path | | |
-12 | rddir | u16 path | | |
-13 | rm | u16 path | | |
+8 | mkdir | u16 path | | |
+9 | getdir | u16 path | u16 size | |
+10 | chdir | u16 path | | |
+11 | rddir | u16 path | | |
+12 | rm | u16 path | | |
+13 | mount | u8 dev | u8 letter | u8 fs |
 14 | exit | | | |
 15 | exec | u16 name | u16 argv | |
 16 | dup | u8 dev | u8 ndev | |
@@ -111,23 +111,23 @@ In order to perform a syscall, the operation number must be stored in register `
 
 | Parameter name in API | Z80 Register |
 | --------------------- | ------------ |
-| u8 dev                | `A`          |
+| u8 dev                | `H`          |
 | u8 ndev               | `E`          |
-| u8 flags              | `A`          |
+| u8 flags              | `H`          |
 | u8 cmd                | `C`          |
 | u8 letter             | `D`          |
 | u8 fs                 | `E`          |
-| u8 id                 | `A`          |
+| u8 id                 | `H`          |
 | u16 buf               | `DE`         |
 | u16 size              | `BC`         |
-| u16 name              | `DE`         |
+| u16 name              | `BC`         |
 | u16 dst               | `DE`         |
 | u16 arg               | `DE`         |
 | u16 path              | `DE`         |
 | u16 argv              | `BC`         |
 | u16 duration          | `BC`         |
 | u16 time              | `BC`         |
-| u24 src               | `ABC`        |
+| u24 src               | `HBC`        |
 | u32 offset            | `BCDE`       |
 
 

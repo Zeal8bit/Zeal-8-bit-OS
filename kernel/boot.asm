@@ -5,6 +5,10 @@
 
         ; Forward declaraction of symbols used below
         EXTERN zos_drivers_init
+        EXTERN zos_vfs_init
+        EXTERN zos_disks_init
+        EXTERN zos_disks_get_default
+        EXTERN zos_load_file
         EXTERN __KERNEL_BSS_head
         EXTERN __KERNEL_BSS_size
 
@@ -16,8 +20,8 @@ zos_entry:
         ; this must be a macro and not a function as the SP has not been set up yet
         MMU_INIT()
 
-        ; Map the system RAM to its virtual address
-        MMU_MAP_SYSTEM_RAM(MMU_PAGE_3)
+        ; Map the kernel RAM to the last virtual page
+        MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_3, MMU_KERNEL_PHYS_PAGE)
 
         ; Set up the stack pointer
         ld sp, CONFIG_KERNEL_STACK_ADDR
@@ -38,7 +42,21 @@ zos_entry:
         ld (hl), 0
         ldir
 
+        ; Initialize the disks
+        call zos_disks_init
+
+        ; Initialize the VFS
+        call zos_vfs_init
+
         ; Initialize all the drivers
         call zos_drivers_init
 
-loop:   jp loop
+        ; The default disk is a letter here, put in A
+        call zos_disks_get_default
+
+        ; Check if the init file exists
+        ld hl, _zos_default_init
+        jp zos_load_file
+
+_zos_default_init:
+        DEFM "init.bin", 0

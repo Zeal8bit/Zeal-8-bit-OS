@@ -6,6 +6,9 @@
     PUBLIC zos_syscall
     PUBLIC zos_mode1_isr_entry
 
+    ; We will need the syscall table to get the operation to make
+    EXTERN zos_syscalls_table
+
     SECTION RST_VECTORS
     ; Vector 0 is also Software reset
 rst_vector_0:
@@ -13,7 +16,7 @@ zos_software_reset:
     ; In theory, on reset the Z80 interrupt are disabled, let's be 100% sure
     ; and disable them again
     di
-	jp zos_entry
+    jp zos_entry
     nop
     nop
     nop
@@ -26,7 +29,15 @@ zos_software_reset:
     ;   None - Registers are saved y the callee 
 zos_syscall:
 rst_vector_8:
-    nop
+    ; 38 cycles; 8 bytes ; +10 for another jump = 48 cycles to arrive to the function
+    ld a, h
+    push hl
+    sla l
+    sla l
+    ld h, zos_syscalls_table >> 8
+zop_call_hl:
+rst_vector_10:
+    jp (hl)
     nop
     nop
     nop
@@ -35,18 +46,8 @@ rst_vector_8:
     nop
     nop
 zos_breakpoint:
-rst_vector_10:
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-zop_call_hl:
 rst_vector_18:
-    jp (hl)
+    nop
     nop
     nop
     nop
@@ -93,6 +94,7 @@ rst_vector_38:
     nop
 
     ; Assert that these reset vectors are at the right place
+    IF 0
     ASSERT(rst_vector_0  = 0x00)
     ASSERT(rst_vector_8  = 0x08)
     ASSERT(rst_vector_10 = 0x10)
@@ -101,3 +103,4 @@ rst_vector_38:
     ASSERT(rst_vector_28 = 0x28)
     ASSERT(rst_vector_30 = 0x30)
     ASSERT(rst_vector_38 = 0x38)
+    ENDIF

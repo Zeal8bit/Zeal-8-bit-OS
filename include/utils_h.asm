@@ -12,7 +12,7 @@
 
         ; Performs a CALL (HL)
         MACRO CALL_HL _
-                rst 0x18
+                rst 0x10
         ENDM
 
         EXTERN is_alpha_numeric

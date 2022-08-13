@@ -17,4 +17,35 @@ menu "Kernel configuration"
                         Maximum number of drivers that can be loaded into the kernel.
                         This is valid for both loaded drivers at compile time and at runtime.
                         Must be a power of 2.
+
+        config KERNEL_MAX_OPENED_DEVICES
+                int "Maximum number of opened devices"
+                default 16
+                range 0 255
+                help
+                        Maximum number of opened devices for a program. This includes opened
+                        drivers as well as opened files.
+
+        config KERNEL_PATH_MAX
+                int "Maximum path of files"
+                default 128
+                range 64 4096
+                help
+                        Maximum length of a single absolute file path. Incrementing this value will make
+                        the kernel use more RAM.
+                       
+        config KERNEL_INIT_EXECUTABLE
+                string "Executable to launch on boot"
+                default "init.bin"
+                help
+                        Executable to load and execute on after system boot
+
+        config KERNEL_INIT_EXECUTABLE_ADDR
+                hex "Virtual address to load the initial program in"
+                range 0x4000 0xFF00
+                default 0x4000
+                help
+                        After the kernel has finished initializing all its components and its drivers,
+                        it will load the KERNEL_INIT_EXECUTABLE in RAM. This constant defines the virtual
+                        address where it will be loaded and executed from.
 endmenu

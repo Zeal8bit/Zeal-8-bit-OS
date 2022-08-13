@@ -44,27 +44,9 @@ _zos_next_driver:
         ; Log finished registering drivers
         ret
 
-        ; Checks whether the string passed as a parameter is a valid driver
-        ; name. In other words, it tests if all the characters are alpha-numerical 
-        ; Parameters:
-        ;       HL - Address of the string
-        ; Returns:
-        ;       A - 0 if invalid, non-zero else
-        ; Alters:
-        ;       A, DE
-zos_driver_name_valid:
-        ld d, h
-        ld e, l
-        ld a, (de)
-        call is_alpha_numeric
-        ret z
-        REPT (DRIVER_NAME_LENGTH - 1)
-        inc de
-        ld a, (de)
-        call is_alpha_numeric
-        ret z
-        ENDR
-        ret
+;======================================================================;
+;=============== = P R I V A T E   R O U T I N E S ====================;
+;======================================================================;
 
         ; Checks whether the name has already been registered
         ; Parameters:
@@ -118,6 +100,28 @@ _zos_driver_find_by_name_loop:
 _zos_driver_find_by_name_already_exists:
         pop hl
         pop bc
+        ret
+
+        ; Checks whether the string passed as a parameter is a valid driver
+        ; name. In other words, it tests if all the characters are alpha-numerical 
+        ; Parameters:
+        ;       HL - Address of the string
+        ; Returns:
+        ;       A - 0 if invalid, non-zero else
+        ; Alters:
+        ;       A, DE
+zos_driver_name_valid:
+        ld d, h
+        ld e, l
+        ld a, (de)
+        call is_alpha_numeric
+        ret z
+        REPT (DRIVER_NAME_LENGTH - 1)
+        inc de
+        ld a, (de)
+        call is_alpha_numeric
+        ret z
+        ENDR
         ret
 
         ; Registers the driver pointed by HL in the array of loaded drivers 

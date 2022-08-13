@@ -1,4 +1,6 @@
-    SECTION KERNEL_TEXT
+    INCLUDE "errors_h.asm"
+
+    SECTION KERNEL_STRLIB
 
     ; Trim leading space character from a string pointed by HL
     ; Parameters:
@@ -199,9 +201,28 @@ _strlen_loop:
     inc hl
     inc bc
     jr _strlen_loop
+    cpir
 _strlen_end:
     pop hl
     ret
+
+    IF 0
+strlen:
+    push hl
+    ld a, 0xff
+    ld b, a
+    ld c, a
+    inc a
+    cpir
+    dec a
+    sub b
+    ld b, a
+    ld a, 0xff
+    sbc a, c
+    ld c, a 
+    pop hl
+    ret
+    ENDIF
 
     ; Function copying src string into dest, including the terminating null byte
     ; Parameters:
@@ -693,8 +714,10 @@ to_upper:
     cp 'a'
     jp c, _to_lower_not_char
     cp 'z' + 1         ; +1 because p flag is set when result is 0
-    jp nc, _to_lower_not_char
+    jp nc, _to_lower_not_char_ccf
     sub 'a' - 'A'
     ret
+_to_lower_not_char_ccf:
+    ccf
 _to_upper_not_char:
     ret
