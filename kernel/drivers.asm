@@ -30,7 +30,7 @@ _zos_valid_name:
         jp nz, _zos_register_driver
         ; Driver name already exists
         ; TODO: Log this error
-        jp nz, _zos_next_driver        
+        jp _zos_next_driver        
 _zos_register_driver:
         ; Register the driver in the list
         call zos_driver_register
@@ -158,7 +158,7 @@ zos_driver_register:
         pop hl
         pop bc
         ; If the driver's init didn't return ERR_SUCCESS, don't try to save it
-        cp ERR_SUCCESS
+        or a
         ret nz
         ; Save HL in DE
         ex de, hl

@@ -1,7 +1,6 @@
         INCLUDE "errors_h.asm"
         INCLUDE "drivers_h.asm"
         INCLUDE "pio_h.asm"
-        ; INCLUDE "pub_gpio.asm"
 
         SECTION KERNEL_DRV_TEXT
 pio_init:

@@ -7,14 +7,6 @@
         INCLUDE "utils_h.asm"
 
         EXTERN zos_driver_find_by_name
-        EXTERN zos_disk_open_file
-        EXTERN zos_disk_read
-        EXTERN zos_disk_write
-        EXTERN zos_disk_seek
-        EXTERN zos_disk_stat
-        EXTERN zos_disk_close
-        EXTERN zos_disk_is_opnfile
-        EXTERN zos_disks_mount
         EXTERN strncat
 
         SECTION KERNEL_TEXT
@@ -78,10 +70,17 @@ _zos_vfs_clean_close:
         djnz _zos_vfs_clean_close
         ; Fall-throught
 
+        ; Populate the stdin and stdout in the opened dev table.
+        ; Call their respective open function again.
+        ; Parameters:
+        ;       None
+        ; Returns:
+        ;       None
+        ; Alters:
+        ;       HL
         PUBLIC zos_vfs_restore_std
 zos_vfs_restore_std:
         ; Populate the stdout and stdin entries
-        ; TODO: Re-open them if closed by the program that just exited?
         ld hl, (_dev_default_stdout)
         ld (_dev_table), hl
         ld hl, (_dev_default_stdin)
@@ -146,12 +145,9 @@ _zos_vfs_invalid_parameter:
         ;       A - Number for the newly opened dev on success, negated error value else.
         ; Alters:
         ;       A
-        ;       HL when called from zos_vfs_open_syscall  (popped from the stack)
         PUBLIC zos_vfs_open
-        PUBLIC zos_vfs_open_syscall
 zos_vfs_open:
         push hl
-zos_vfs_open_syscall:   ; Syscalls already pushed HL on the stack
         push de
         push bc
         ; Check if BC is NULL
@@ -366,10 +362,8 @@ _zos_vfs_open_ret_invalid:
         ; Alters:
         ;       A, BC
         PUBLIC zos_vfs_read
-        PUBLIC zos_vfs_read_syscall
 zos_vfs_read:
         push hl
-zos_vfs_read_syscall:
         push de
         call zof_vfs_get_entry
         pop de
@@ -441,10 +435,8 @@ _zos_vfs_read_isfile:
         ; Alters:
         ;       A, HL, BC
         PUBLIC zos_vfs_write
-        PUBLIC zos_vfs_write_syscall
 zos_vfs_write:
         push hl
-zos_vfs_write_syscall:
         ; We use the same flow as the one for the read function
         push de
         call zof_vfs_get_entry
@@ -500,10 +492,8 @@ _zos_vfs_write_isfile:
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
         PUBLIC zos_vfs_close
-        PUBLIC zos_vfs_close_syscall
 zos_vfs_close:
         push hl
-zos_vfs_close_syscall:
         ; Save the dev number, we will pass it to the close function
         ; in case it is a driver
         ld a, h
@@ -550,10 +540,8 @@ _zos_vfs_popdehl_ret:
         ; Returns:
         ;       A - 0 on success, error else
         PUBLIC zos_vfs_dstat
-        PUBLIC zos_vfs_dstat_syscall
 zos_vfs_dstat:
         push hl
-zos_vfs_dstat_syscall:
         ; Check DE parameter
         ld a, d
         or e
@@ -595,10 +583,8 @@ _zos_vfs_pop_ret:
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
         PUBLIC zos_vfs_ioctl
-        PUBLIC zos_vfs_ioctl_syscall
 zos_vfs_ioctl:
         push hl
-zos_vfs_ioctl_syscall:        
         push bc
         ld b, h
         ; Get the entry address in HL
@@ -1043,7 +1029,7 @@ _zos_realpath_slash_write:
         ; If B is 0, then we are still at the beginning of the path, still
         ; at the root, do not clean that flag
         ld a, b
-        or b
+        or a
         jp nz, _zos_realpath_slash_write_noset
         set 7, c
 _zos_realpath_slash_write_noset:

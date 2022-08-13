@@ -3,12 +3,11 @@
     
     ; Make the implemented vectors public  
     PUBLIC zos_software_reset
-    PUBLIC zos_syscall
     PUBLIC zos_mode1_isr_entry
 
     ; We will need the syscall table to get the operation to make
-    EXTERN zos_syscalls_table
-
+    EXTERN zos_sys_perform_syscall
+    
     SECTION RST_VECTORS
     ; Vector 0 is also Software reset
 rst_vector_0:
@@ -26,15 +25,15 @@ zos_software_reset:
     ;   L - Syscall operation number
     ;   Check documentation for the parameters of each operation
     ; Alters:
-    ;   None - Registers are saved y the callee 
+    ;   None - Registers are saved by the callee 
 zos_syscall:
 rst_vector_8:
-    ; 38 cycles; 8 bytes ; +10 for another jump = 48 cycles to arrive to the function
-    ld a, h
-    push hl
-    sla l
-    sla l
-    ld h, zos_syscalls_table >> 8
+    jp zos_sys_perform_syscall
+    nop
+    nop
+    nop
+    nop
+    nop
 zop_call_hl:
 rst_vector_10:
     jp (hl)

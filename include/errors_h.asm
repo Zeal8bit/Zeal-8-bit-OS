@@ -6,6 +6,7 @@
                 ERR_SUCCESS = 0,
                 ERR_FAILURE,
                 ERR_NOT_IMPLEMENTED,
+                ERR_NOT_SUPPORTED,
                 ERR_NO_SUCH_ENTRY,
                 ERR_INVALID_PARAMETER,
                 ERR_INVALID_VIRT_PAGE,

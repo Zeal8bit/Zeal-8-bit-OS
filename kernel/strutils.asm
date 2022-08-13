@@ -652,7 +652,7 @@ is_print:
 is_alpha_numeric:
     call is_alpha
     ret nc  ; Return on success
-    jr is_alpha
+    jr is_digit
 
     ; Subroutine checking that the byte contained in A
     ; is a letter [A-Za-z]

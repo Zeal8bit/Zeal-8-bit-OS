@@ -6,6 +6,7 @@
         ; Forward declaraction of symbols used below
         EXTERN zos_drivers_init
         EXTERN zos_vfs_init
+        EXTERN zos_sys_init
         EXTERN zos_vfs_restore_std
         EXTERN zos_disks_init
         EXTERN zos_disks_get_default
@@ -52,13 +53,13 @@ zos_entry:
         ; Initialize all the drivers
         call zos_drivers_init
 
-        ; The default disk is a letter here, put in A
-        call zos_disks_get_default
-
         ; Setup the default stdin and stdout in the vfs
         call zos_vfs_restore_std
 
-        ; Check if the init file exists
+        ; Set up the syscalls
+        call zos_sys_init
+
+        ; Load the init file from the default disk drive
         ld hl, _zos_default_init
         jp zos_load_file
 

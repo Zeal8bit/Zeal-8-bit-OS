@@ -118,7 +118,7 @@ In order to perform a syscall, the operation number must be stored in register `
 | u8 letter             | `D`          |
 | u8 fs                 | `E`          |
 | u8 id                 | `H`          |
-| u8 whence             | `H`          |
+| u8 whence             | `A`          |
 | u16 buf               | `DE`         |
 | u16 size              | `BC`         |
 | u16 name              | `BC`         |

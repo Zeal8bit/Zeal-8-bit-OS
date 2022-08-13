@@ -12,3 +12,4 @@
         ; RAM data
         SECTION KERNEL_BSS
         ORG 0xC000
+        SECTION DRIVER_BSS

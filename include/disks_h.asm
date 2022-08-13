@@ -9,6 +9,14 @@
 
         ; Public routines
         EXTERN zos_disks_init
+        EXTERN zos_disk_open_file
+        EXTERN zos_disk_read
+        EXTERN zos_disk_write
+        EXTERN zos_disk_seek
+        EXTERN zos_disk_stat
+        EXTERN zos_disk_close
+        EXTERN zos_disk_is_opnfile
+        EXTERN zos_disks_mount
 
         ; Structure of an opened file
         ; The first field, the magic will also be used to determine

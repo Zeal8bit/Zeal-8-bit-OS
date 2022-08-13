@@ -7,6 +7,7 @@
         EXTERN zos_log_error
         EXTERN zos_log_message
         EXTERN zos_vfs_dstat
+        EXTERN _zos_kernel_sp
 
         DEFC TWO_PAGES_SIZE_UPPER_BYTE = (MMU_VIRT_PAGES_SIZE >> 8) * 2
 
@@ -17,10 +18,6 @@
         ;       HL - Absolute path to the file
         ; This routine never returns as it executes the laoded file
         PUBLIC zos_load_file
-        ; TODO: Unit test for
-        ;       - File not existing
-        ;       - File bigger than 48K
-        ;       - File exactly 48K
 zos_load_file:
         ; Store current file name
         ld (_cur_file_name), hl
@@ -118,6 +115,9 @@ zos_load_file:
         or c
         jp nz, _zos_load_failed ; size must be 0 now!
         ; Success, we can now execute the program
+        ; Save the kernel stack and set the user's stack pointer
+        ld (_zos_kernel_sp), sp
+        ld sp, CONFIG_KERNEL_STACK_ADDR ; Save address as the kernel
         ; ============================================================================== ;
         ; KERNEL STACK CANNOT BE ACCESSED ANYMORE FROM NOW ON, JUST JUMP TO THE USER CODE!
         ; ============================================================================== ;
@@ -147,6 +147,9 @@ _zos_load_one_call:
         ; Close the dev, no need to check the return value
         ld h, d
         call zos_vfs_close
+        ; Save the kernel stack and set the user's stack pointer
+        ld (_zos_kernel_sp), sp
+        ld sp, CONFIG_KERNEL_STACK_ADDR ; Save address as the kernel
         ; ============================================================================== ;
         ; KERNEL STACK CANNOT BE ACCESSED ANYMORE FROM NOW ON, JUST JUMP TO THE USER CODE!
         ; ============================================================================== ;
