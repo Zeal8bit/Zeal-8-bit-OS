@@ -1,3 +1,7 @@
+; SPDX-FileCopyrightText: 2022 Zeal 8-bit Computer <contact@zeal8bit.com>
+;
+; SPDX-License-Identifier: Apache-2.0
+
         ; RAWTABLE file system describes a very simple way of storing read-only data.
         ; It is not really a file system, it is more an organized way of storing
         ; raw data. (Isn't that the definition of a file system though?)

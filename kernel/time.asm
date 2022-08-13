@@ -1,3 +1,7 @@
+; SPDX-FileCopyrightText: 2022 Zeal 8-bit Computer <contact@zeal8bit.com>
+;
+; SPDX-License-Identifier: Apache-2.0
+
         ; File regrouping all the time-related routines, it includes
         ; timers, clocks, dates and sleep
         INCLUDE "errors_h.asm"
