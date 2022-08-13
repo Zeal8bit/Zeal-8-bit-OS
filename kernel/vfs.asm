@@ -14,6 +14,7 @@
         EXTERN zos_disk_stat
         EXTERN zos_disk_close
         EXTERN zos_disk_is_opnfile
+        EXTERN zos_disks_mount
         EXTERN strncat
 
         SECTION KERNEL_TEXT
@@ -704,8 +705,34 @@ zos_vfs_rddir:
         PUBLIC zos_vfs_rm
 zos_vfs_rm:
 
+        ; Mount a new disk, given a driver, a letter and a file system.
+        ; The letter assigned to the disk must not be in use.
+        ; Parameters:
+        ;       H - Dev number. It must be an opened driver, not a file.
+        ;       D - ASCII letter to assign to the disk (upper or lower)
+        ;       E - File system, taken from `vfs_h.asm`
+        ; Returns:
+        ;       A - ERR_SUCCESS on succes, error code else
         PUBLIC zos_vfs_mount
 zos_vfs_mount:
+        push hl
+        push de
+        call zof_vfs_get_entry
+        pop de
+        or a
+        jp nz, _zos_vfs_pop_ret
+        ; Check if the entry is a file/directory or a driver
+        call zos_disk_is_opnfile
+        or a
+        ld a, ERR_INVALID_PARAMETER
+        jp z, _zos_vfs_pop_ret
+        ; The dev is a driver, we can try to mount it directly
+        push de
+        ld a, d ; Letter to mount it on in A register
+        call zos_disks_mount
+        pop de
+        pop hl
+        ret
 
         ; Duplicate on dev number to another dev number.
         ; This can be handy to override the standard input or output
@@ -921,81 +948,174 @@ zof_vfs_get_entry:
         ;       A - ERR_SUCCESS is success, error code else
         ; Alters:
         ;       A, HL
-        ; TODO: implement realpath
-        IF 0
 zos_realpath:
         push de
         push bc
-        ; Check if the size of HL is smaller than CONFIG_KERNEL_PATH_MAX
-        call strlen
-        push hl
-        ld hl, CONFIG_KERNEL_PATH_MAX
-        xor a
-        sbc hl, bc
-        pop hl
-        ; If carry, BC is too big!
-        jp c, _zos_realpath_too_big
         ; C will be our flags
         ; Bit 7: DE path at root
-        ; Bit 1: '..' seen
+        ; Bit 4: valid char seen
+        ; Bit 3: '...' seen
+        ; Bit 2: '..' seen
         ; Bit 1: '.' seen
         ; Bit 0: '/' seen
+        ; B is the destination path length
+        ; FIXME: Maximum path length is 255
         ld c, 0x80
+        ld b, 0
 _zos_realpath_loop:
         ld a, (hl)
         or a    ; Check if end of string
         jp z, _zos_realpath_end_str
         cp '/'
         jp z, _zos_realpath_slash
+        ; Not a slash, clear the flag
+        res 0, c
         cp '.'
         jp z, _zos_realpath_dot
         ; Other characters, should be valid (printable)
+        ; Check if any '.' or '..' is pending
+        bit 1, c
+        call nz, _zos_realpath_print_dot
+        bit 2, c
+        call nz, _zos_realpath_print_double_dot
         ld (de), a
         inc de
-        ; We should reset C to 0 now
-        xor a
+        inc hl
+        inc b
+        ; Clear the . and .. flag, set the valid char one
+        ld a, c
+        and 0x80
+        or 0x10
         ld c, a
         jp _zos_realpath_loop
-        ; End of the string, write NULL character
-        xor a
-        jp _zos_realpath_end_str
 _zos_realpath_slash:
-        ; Loop until we find another char than slash or NULL
-        ld a, (hl)
-        or a
-        ; We have found a NULL byte while looking for a non-slash
-        jp z, _zos_realpath_single_slash_end
-        cp '/'
-        jp nz, _zos_realpath_slash_cont
-        ; go to next char
         inc hl
-        jp z, _zos_realpath_slash
-_zos_realpath_slash_cont:
-        ; We have found another char than '/', go back to the normal flow, after
-        ; copying the slash
-        ld (de), a
+        ; In most cases, the flags won't be set, so optimize a bit here
+        ld a, c
+        and 0x07        ; Only the first 3 bits are interesting
+        jp z, _zos_realpath_slash_write
+        ; Reset the valid char seen flag
+        res 4, c 
+        ; If we've seen a slash already, skip this part, else, set the slash-flag
+        rrca    ; Bit 0 in CY
+        jp c, _zos_realpath_loop
+        ; Add the 'slash' flag
+        set 0, c
+        ; If we encountered a single '.', we should NOT modify the output, as
+        ; './' means current folder
+        res 1, c
+        rrca    ; Bit 1 in CY
+        jp c, _zos_realpath_loop
+        ; We have encountered a '..', if we are at root, error, else, we have to
+        ; look for the previous '/'
+        bit 7, c
+        jp nz, _zos_realpath_error_path
+        res 2, c
+        ; Look for the previous '/' in the destination
+        ; For exmaple, if HL is /mydir/../
+        ; Destination would be /mydir/, and DE pointing after the last slash
+        ; We have to look for the one before the last one.
+        dec de
+        dec de
+        dec b
+        push bc
+        ld c, b
+        ld b, 0
+        ex de, hl
+        ld a, '/'
+        cpdr
+        ld a, c
+        pop bc
+        ld b, a
+        ex de, hl
+        ; Make DE point back at the next empty char
         inc de
-_zos_realpath_single_slash_end:
-        ; Here, B is at least 1, so we can write / and NULL
+        inc de
+        inc b
+        ; If the resulted size is 0 (A), then we have to set the flag
+        or a
+        jp nz, _zos_realpath_loop
+        set 7, c
+        jp _zos_realpath_loop
+_zos_realpath_slash_write:
+        ; Add the 'slash' flag, and remove the other flags
+        ld c, 1
+        ; If B is 0, then we are still at the beginning of the path, still
+        ; at the root, do not clean that flag
+        ld a, b
+        or b
+        jp nz, _zos_realpath_slash_write_noset
+        set 7, c
+_zos_realpath_slash_write_noset:
+        ; Add a slash to DE
         ld a, '/'
         ld (de), a
         inc de
-        xor a
-        jp _zos_realpath_end_str
+        inc b
+        ; Go back to the loop
+        jp _zos_realpath_loop
 _zos_realpath_dot:
-
+        ; We've just came accross a dot.
+        ; If we've already seen a triple dot, then this dot is part of a file name
+        bit 3, c
+        jr nz, _zos_realpath_valid_dot
+        ; If we have seen regulart characters before, the dot is valid
+        bit 4, c
+        jr nz, _zos_realpath_valid_dot
+        ; If we've seen a .. before, then, this dot makes the file name '...'
+        ; this is not a special sequence, so we have to write these to DE.
+        bit 2, c
+        jr nz, _zos_realpath_tripledot
+        ; Update the flags and continue  the loop. Do not write anything to the
+        ; destination (yet). If we saw a dot before, the flags become:
+        ; xxxxx_x01x => xxxxx_x10x
+        ; If we haven't, it becomes:
+        ; xxxxx_x00x => xxxxx_x01x
+        ; Thus, simply perform c += 2
+        inc c
+        inc c
+        inc hl
+        jp _zos_realpath_loop
+_zos_realpath_tripledot:
+        ld (de), a
+        inc de
+        ld (de), a
+        inc de
+        ld (de), a
+        inc de
+        inc b
+        inc b
+        inc b
+        ; Set the valid flag and clean the double dot one
+        res 2, c
+        set 3, c
+_zos_realpath_valid_dot:
+        ld (de), a
+        inc de
+        inc b
+        inc hl
+        jp _zos_realpath_loop
 _zos_realpath_end_str:
         xor a
         ld (de), a
         pop bc
         pop de
         ret
-_zos_realpath_too_big:
-        ld a, ERR_PATH_TOO_LONG
+_zos_realpath_error_path:
+        ; When .. is passed at the root 
+        ld a, 1
         pop bc
         pop de
         ret
-        ENDIF
+_zos_realpath_print_double_dot:
+        call _zos_realpath_print_dot
+_zos_realpath_print_dot:
+        ex de, hl
+        ld (hl), '.'
+        ex de, hl
+        inc de
+        inc b
+        ret
 
         SECTION KERNEL_BSS
         ; Each of these entries points to either a driver (when opened a device) or an abstract

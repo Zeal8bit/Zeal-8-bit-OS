@@ -727,28 +727,21 @@ _zos_disk_addr_is_gt:
         ; Alters:
         ;       HL, BCDE
 zos_disk_addr_add_bcde:
-        push bc
-        push de
-        ; Dereference the 32-bit value (little-endian)
-        ld e, (hl)
+        ld a, (hl)
         inc hl
-        ld d, (hl)
+        add e
+        ld e, a
+        ld a, (hl)
         inc hl
-        ld c, (hl)
+        adc d
+        ld d, a
+        ld a, (hl)
         inc hl
-        ld b, (hl)
-        ; Now we have to calculate BCDE += [SP:SP+1]
-        pop hl
-        ex de, hl
-        add hl, de
-        ex de, hl
-        ld h, b
-        ld l, c
-        pop bc
-        adc hl, bc
-        ld b, h
-        ld c, l
-        ; BCDE contains BCDE + [SP:SP+1], the stack is clean
+        adc c
+        ld c, a
+        ld a, (hl)
+        adc b
+        ld b, a
         ret
 
         ; Close an opened file.
