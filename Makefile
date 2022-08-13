@@ -112,14 +112,17 @@ check:
 # and execute the menuconfig script.
 # Afterwards, the .config file is converted to a .asm file, that can be included
 # inside any ASM source file.
-# Note: DEFC cannot define a string like DEFC test = "test" for some reasons.
-# Thus, remove any string config from the ASM file.
+# Note: DEFC cannot define a string like DEFC test = "test" for some reason.
+# Thus, strings must be encoded as macros:
+# MACRO CONFIG_OPTION_NAME
+#    DEFM "test", 0
+# ENDM
 define CONVERT_config_asm =
     cat $1 | \
     grep "^CONFIG_" | \
-    grep -v "\"" | \
     sed 's/=y/=1/g' | sed 's/=n/=0/g' | \
-    sed 's/^/DEFC /g' > $2
+    sed 's/\(.*\)=\(".*"\)/MACRO \1\n    DEFM \2\nENDM/g' | \
+    sed 's/^CONFIG/DEFC CONFIG/g' > $2
 endef
 
 menuconfig:

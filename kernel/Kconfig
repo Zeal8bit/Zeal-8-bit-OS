@@ -9,6 +9,14 @@ menu "Kernel configuration"
                         This value defines the top of the stack in the virtual memory.
                         This address must point to RAM.  
 
+        config KERNEL_COLDBOOT_HOOK
+                bool "Hook routine at coldboot"
+                default n
+                help
+                        When enabled, the kernel will call the routine named `target_coldboot` right
+                        after initializing the MMU (if any) and setting up the stack.
+                        This routine must be defined in the target code.
+
         config KERNEL_MAX_LOADED_DRIVERS
                 int "Maximum number of loaded drivers"
                 default 16
@@ -35,7 +43,7 @@ menu "Kernel configuration"
                         drivers.
 
         config KERNEL_PATH_MAX
-                int "Maximum path of files"
+                int "Maximum path length (files/directories)"
                 default 128
                 range 64 4096
                 help
@@ -44,7 +52,7 @@ menu "Kernel configuration"
                        
         config KERNEL_INIT_EXECUTABLE
                 string "Executable to launch on boot"
-                default "init.bin"
+                default "A:/init.bin"
                 help
                         Executable to load and execute on after system boot
 
