@@ -88,9 +88,9 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 6 | seek | u8 dev | u32 offset | u8 whence |
 7 | ioctl | u8 dev | u8 cmd | u16 arg |
 8 | mkdir | u16 path | | |
-9 | getdir | u16 path | u16 size | |
-10 | chdir | u16 path | | |
-11 | rddir | u16 path | | |
+9 | chdir | u16 path | | |
+10 | opendir | u16 path | | |
+11 | readdir | u8 dev | u16 dst | |
 12 | rm | u16 path | | |
 13 | mount | u8 dev | u8 letter | u8 fs |
 14 | exit | | | |
@@ -99,8 +99,8 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 17 | msleep | u16 duration | | |
 18 | settime | u8 id | u16 time | |
 19 | gettime | u8 id | u16 time | |
-18 | setdate | u8 id | u16 time | |
-19 | getdate | u8 id | u16 time | |
+18 | setdate | u16 time | |
+19 | getdate | u16 time | |
 20 | map | u16 dst | u24 src | |
 
 Please check the [System API](#system-api) for more information about each of these call and their parameters.
@@ -127,9 +127,9 @@ In order to perform a syscall, the operation number must be stored in register `
 | u16 dst               | `DE`         |
 | u16 arg               | `DE`         |
 | u16 path              | `DE`         |
-| u16 argv              | `BC`         |
-| u16 duration          | `BC`         |
-| u16 time              | `BC`         |
+| u16 argv              | `DE`         |
+| u16 duration          | `DE`         |
+| u16 time              | `DE`         |
 | u24 src               | `HBC`        |
 | u32 offset            | `BCDE`       |
 

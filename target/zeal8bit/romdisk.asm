@@ -17,7 +17,12 @@ romdisk_init:
         ; Driver structure in HL
         ld hl, _romdisk_driver
         call zos_disks_mount
-        ; A has the status, return it directly
+        ; A has the status, return it if error
+        or a
+        ret nz
+        ; Else, return ERR_DRIVER_HIDDEN as we don't want this driver to be
+        ; directly used by users.
+        ld a, ERR_DRIVER_HIDDEN
         ret
 
 romdisk_deinit:

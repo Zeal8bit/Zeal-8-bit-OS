@@ -31,6 +31,12 @@
             ENDIF
         ENDM
 
+        MACRO ZOS_LOG_MESSAGE
+            IF CONFIG_KERNEL_LOG_LEVEL != LOG_LEVEL_NONE
+                call zos_log_message
+            ENDIF
+        ENDM
+
         ; Routines declaration
         EXTERN zos_log_init
         EXTERN zos_log_message

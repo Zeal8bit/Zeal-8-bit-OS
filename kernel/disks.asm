@@ -11,6 +11,8 @@
         EXTERN zos_fs_rawtable_read
         EXTERN zos_fs_rawtable_write
         EXTERN zos_fs_rawtable_close
+        EXTERN zos_fs_rawtable_opendir
+        EXTERN zos_fs_rawtable_readdir
 
         SECTION KERNEL_TEXT
 
@@ -744,16 +746,20 @@ zos_disk_addr_add_bcde:
         ld b, a
         ret
 
-        ; Close an opened file.
+        ; Close an opened file or directory.
         ; Parameters:
-        ;       HL - Address of the opened file. Guaranteed by the caller to be a
-        ;            non-free opened file (check zos_disk_is_opnfile)
+        ;       HL - Address of the opened file/directory. Guaranteed by the caller to be a
+        ;            non-free opened file or directory.
         ; Returns:
         ;       A  - 0 on success, error value else
         ; Alters:
         ;       A, BC, DE, HL
         PUBLIC zos_disk_close
 zos_disk_close:
+        ; Check if it's a directory
+        ld a, (hl)
+        cp DISKS_OPN_DIR_MAGIC_USED
+        jp z, _zos_disk_close_dir
         ; Load the filesystem from the opened file address
         push hl
         inc hl
@@ -796,6 +802,7 @@ _zos_disk_close_epilogue:
         or a
         ret nz
         ; Clean the entry
+_zos_disk_close_dir:
         ld (hl), DISKS_OPN_FILE_MAGIC_FREE
         ret
 
@@ -912,6 +919,154 @@ zos_disk_is_opnfile:
         ret
 
 
+        ; Open a directory on a disk
+        ; Parameters:
+        ;       C - Disk letter (lower/upper are both accepted)
+        ;       HL - Absolute path to the file (without X:/)
+        ; Returns:
+        ;       HL - Newly opened descriptor
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC zos_disk_opendir
+zos_disk_opendir:
+        push hl
+        ; Get the driver of the given disk letter
+        ld a, c
+        call zos_disks_get_driver_and_fs
+        ; Pop won't modify the flags
+        pop hl
+        ; DE contains the potential driver, A must be a success here
+        or a
+        ret nz
+        ; Put the filesystem number in A
+        ld a, c
+        ; We have a very few filesystems, no need for a lookup table AT THE MOMENT
+        cp FS_RAWTABLE
+        jp z, zos_fs_rawtable_opendir
+        cp FS_ZEALFS
+        jp z, zos_fs_zealfs_opendir
+        cp FS_FAT16
+        jp z, zos_fs_fat16_opendir
+        ; The filesystem has not been found, memory corruption?
+        ld a, ERR_INVALID_FILESYSTEM
+        ret
+
+
+        ; Routine checking if the opened dev address passed is an opened directory.
+        ; To do so, the first byte will be dereferenced and compared to the "magic" value.
+        ; Parameters:
+        ;       HL - Address of the opened "dev". Must not be NULL.
+        ; Returns:
+        ;       A - ERR_SUCCESS if it's a directory, ERR_INVALID_FILEDEV else
+        ; Alters:
+        ;       A
+        PUBLIC zos_disk_is_opndir
+zos_disk_is_opndir:
+        ld a, (hl)
+        sub DISKS_OPN_DIR_MAGIC_USED
+        ret z
+        ld a, ERR_INVALID_FILEDEV
+        ret
+
+
+        ; Routine returning the address of an empty opened-dir structure
+        ; This will be used by the filesystems `opendir` routines.
+        ; The first field will be marked as `USED` in this routine.
+        ; Parameters:
+        ;       A  - Filesystem number
+        ;       BC - Driver address
+        ; Returns:
+        ;       A  - ERR_SUCCESS if success, error code else
+        ;       HL - Address of an empty opened directory structure
+        ;       DE - Address of the user field in that same structure.
+        ;            (Which is 12 bytes long, usable by the filesystem)
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC zos_disk_allocate_opndir
+zos_disk_allocate_opndir:
+        ; Save the driver address and the filesystem in C
+        push bc
+        ld c, a
+        ld a, DISKS_OPN_DIR_MAGIC_FREE
+        ld b, CONFIG_KERNEL_MAX_OPENED_FILES
+        ld de, DISKS_OPN_DIR_STRUCT_SIZE
+        ld hl, _disk_file_slot
+_zos_disks_allocatedir_loop:
+        cp (hl)         ; Compare A with structure's first field
+        jr z, _zos_disks_allocatedir_found
+        add hl, de      ; Go to the next structure
+        djnz _zos_disks_allocatedir_loop
+        ; Could not find any emptry entry, send an error
+        pop bc
+        ld a, ERR_CANNOT_REGISTER_MORE
+        ld hl, 0
+        ret
+_zos_disks_allocatedir_found:
+        ; Restore the file system and the driver address
+        ld a, c
+        pop bc
+        ; A free structure has been found, mark it as allocated now
+        push hl
+        ld (hl), DISKS_OPN_DIR_MAGIC_USED
+        ; Let's save the filesystem (A) and the driver address (BC) first
+        inc hl
+        ld (hl), a
+        inc hl
+        ; Save driver address
+        ld (hl), c
+        inc hl
+        ld (hl), b
+        inc hl
+        push hl ; Address to return in DE after clearing the fields
+        ; Clear the structure
+        xor a
+        ld (hl), a
+        ld d, h
+        ld e, l
+        inc de
+        ld bc, DISKS_OPN_DIR_STRUCT_SIZE - 4 - 1
+        ldir
+        ; Pop the address of the field right after the driver field
+        pop de
+        pop hl
+        xor a           ; Optimization for ERR_SUCCESS
+        ret
+
+
+        ; Read the next entry from the opened directory.
+        ; Parameters:
+        ;       HL - Opened directory entry (allocated by zos_disk_allocate_opndir previously)
+        ;            Guarenteed to be an opened dir by the caller.
+        ;       DE - User buffer to fill. Guarenteed to be at least DISKS_DIR_ENTRY_SIZE big,
+        ;            not crossing boundaries, and already mapped to an accessible address.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success,
+        ;           ERR_NO_MORE_ENTRIES if the end of directory has been reached,
+        ;           error code else
+        ;       [DE] - Next entry data, check dir_entry_t for the structure of this buffer
+        PUBLIC zos_disk_readdir
+zos_disk_readdir:
+        ; Load the filesystem from the opened file address
+        inc hl
+        ld a, (hl)
+        ; Only keep the filesystem number now
+        DISKS_OPN_FILE_GET_FS()
+        ; Point to the user field directly, no need to extract the driver
+        inc hl
+        inc hl
+        inc hl
+        cp FS_RAWTABLE
+        jp z, zos_fs_rawtable_readdir
+        cp FS_ZEALFS
+        jp z, zos_fs_zealfs_readdir
+        cp FS_FAT16
+        jp z, zos_fs_fat16_readdir
+        ; The filesystem has not been found, memory corruption?
+        ld a, ERR_INVALID_FILESYSTEM
+        ret
+
+
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
         ;======================================================================;
@@ -929,6 +1084,10 @@ zos_fs_zealfs_close:
 zos_fs_fat16_close:
 zos_fs_zealfs_write:
 zos_fs_fat16_write:
+zos_fs_zealfs_opendir:
+zos_fs_fat16_opendir:
+zos_fs_zealfs_readdir:
+zos_fs_fat16_readdir:
         ld a, ERR_NOT_IMPLEMENTED
         ret
 

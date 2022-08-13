@@ -1,10 +1,6 @@
         IFNDEF TIME_H
         DEFINE TIME_H
 
-        EXTERN zos_time_msleep
-        EXTERN zos_time_settime
-        EXTERN zos_time_gettime
-
         ; Date structure definition.
         ; We can find this structure in file stats or even rawtable file system.
         ; NOTE:
@@ -41,5 +37,15 @@
         }
 
         DEFC TIME_STRUCT_SIZE = time_end_t
+
+        ; Public routines to export
+        EXTERN zos_time_init
+        EXTERN zos_time_msleep
+        EXTERN zos_time_settime
+        EXTERN zos_time_gettime
+
+        EXTERN zos_date_init
+        EXTERN zos_date_setdate
+        EXTERN zos_date_getdate
 
         ENDIF

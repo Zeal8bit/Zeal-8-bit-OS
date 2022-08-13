@@ -10,8 +10,6 @@
         INCLUDE "disks_h.asm"
         INCLUDE "utils_h.asm"
 
-        EXTERN zos_disk_allocate_opnfile
-
         ; The rawtable structure is as follow:
         DEFVARS 0 {
                 rawtable_count_t   DS.W 1   ; Max 2047 entries at most, more than enough
@@ -108,17 +106,15 @@ zos_fs_rawtable_open:
         ; Save driver address?
         ; push de
         ; Retrieve driver (DE) read function address, in HL.
-        GET_DRIVER_READ()
         ; Push + pop + call_hl() takes 10 + 11 + 11 + 4 = 36 T-states.
         ; If we generate a call read_function instruction, we will generate:
         ; jp read_function in RAM, called with call ram_loc. This will take:
         ; 17 + 10 T-states = 27 T-states, without counting the init (copying 3 bytes
         ; to RAM)
         ; Here, we need to implement a call read_function in RAM. This will take more
-        ; time than push + pop everytime BUT this needs to be done a signle time.
-        ld a, JP_INSTR_OPCODE
-        ld (RAM_EXE_CODE), a
-        ld (RAM_EXE_CODE + 1), hl
+        ; time than push + pop everytime BUT this needs to be done a single time.
+        ; Use a function for this.
+        call zos_fs_rawtable_get_and_store_driver_read
         ; ================== Start reading ================== ; 
         ; Read the header of the partition, to do so, read the first 34 bytes
         ; Buffer in DE, size in BC, 32-bit offset on the stack, higher bytes first
@@ -280,13 +276,9 @@ zos_fs_rawtable_stat:
         push hl
         ld d, b
         ld e, c
-        ; Retrieve driver (DE) read function address, in HL.
-        GET_DRIVER_READ()
         ; Just like the open function, we have to create a jump instruction
-        ; to that function, check line 115 for more details.
-        ld a, JP_INSTR_OPCODE      ; jp opcode
-        ld (RAM_EXE_CODE), a
-        ld (RAM_EXE_CODE + 1), hl
+        ; to that function, check the routine above for more details.
+        call zos_fs_rawtable_get_and_store_driver_read
         ; Driver's read function is set up, we can read the file header out of the
         ; ROMDISK. We saved the offset of that header in the opened file private/user field
         ; So we need to read that field to ge tthe offset.
@@ -353,7 +345,7 @@ zos_fs_rawtable_read:
         ; We first need to retrieve the driver's address and then the read address
         push de
         push bc
-        ; Let's optimize the accessto the opened file structure, ideally, we need
+        ; Let's optimize the access to the opened file structure, ideally, we need
         ; an abstraction, but for performance reason, we will directly access the fields.
         ; FIXME: Use a (good) abstraction to access the fields?
         inc hl
@@ -366,11 +358,7 @@ zos_fs_rawtable_read:
         ; Get the read function out of the driver pointed by DE, the resulted 
         ; function address will be in HL. Save it beforehand.
         push hl
-        GET_DRIVER_READ()
-        ; Create the jp driver_read instruction just like in other routines
-        ld a, JP_INSTR_OPCODE
-        ld (RAM_EXE_CODE), a
-        ld (RAM_EXE_CODE + 1), hl
+        call zos_fs_rawtable_get_and_store_driver_read
         ; Make HL point to the offset in the file
         ; FIXME: Use an abstraction?
         pop hl
@@ -497,9 +485,201 @@ zos_fs_rawtable_close:
         GET_DRIVER_CLOSE()
         jp (hl)
 
+
+        ; ====================== Directories related ====================== ;
+
+        ; Open a directory from a disk that has a RAWTABLE filesystem.
+        ; Note: Currently, RAWTABLE only supports a single directory,
+        ;       the root one: '/'.
+        ; Parameters:
+        ;       HL - Absolute path, without the disk letter (without X:/), guaranteed not NULL by caller.
+        ;       DE - Driver address, guaranteed not NULL by the caller.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ;       HL - Opened-dir structure address, passed through all the other calls, until closed
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC zos_fs_rawtable_opendir
+zos_fs_rawtable_opendir:
+        ; Check that the path is either \0
+        ld a, (hl)
+        or a
+        jp z, _zos_fs_rawtable_path_valid
+        ; Either / followed by \0 
+        sub '/'
+        inc hl
+        or (hl)
+        jp nz, _zos_fs_rawtable_open_invalid_name
+_zos_fs_rawtable_path_valid:
+        ; Path is correct, request an empty opened-dir structure
+        ; Parameters:
+        ;       A  - Filesystem number
+        ;       BC - Driver address
+        ld a, FS_RAWTABLE
+        ld b, d
+        ld c, e
+        push de ; Driver address on the stack
+        call zos_disk_allocate_opndir
+        ; Put the user field address in BC, to re-use DE. HL will need to be
+        ; returned as it contains the opendir entry address.
+        ld b, d
+        ld c, e
+        ; Pop the stack value now, as we are going to return if an error
+        ; occured
+        pop de
+        or a
+        ret nz
+        ; Get driver's read function, it'll be store in the temporary buffer
+        ; but let's store it in our user field too
+        push hl
+        call zos_fs_rawtable_get_and_store_driver_read
+        ; Driver's read in HL, save it to the user field (BC)
+        ; So the fields that are opened to us are 12 bytes long, let's
+        ; organize them as:
+        ;       read_function - 2 bytes
+        ;       entries_count - 2 bytes
+        ;       current_entry - 2 bytes
+        ld d, b
+        ld e, c
+        ex de, hl
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        inc hl
+        ; Read function address has been saved in our structure
+        ; HL points to the rest of the user field, we are going to place
+        ; the number of entries of the directory (filesystem)
+        ; So we need to perform a read of 2 bytes.
+        ; Driver's read parameters:
+        ;       [SP] - 32-bit offset
+        ;       DE - Destination buffer (currently HL in our flow)
+        ;       BC - Size to read
+        ex de, hl
+        ld hl, _zos_fs_rawtable_opendir_ret
+        push hl
+        ; Offset of 0
+        ld hl, 0
+        push hl
+        push hl
+        ; BC = sizeof(rawtable_count_t) 
+        ld bc, 2
+        jp RAM_EXE_CODE
+_zos_fs_rawtable_opendir_ret:
+        ; No matter the return value, pop hl and return now
+        pop hl
+        ret
+
+
+        ; Read the next entry from the opened directory and store it in the user's buffer.
+        ; The given buffer is guarenteed to be big enough to store DISKS_DIR_ENTRY_SIZE bytes.
+        ; Note: _vfs_work_buffer can be used at our will here
+        ; Parameters:
+        ;       HL - Address of the user field in the opened directory structure. This is the same address
+        ;            as the one given when opendir was called.
+        ;       DE - Buffer to fill with the next entry data. Guaranteed to not be cross page boundaries.
+        ;            Garenteed to be at least DISKS_DIR_ENTRY_SIZE bytes.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success,
+        ;           ERR_NO_MORE_ENTRIES if the end of directory has been reached,
+        ;           error code else
+        ; Alters:
+        ;       A, BC, DE, HL (can alter any)
+        PUBLIC zos_fs_rawtable_readdir
+zos_fs_rawtable_readdir:
+        ; Get the driver's read function in the opened dir struct, adn set it in the exec buffer
+        ld a, JP_INSTR_OPCODE
+        ld (RAM_EXE_CODE), a
+        ld a, (hl)
+        ld (RAM_EXE_CODE + 1), a
+        inc hl
+        ld a, (hl)
+        ld (RAM_EXE_CODE + 2), a
+        inc hl
+        ; Continue by getting the entries count
+        push de
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
+        inc hl
+        ; Same for the current entries
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        dec hl  ; Keep pointing at the current_entry address
+        ; Check if we still have entries to browse
+        xor a
+        ex de, hl
+        sbc hl, bc
+        jp z, _zos_fs_rawtable_no_more_entries
+        ; Put the current_entry field address in HL as DE will pop the buffer address from the stack
+        ex de, hl
+        ; DE shall contain the destination buffer, which is on the stack,
+        pop de
+        ; Set the flag to DISKS_DIR_ENTRY_IS_FILE as we don't have dirs in rawtables
+        ld a, DISKS_DIR_ENTRY_IS_FILE
+        ld (de), a
+        inc de  ; Point to the name
+        push hl ; Push the current entry index field address
+        ; Entry count is in BC, to calculate the index to read from the driver, we have to calculate
+        ; BC * RAWTABLE_ENTRY_SIZE + 2 (because there is the entry count at the beginning)
+        push bc
+        ; Save the return address of read function beforehand
+        ld hl, _zos_fs_rawtable_readdir_ret
+        push hl
+        ; Calculate the offset
+        ld h, b
+        ld l, c
+        ASSERT(RAWTABLE_ENTRY_SIZE == 32)
+        add hl, hl      ; x2
+        add hl, hl      ; x4
+        add hl, hl      ; x8
+        add hl, hl      ; x16
+        add hl, hl      ; x32
+        inc hl
+        inc hl
+        push hl
+        ld hl, 0        ; 32-bit offset
+        push hl
+        ; Let's directly read the filename
+        ld bc, DISKS_DIR_ENTRY_SIZE
+        jp RAM_EXE_CODE
+_zos_fs_rawtable_readdir_ret:
+        pop bc
+        pop hl
+        ; If there was an error, we can return immediately
+        or a
+        ret nz
+        ; It was a success, update the current_entry in the structure
+        inc bc  ; Cannot overflow, we know it's not equal to entry_count for sure
+        ld (hl), c
+        inc hl
+        ld (hl), b
+        ret
+_zos_fs_rawtable_no_more_entries:
+        pop de
+        ld a, ERR_NO_MORE_ENTRIES
+        ret
+
+
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
         ;======================================================================;
+
+        ; Routine to get the read function out of a driver and store it in
+        ; the RAM_EXE_CODE memory.
+        ; Parameters:
+        ;       DE - Driver address
+        ; Returns:
+        ;       HL - Address of read function
+        ; Alters:
+        ;       A, DE, HL
+zos_fs_rawtable_get_and_store_driver_read:
+        ; Retrieve driver (DE) read function address, in HL.
+        GET_DRIVER_READ()
+        ld a, JP_INSTR_OPCODE
+        ld (RAM_EXE_CODE), a
+        ld (RAM_EXE_CODE + 1), hl
+        ret
 
         ; Compare strings in HL and BC, at most E bytes will be read.
         ; Alters:

@@ -23,6 +23,15 @@
                 ERR_READ_ONLY,
                 ERR_BAD_MODE,
                 ERR_CANNOT_REGISTER_MORE,
+                ERR_NO_MORE_ENTRIES,
+                ; This error code is a special value that can only be used
+                ; by the drivers. It can be returned by the driver's init
+                ; routine in order to tell the kernel to NOT register the
+                ; driver in the accessible list. Thus, the users won't be
+                ; able to retrieve its program. (useful for block drivers
+                ; for example or target's routines needed to be executed at
+                ; boot)
+                ERR_DRIVER_HIDDEN = 255
         }
 
         ENDIF

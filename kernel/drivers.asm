@@ -3,13 +3,12 @@
         INCLUDE "errors_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "vfs_h.asm"
+        INCLUDE "log_h.asm"
 
         ; Forward declaraction of symbols used below
         EXTERN zos_drivers_init
         EXTERN _vfs_work_buffer
         EXTERN byte_to_ascii
-        EXTERN zos_log_error
-        EXTERN zos_log_info
         EXTERN __KERNEL_DRV_VECTORS_head
         EXTERN __KERNEL_DRV_VECTORS_size
 
@@ -227,8 +226,13 @@ zos_driver_register:
         CALL_HL()
         pop hl
         pop bc
+        ; If it succeeded but is hidden, return (but as a success)
+        ASSERT(ERR_DRIVER_HIDDEN == 255)
+        inc a
+        ret z
+        ; Was not ERR_DRIVER_HIDDEN, restore A
+        dec a
         ; If the driver's init didn't return ERR_SUCCESS, don't try to save it
-        or a
         ret nz
         ; Save HL in DE
         ex de, hl
@@ -252,7 +256,8 @@ _zos_driver_register_found:
         ld hl, _loaded_drivers_count
         inc (hl)
         ex de, hl
-        ld a, ERR_SUCCESS
+        ; Return success, optimize a bit
+        xor a
         ret
 _zos_driver_register_full:
         ld a, ERR_CANNOT_REGISTER_MORE

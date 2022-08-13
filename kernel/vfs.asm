@@ -374,7 +374,7 @@ _zos_vfs_open_ret_invalid:
 
         ; Read the given dev number
         ; Parameters:
-        ;       H  - Number of the dev to write to.
+        ;       H  - Number of the dev to read from.
         ;       DE - Buffer to store the bytes read from the dev, the buffer must NOT cross page boundary.
         ;       BC - Size of the buffer passed, maximum size is a page size.
         ; Returns:
@@ -537,9 +537,8 @@ zos_vfs_close:
         pop de
         or a
         jp nz, _zos_vfs_pop_ret
-        ; Check if the opened dev is a file or a driver
-        call zos_disk_is_opnfile
-        or a
+        ; Check if the opened dev is a file/dir or a driver
+        DISKS_IS_OPN_FILEDIR(hl)
         jr z, _zos_vfs_close_isfile
         ; We have a driver here, we will call its `close` function directly.
         push de
@@ -720,22 +719,184 @@ _zos_vfs_seek_isfile:
         PUBLIC zos_vfs_mkdir
 zos_vfs_mkdir:
 
-        PUBLIC zos_vfs_getdir
-zos_vfs_getdir:
-
         PUBLIC zos_vfs_chdir
 zos_vfs_chdir:
 
-        PUBLIC zos_vfs_rddir
-zos_vfs_rddir:
+        ; Open a directory given a path.
+        ; The path can be relative, absolute to the disk or absolute to the
+        ; system, just like open for files.
+        ; Parameters:
+        ;       DE - Path to the directory, it can be:
+        ;            * Relative to the current directory ("../dir", "dir1")
+        ;            * Absolute to the disk ("/dir1/dir2")
+        ;            * Absolute to the system ("A:/dir1")
+        ; Returns:
+        ;       A - Number for the newly opened dev on success, negated error value else.
+        ; Alters:
+        ;       A
+        PUBLIC zos_vfs_opendir
+zos_vfs_opendir:
+        push de
+        call zos_sys_remap_de_page_2
+        call zos_vfs_opendir_internal
+        pop de
+        ret
+zos_vfs_opendir_internal:
+        push hl
+        push de
+        push bc
+        ; Check if DE is NULL
+        ld a, d
+        or e
+        jp z, _zos_vfs_open_ret_invalid
+        ; Check that we have room in the dev table
+        call zos_vfs_find_entry
+        or a
+        jp nz, _zos_vfs_open_ret_err
+        ; Check if the given path points to a driver or a file
+        ld a, (de)
+        ; Check if the string is empty (A == 0)
+        or a
+        jp z, _zos_vfs_open_ret_invalid
+        cp VFS_DRIVER_INDICATOR
+        jp z, _zos_vfs_open_ret_invalid
+        ; Open a file here
+        ; Check if the first char is '/', in that case, it's an absolute path to the current disk
+        cp '/'
+        inc de  ; doesn't update flags, so, safe
+        jp z, _zos_vfs_opendir_absolute_disk
+        ; Check if the driver letter was passed. It's the case when the second and third
+        ; chars are ':/'
+        ld c, a         ; Store the disk letter in C
+        ld a, (de)
+        cp ':'
+        jp nz, _zos_vfs_opendir_rel
+        inc de
+        ld a, (de)
+        cp '/'
+        jp nz, _zos_vfs_opendir_rel_dec
+        ; The path given is an absolute system path, including disk letter
+        ; Make BC point to the first directory name and not ('/')
+        inc bc
+_zos_vfs_opendir_absolute:
+        ; DE - Address of the path, which starts after X:/
+        ; C  - Disk letter
+        ; HL - Address of the empty dev.
+        ex de, hl
+        ; It doesn't save any register so backup DE (empty dev address)
+        push de
+        ; Parameters:
+        ;       C  - Disk letter
+        ;       HL - Absolute path to the file (without X:/)
+        call zos_disk_opendir
+        pop de
+        or a
+        jp nz, _zos_vfs_open_ret_err
+        ; It was a success, store the newly obtained descriptor (HL) in the free entry (DE)
+        ex de, hl
+        jp _zos_vfs_open_save_de_and_exit
+        ;=================================;
+        ; Open a directory relative to the current path
+_zos_vfs_opendir_rel_dec:
+        dec de
+_zos_vfs_opendir_rel:
+        dec de
+        ; In both cases (above), at this point, DE is the address of the filename.
+        ; HL - Address of the empty dev.
+        ; FIXME: Check that the last char is not / 
+        push hl        
+        ; Load the filename in HL
+        ld hl, _vfs_current_dir + 3 ; skip the X:/
+        ; Concatenate the new path to the current path.
+        ld bc, CONFIG_KERNEL_PATH_MAX
+        ; Concatenate DE into HL, with a max size of BC (including \0)
+        call strncat
+        ; Check if it was a success (path too long else)
+        or a
+        ld a, ERR_PATH_TOO_LONG
+        jp nz, _zos_vfs_open_ret_pophl
+        ; Retrieve the current disk, from _vfs_current_dir and save it C
+        ld a, (_vfs_current_dir)
+        ld c, a
+        ; We can now pass the path to the disk API
+        ;       C - Disk letter
+        ;       HL - Absolute path to the file (without X:/)
+        ; We also have DE : Former address of HL's NULL-byte
+        ; It doesn't save any registers, save them here
+        push de
+        call zos_disk_opendir
+        pop de
+        ; Returns status in A (0 if success) and dev descriptor in HL,
+        ; we have to save it in case of success.
+        ; In any case, restore HL's former NULL-byte
+        ex de, hl
+        ld (hl), 0
+        ; Check zos_disk_open_file return value
+        or a
+        jp nz, _zos_vfs_open_ret_pophl
+        ; Return was a success, we can save the dev descriptor from DE (the free entry address is on the stack)
+        pop hl
+        jp _zos_vfs_open_save_de_and_exit
+        ; Open a directory with an absolute path of the current disk 
+        ; For example: /mydir1/mydir2
+        ; DE is pointing at the char of index 1 already (after /)
+_zos_vfs_opendir_absolute_disk:
+        ; Disk letter must be put in C. We cannot use HL here.
+        ld a, (_vfs_current_dir)
+        ld c, a
+        jp _zos_vfs_opendir_absolute
+
+
+        ; Read the next entry from the given opened directory
+        ; Parameters:
+        ;       H  - Number of the dev to write to.
+        ;       DE - Buffer to store the entry data, the buffer must NOT cross page boundary.
+        ;            It must be at least the size of an opendir entry size.
+        ; Returns:
+        ;       A  - ERR_SUCCESS on success,
+        ;            ERR_NO_MORE_ENTRIES if all the entries have been browsed alreadr,
+        ;            error value else
+        ; Alters:
+        ;       A
+        PUBLIC zos_vfs_readdir
+zos_vfs_readdir:
+        push de
+        push bc
+        call zos_sys_remap_de_page_2
+        call _zos_vfs_readdir_internal
+        pop bc
+        pop de
+        ret
+_zos_vfs_readdir_internal:
+        push de
+        ; Get the opened dev address out of the H dev descriptor
+        call zof_vfs_get_entry
+        pop de
+        or a
+        ret nz
+        ; Check if the buffer and the size are valid, in other words, check that the
+        ; size is less or equal to a page size and BC+size doesn't cross page boundary
+        ld bc, DISKS_DIR_ENTRY_SIZE
+        call zos_check_buffer_size
+        or a
+        ret nz
+        ; Check if the opened dev is a dir or not
+        call zos_disk_is_opndir
+        or a
+        ret nz
+        jp zos_disk_readdir
+
 
         PUBLIC zos_vfs_rm
 zos_vfs_rm:
+        ld a, ERR_NOT_IMPLEMENTED
+        ret
 
         ; Mount a new disk, given a driver, a letter and a file system.
         ; The letter assigned to the disk must not be in use.
         ; Parameters:
-        ;       H - Dev number. It must be an opened driver, not a file.
+        ;       H - Dev number. It must be an opened driver, not a file. The dev can be closed after
+        ;           mounting, this will not affect the mounted disk.
         ;       D - ASCII letter to assign to the disk (upper or lower)
         ;       E - File system, taken from `vfs_h.asm`
         ; Returns:

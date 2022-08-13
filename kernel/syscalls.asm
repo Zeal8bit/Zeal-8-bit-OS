@@ -172,8 +172,8 @@ zos_sys_remap_bc_page_2:
 zos_sys_remap_de_page_2:
         ld a, d
 _zos_sys_remap_buffer:
-        ; In practice the pages are aligned on 8-bit, no need for the
-        ; lowest byte.
+        ; In practice the pages are (at least) aligned on 8-bit, no need for
+        ; the lowest byte.
         MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(A, A)
         cp 3
         ret nz
@@ -282,9 +282,9 @@ zos_syscalls_table:
         DEFW zos_vfs_seek
         DEFW zos_vfs_ioctl
         DEFW zos_vfs_mkdir
-        DEFW zos_vfs_getdir
         DEFW zos_vfs_chdir
-        DEFW zos_vfs_rddir
+        DEFW zos_vfs_opendir
+        DEFW zos_vfs_readdir
         DEFW zos_vfs_rm
         DEFW zos_vfs_mount
         DEFW zos_loader_exit
