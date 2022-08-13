@@ -8,7 +8,7 @@
         EXTERN zos_log_message
         EXTERN zos_vfs_dstat
 
-        DEFC PAGE_SIZE = 16384
+        DEFC TWO_PAGES_SIZE_UPPER_BYTE = (MMU_VIRT_PAGES_SIZE >> 8) * 2
 
         SECTION KERNEL_TEXT
 
@@ -17,19 +17,19 @@
         ;       HL - Absolute path to the file
         ; This routine never returns as it executes the laoded file
         PUBLIC zos_load_file
-        ; UT TODO:
+        ; TODO: Unit test for
         ;       - File not existing
         ;       - File bigger than 48K
         ;       - File exactly 48K
 zos_load_file:
         ; Store current file name
         ld (_cur_file_name), hl
-        ; Put the file path in DE
-        ex de, hl
+        ; Put the file path in BC
+        ld b, h
+        ld c, l
         ; Set flags to read-only
         ld h, O_RDONLY
-        ; Push HL on the stack as VFS routines pop it at the end
-        push hl
+        ; HL is preserved
         call zos_vfs_open
         ; File descriptor in A
         ; Error if the descriptor is less than 0
@@ -39,8 +39,6 @@ zos_load_file:
         ; (the system is is the first bank, so we have 3 free banks)
         ld de, _file_stats
         ld h, a
-        ; Push HL, as zos_vfs_* functions will pop HL at the end
-        push hl
         call zos_vfs_dstat
         ; H still contains dev number, DE contains the status structure address.
         ; Put the structure address in HL instead and so the dev number will be in D
@@ -55,11 +53,16 @@ zos_load_file:
         inc hl
         ld b, (hl)
         inc hl
-        ; Check that B, the 2nd lowest byte is less or equal to 0xC0, if that's not the case,
-        ; it means that the file is bigger than 48K.
+        ; Check that the size is not 0
         ld a, b
-        cp 0xc0
-        jp nz, _zos_load_failed ; File size must not exceed 48K, so the highest bytes must be 0
+        or c
+        jp z, _zos_load_failed
+        ; Check that B, the 2nd lowest byte is less or equal to 0x80, if that's not the case,
+        ; it means that the file is bigger than 32K.
+        ld a, b
+        ; Optimize a bit, we make the assumption that pages are always 8-bit aligned
+        cp TWO_PAGES_SIZE_UPPER_BYTE
+        jp nc, _zos_load_failed ; File size must not exceed 32K, so the highest bytes must be 0
         ; check that the upper bytes are 0
         ld a, (hl)
         inc hl
@@ -68,10 +71,10 @@ zos_load_file:
         ; BC contains the size of the file to copy, D contains the dev number.
         ; HL can be altered, it won't be used anymore
         ; Before that, we have to check how many `read` calls we'll need to make:
-        ;       - If size is > 32KB, we will need 2 calls
+        ;       - If size is > 16KB, we will need 2 calls
         ;       - Else, we will need 1 call
         xor a
-        ld hl, 0x8000
+        ld hl, MMU_VIRT_PAGES_SIZE
         sbc hl, bc
         jp nc, _zos_load_one_call      ; 1 call as BC is <= HL
         ; Only support program loading on 0x4000 at the moment
@@ -82,10 +85,9 @@ zos_load_file:
         MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_2, MMU_USER_PHYS_START_PAGE + 1)
         ; First call to read
         push bc
-        ld bc, 0x8000
+        ld bc, MMU_VIRT_PAGES_SIZE
         ld h, d
         ld de, MMU_PAGE1_VIRT_ADDR
-        push hl
         call zos_vfs_read
         ; Check A for any error
         or a
@@ -101,17 +103,14 @@ zos_load_file:
         ld d, h
         pop hl  ; Pop previously pushed bc, containing the whole buffer size, into hl
         ; Carry is set to 0 as A is 0 already
-        ld bc, 0x8000
+        ld bc, MMU_VIRT_PAGES_SIZE
         sbc hl, bc
         ; HL contains the remaining bytes to write, put that in BC for the next call
         ld b, h
         ld c, l
-        ; Prepare H with the dev number and push it, as required by VFS routines
+        ; Prepare H with the dev number
         ld h, d
-        push hl
-        ; Map the last program page
-        MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_1, MMU_USER_PHYS_START_PAGE + 2)
-        ld de, MMU_PAGE1_VIRT_ADDR
+        ld de, MMU_PAGE2_VIRT_ADDR
         call zos_vfs_read
         or a
         jp nz, _zos_load_failed 
@@ -119,13 +118,11 @@ zos_load_file:
         or c
         jp nz, _zos_load_failed ; size must be 0 now!
         ; Success, we can now execute the program
-        ; Map the program correctly:
-        MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_1, MMU_USER_PHYS_START_PAGE)
         ; ============================================================================== ;
         ; KERNEL STACK CANNOT BE ACCESSED ANYMORE FROM NOW ON, JUST JUMP TO THE USER CODE!
         ; ============================================================================== ;
         MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_3, MMU_USER_PHYS_START_PAGE + 2)
-        jp MMU_PAGE1_VIRT_ADDR
+        jp CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
 _zos_load_one_call:
         ; Map two RAM pages to page1 and page2
         MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_1, MMU_USER_PHYS_START_PAGE)
@@ -135,7 +132,6 @@ _zos_load_one_call:
         ; Destination buffer is first page, in DE
         ld de, MMU_PAGE1_VIRT_ADDR
         ; Push HL as required by VFS routines
-        push hl
         call zos_vfs_read
         or a
         jp nz, _zos_load_failed

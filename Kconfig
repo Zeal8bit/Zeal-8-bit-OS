@@ -29,4 +29,14 @@ choice COMPILATION_TARGET
             Compile for example board.
 endchoice
 
+
+config ROMDISK_ADDRESS
+    hex "ROMDISK image physical address"
+    default 0x8000
+    range 0x4000 0x3C000
+    depends on TARGET_ZEAL_8_BIT
+    help
+        Address where the ROMDISK image will be placed in flash memory. As flash is mapped at physical address 0x0000,
+        this value also represents the physical address of ROMDISK image.
+
 source "kernel/Kconfig"

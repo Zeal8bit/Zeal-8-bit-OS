@@ -20,7 +20,7 @@ zos_syscalls_table:
         DEFB 0
 	jp zos_vfs_write
         DEFB 0
-	jp zos_vfs_open
+	jp zos_vfs_open_syscall
         DEFB 0
 	jp zos_vfs_close
         DEFB 0

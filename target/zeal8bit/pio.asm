@@ -29,6 +29,8 @@ pio_init:
         ; Mask must follow
         ld a, IO_PIO_SYSTEM_INT_MASK
         out (IO_PIO_SYSTEM_CTRL), a
+
+        ld a, ERR_SUCCESS
         ret
 
         ; We will use IOCTL to control the I/Os
@@ -46,6 +48,18 @@ pio_deinit:
         ret
 
         ; The following functions don't make sense for the PIO
+
+        ; Open function, called everytime a file is opened on this driver
+        ; Note: This function should not attempt to check whether the file exists or not,
+        ;       the filesystem will do it. Instead, it should perform any preparation
+        ;       (if needed) as multiple reads will occur.
+        ; Parameters:
+        ;       BC - Name of the file to open
+        ;       A  - Flags 
+        ; Returns:
+        ;       A - ERR_SUCCESS if success, error code else
+        ; Alters:
+        ;       A, BC, DE, HL (any of them can be altered, caller-saved)
 pio_open:
 pio_read:
 pio_write:

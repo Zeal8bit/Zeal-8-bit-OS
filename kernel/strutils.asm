@@ -86,6 +86,31 @@ _strcmp_end:
     pop hl
     ret
 
+    ; Look for a character in a NULL-terminated string.
+    ; Parameter:
+    ;   HL - Source string (must NOT be NULL)
+    ;   A - Delimiter
+    ; Returns:
+    ;   A - Delimiter if found, 0 if not found
+    ;   HL - Address of the delimiter byte if found, or NULL byte if not found
+    ; Alters:
+    ;   A, HL
+    PUBLIC strchrnul
+strchrnul:
+    push bc
+    ld b, a
+_strchr_loop:
+    ld a, (hl)
+    or a
+    jr z, _strchr_ret
+    cp b
+    inc hl
+    jr nz, _strchr_loop
+_strchr_ret:
+    pop bc
+    ret
+
+
     ; Compare two NULL-terminated strings pointed by HL and DE.
     ; At most BC bytes will be read.
     ; If they are identical, A will be 0
@@ -305,6 +330,55 @@ _strncpy_zero:
     ldir
     jp _strncpy_end
 
+    ; Concatenate two strings by writing at most BC bytes, including NULL byte.
+    ; This function will add NULL-terminating byte.
+    ; Parameters:
+    ;   HL - Destination string
+    ;   DE - Source to copy at the end of HL
+    ;   BC - Maximum bytes to copy (including \0)
+    ; Returns:
+    ;   A - 0 if success, 1 if result is too long
+    ;   DE - Address of the former NULL-byte of HL
+    ; Alters:
+    ;   A
+    PUBLIC strncat
+strncat:
+    push hl
+    push bc
+    xor a
+    cpir
+    ; Test is BC is 0!
+    ld a, b
+    or c
+    ld a, 1 ; In case of an error
+    jp z, _strncat_src_null
+    ; HL points to the address past the NULL-byte.
+    ; Similarly, BC has counted the NULL-byte
+    dec hl
+    push hl     ; Former NULL-byte
+    ; We should now copy bytes until BC is 0 or [DE] is 0
+    ex de, hl
+_strncat_copy:
+    xor a
+    or (hl)
+    ldi
+    jp z, _strncat_pop_de
+    ; Check if BC is 0
+    ld a, b
+    or c
+    jp nz, _strncat_copy
+    ; BC is 0, terminate dst and return
+    ld (de), a
+    ; We have to return A > 0 so increment
+    inc a
+_strncat_pop_de:
+    pop de
+_strncat_src_null:
+    ; We've met a null pointer in src, which was copied successfully
+    ; A is already 0, we can return
+    pop bc
+    pop hl
+    ret
 
     ; Convert all characters of the given string to lowercase
     ; Parameters:
@@ -559,137 +633,107 @@ _parse_not_hex_digit:
     ; Parameters:
     ;   A - ASCII character
     ; Returns:
-    ;   A - 0 non printable
-    ;       1 printable
+    ;   carry flag - Not printable char
+    ;   not carry flag - Is a printable char
     PUBLIC is_print
 is_print:
     ; Printable characters are above 0x20 (space) and below 0x7F
     cp ' '
-    jp c, _is_print_non
+    ret c
     cp 0x7F
-    jp nc, _is_print_non
-    ld a, 1
+    ccf
     ret
-_is_print_non:
-    xor a
-    ret
-    
 
     ; Subroutine checking that the byte contained in A
     ; is alpha numeric [A-Za-z0-9]
+    ;   carry flag - Not an alpha numeric
+    ;   not carry flag - Is an alpha numeric
     PUBLIC is_alpha_numeric
 is_alpha_numeric:
-    cp '0'
-    jp c, _not_alpha_num
-    cp '9' + 1
-    jp c, _alpha_num
-    cp 'A'
-    jp c, _not_alpha_num
-    cp 'Z' + 1
-    jp c, _alpha_num
-    cp 'a'
-    jp c, _not_alpha_num
-    cp 'z' + 1
-    jp nc, _not_alpha_num
-_alpha_num:
-    or a
-    ret
-_not_alpha_num:
-    xor a
-    ret
+    call is_alpha
+    ret nc  ; Return on success
+    jr is_alpha
 
     ; Subroutine checking that the byte contained in A
     ; is a letter [A-Za-z]
-    ;
-    ; Alters B, C and A registers
+    ; Returns:
+    ;   carry flag - Is an alpha char
+    ;   not carry flag - Is not an alpha char
 is_alpha:
-    ld b, a
     call is_lower
-    ld c, a
-    ld a, b
-    call is_upper
-    add a, c        ; a = is_lower + is_upper
-    ret
+    ret nc   ; Return on success
+    jr is_upper
 
     ; Subroutine checking that the byte contained in A
     ; is a lower case letter [a-z]
+    ; Returns:
+    ;   carry flag - Not a lower char
+    ;   not carry flag - Is a lower char
 is_lower:
     cp 'a'
-    jp c, _not_lower
+    ret c
     cp 'z' + 1         ; +1 because p flag is set when result is 0
-    jp nc, _not_lower
-    ld a, 1
-    ret
-_not_lower:
-    xor a
+    ccf
     ret
 
     ; Subroutine checking that the byte contained in A
     ; is an upper case letter [A-Z]
+    ; Returns:
+    ;   carry flag - Not an upper char
+    ;   not carry flag - Is an upper char
 is_upper:
     cp 'A'
-    jp c, _not_upper
+    ret c   ; Return if carry because we shouldn't have a carry here
     cp 'Z' + 1         ; +1 because p flag is set when result is 0
-    jp nc, _not_upper
-    ld a, 1
-    ret
-_not_upper:
-    xor a
+    ccf
     ret
 
     ; Subroutine checking that the byte contained in A
     ; is a digit [0-9]
+    ; Returns:
+    ;   carry flag - Not a digit
+    ;   not carry flag - Is a digit
     PUBLIC is_digit
 is_digit:
     cp '0'
-    jp c, _not_digit
+    ret c
     cp '9' + 1         ; +1 because if A = '9', p flag would be set
-    jp nc, _not_digit
-    ld a, 1
-    ret
-_not_digit:
-    xor a
+    ccf
     ret
 
     ; Subroutine checking that the byte contained in A
     ; is a hex digit [0-9a-fA-F]
-    ; A is not altered, CY is set if A is a hex digit,
-    ; else, it is reset
+    ; Returns:
+    ;   carry flag - Not a hex digit
+    ;   not carry flag - Is a hex digit
 is_hex_digit:
-    cp '0'
-    jp c, _not_hex_digit
-    cp '9' + 1
-    jp c, _hex_digit
+    call is_digit
+    ret nc  ; return on success
     cp 'A'
-    jp c, _not_hex_digit
+    ret c   ; error
     cp 'F' + 1
     jp c, _hex_digit
     cp 'a'
-    jp c, _not_hex_digit
+    ret c
     cp 'f' + 1
-    jp nc, _not_hex_digit
 _hex_digit:
-    ret
-_not_hex_digit:
-    scf
     ccf
     ret
 
     ; Subroutine checking that the byte contained in A
     ; is a whitespace
+    ;   carry flag - Not a whitespace
+    ;   not carry flag - Is a whitespace
 is_whitespace:
     cp ' '
-    jp z, _whitespace
+    ret z   ; No carry when result is 0
     cp '\t'
-    jp z, _whitespace
+    ret z
     cp '\n'
-    jp z, _whitespace
+    ret z
     cp '\r'
-    jp z, _whitespace
-    xor a
-    ret
-_whitespace:
-    ld a, 1
+    ret z
+    scf
     ret
 
     ; Subroutine converting a character to a lower case
@@ -709,15 +753,20 @@ _to_lower_not_char:
     ; Subroutine converting a character to an upper case
     ; Parameter:
     ;   A - Character to convert
+    ; Returns:
+    ;   carry flag - Invalid parameter
+    ;   not carry flag - Success
     PUBLIC to_upper
 to_upper:
+    ; Check if it's already an upper char
+    call is_upper
+    ret nc  ; Already upper, can exit
     cp 'a'
-    jp c, _to_lower_not_char
+    ret c   ; Error, return
     cp 'z' + 1         ; +1 because p flag is set when result is 0
     jp nc, _to_lower_not_char_ccf
     sub 'a' - 'A'
-    ret
+    scf
 _to_lower_not_char_ccf:
     ccf
-_to_upper_not_char:
     ret

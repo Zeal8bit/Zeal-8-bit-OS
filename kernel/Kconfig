@@ -21,10 +21,18 @@ menu "Kernel configuration"
         config KERNEL_MAX_OPENED_DEVICES
                 int "Maximum number of opened devices"
                 default 16
-                range 0 255
+                range 16 128
                 help
                         Maximum number of opened devices for a program. This includes opened
                         drivers as well as opened files.
+
+        config KERNEL_MAX_OPENED_FILES
+                int "Maximum number of opened files"
+                default 16
+                range 16 128
+                help
+                        Maximum number of opened files at once. This only does not include opened
+                        drivers.
 
         config KERNEL_PATH_MAX
                 int "Maximum path of files"

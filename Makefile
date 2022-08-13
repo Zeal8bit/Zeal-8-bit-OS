@@ -10,12 +10,15 @@ export OSCONFIG_ASM = include/osconfig.asm
 # Output related
 BIN=os.bin
 BINDIR=build
+FULLBIN=$(BINDIR)/$(BIN)
 MAPFILE=os.map
 # Sources related
 LINKERFILE := linker.asm
 MKFILE := unit.mk # Name of the makefile in the components/units
 ASMFLAGS := -Iinclude/
 INCLUDEDIRS:=
+PRECMD :=
+POSTCMD :=
 
 # Before including the Makefiles, include the configuration one if it exists
 -include $(KCONFIG_CONFIG)
@@ -29,6 +32,8 @@ TARGET=$(shell echo $(CONFIG_TARGET))
 #	- $1: makefile to include
 #	- $2: Variable name where SRCS will be appended
 #	- $3: Variable name where INCLUDES will be appended
+#	- $4: Variable name where PRECMD will be appended
+#	- $5: Variable name where POSTCMD will be appended
 define IMPORT_unitmk =
     SRCS :=
     INCLUDES :=
@@ -37,22 +42,30 @@ define IMPORT_unitmk =
     CURRENTDIR := $$(shell basename $$(dir $1))/
     $2 := $$($2) $$(addprefix $$(CURRENTDIR),$$(SRCS))
     $3 := $$($3) $$(addprefix $$(CURRENTDIR),$$(INCLUDES))
+    $4 := $$($4) $$(PRECMD)
+    $5 := $$($5) $$(POSTCMD)
 endef
 
 # Parameters:
 #	- $1: Variable name where SRCS will be stored
 #	- $2: Variable name where INCLUDES will be stored
+#   - $3: Variable name where PRECMD will be stored
+#   - $4: Variable name where POSTCMD will be stored
 define IMPORT_subunitmk = 
     SUBMKFILE = $$(wildcard */$$(MKFILE))
     TMP1 :=
     TMP2 :=
-    $$(foreach file,$$(SUBMKFILE),$$(eval $$(call IMPORT_unitmk,$$(file),TMP1,TMP2)))
+    TMP3 :=
+    TMP4 :=
+    $$(foreach file,$$(SUBMKFILE),$$(eval $$(call IMPORT_unitmk,$$(file),TMP1,TMP2,TMP3,TMP4)))
     $1 := $$(TMP1)
     $2 := $$(TMP2)
+    $3 := $$(TMP3)
+    $4 := $$(TMP4)
 endef
 
-$(eval $(call IMPORT_subunitmk,ASMSRCS,INCLUDEDIRS))
-$(info "ASMSRCS = $(ASMSRCS), INCLUDES = "$(INCLUDEDIRS)")
+$(eval $(call IMPORT_subunitmk,ASMSRCS,INCLUDEDIRS,PRECMD,POSTCMD))
+#$(info "ASMSRCS = $(ASMSRCS), INCLUDES = "$(INCLUDEDIRS), PRECMD = $(PRECMD), POSTCMD = $(POSTCMD)")
 
 # Generate the .o files out of the .c files
 OBJS = $(patsubst %.asm,%.o,$(ASMSRCS))
@@ -66,9 +79,15 @@ LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
 .PHONY: check menuconfig $(SUBDIRS)
 
-all: $(KCONFIG_CONFIG) $(LINKERFILE_OBJ) $(OBJS)
-	$(CC) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
-	#$(PYTHON) merge_bin.py $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN)
+all: precmd $(KCONFIG_CONFIG) $(LINKERFILE_OBJ) $(OBJS)
+	$(CC) -o$(BINDIR)/$(BIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
+	@#$(PYTHON) merge_bin.py $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN)
+	@echo "Executing post commands..."
+	$(POSTCMD)
+
+precmd:
+	@echo "Executing pre commands..."
+	@$(PRECMD)
 
 # Check if configuration file exists  
 $(KCONFIG_CONFIG):
@@ -105,7 +124,7 @@ prepare_dirs:
 	@mkdir -p $(BINDIR)
 
 dump:
-	$(DISASSEMBLER) -x $(BINDIR)/core/boot.map $(BINDIR)/$(BIN) | less
+	$(DISASSEMBLER) -x $(BINDIR)/os.map $(BINDIR)/$(BIN) | less
 
 clean:
 	rm -rf $(OSCONFIG_ASM) *.bin *.o *.map *.sym $(BINDIR) 

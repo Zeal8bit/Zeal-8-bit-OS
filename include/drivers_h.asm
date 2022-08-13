@@ -28,6 +28,32 @@
             DEFW deinit
         ENDM
 
+        ; Macro used to point to the function address at index in the driver (in DE)
+        MACRO GET_DRIVER_FUN index
+            ld a, index
+            add e
+            ld e, a
+            adc d
+            sub e
+            ld d, a
+            ; Dereference DE to get the function address
+            ld a, (de)
+            ld l, a
+            inc de
+            ld a, (de)
+            ld h, a
+        ENDM
+
+        ; Macro used to reference `open` function from the driver in DE
+        MACRO GET_DRIVER_OPEN _
+            GET_DRIVER_FUN(driver_open_t)
+        ENDM
+        
+        ; Macro used to reference `read` function from the driver in DE
+        MACRO GET_DRIVER_READ _
+            GET_DRIVER_FUN(driver_read_t)
+        ENDM
+
         ; Maximum length of a driver name
         DEFC DRIVER_NAME_LENGTH = 4
 

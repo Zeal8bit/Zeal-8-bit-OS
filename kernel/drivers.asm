@@ -15,22 +15,23 @@ zos_drivers_init:
         ; Browse the driver vectors and try to initialize them all
         ld hl, __KERNEL_DRV_VECTORS_head
         ; Load the size of the vectors in B
-        ; Unfortunately, we can't assert on a linker symbol, the ZealOS linker/merger will do it
+        ; Unfortunately, we can't assert on a linker symbol
         ld b, __KERNEL_DRV_VECTORS_size / driver_end
 
 _zos_driver_init_next_driver:
         ; HL points to the name of the driver
         call zos_driver_name_valid     ; Check if the name is valid
-        jp nz, _zos_valid_name
+        jp nc, _zos_valid_name
         ; Invalid name
         ; Log that this driver has an invalid name
         jp _zos_next_driver
 _zos_valid_name:
         call zos_driver_find_by_name     ; Check if the name already exists
-        jp nz, _zos_regiser_driver
+        jp nz, _zos_register_driver
         ; Driver name already exists
-        ; Log this error
-_zos_regiser_driver:
+        ; TODO: Log this error
+        jp nz, _zos_next_driver        
+_zos_register_driver:
         ; Register the driver in the list
         call zos_driver_register
         jp nz, _zos_next_driver
@@ -44,10 +45,6 @@ _zos_next_driver:
         ; Log finished registering drivers
         ret
 
-;======================================================================;
-;=============== = P R I V A T E   R O U T I N E S ====================;
-;======================================================================;
-
         ; Checks whether the name has already been registered
         ; Parameters:
         ;       HL - Address of the string
@@ -56,6 +53,7 @@ _zos_next_driver:
         ;       DE - Address of the existing drivers (if any)
         ; Alters:
         ;       A, DE
+        PUBLIC zos_driver_find_by_name
 zos_driver_find_by_name:
         ; If we have no drivers, returns 1 directly
         ld a, (_loaded_drivers_count)
@@ -102,6 +100,10 @@ _zos_driver_find_by_name_already_exists:
         pop bc
         ret
 
+        ;======================================================================;
+        ;================= P R I V A T E   R O U T I N E S ====================;
+        ;======================================================================;
+
         ; Checks whether the string passed as a parameter is a valid driver
         ; name. In other words, it tests if all the characters are alpha-numerical 
         ; Parameters:
@@ -115,12 +117,12 @@ zos_driver_name_valid:
         ld e, l
         ld a, (de)
         call is_alpha_numeric
-        ret z
+        ret c
         REPT (DRIVER_NAME_LENGTH - 1)
         inc de
         ld a, (de)
         call is_alpha_numeric
-        ret z
+        ret c
         ENDR
         ret
 
@@ -136,7 +138,6 @@ zos_driver_register:
         ld a, (_loaded_drivers_count)
         cp CONFIG_KERNEL_MAX_LOADED_DRIVERS
         jr z, _zos_driver_register_full
-        ret z
         ; Call the driver's init function first
         ; Save HL and BC as we need them in the caller
         push bc
@@ -156,19 +157,17 @@ zos_driver_register:
         CALL_HL()
         pop hl
         pop bc
-
         ; If the driver's init didn't return ERR_SUCCESS, don't try to save it
         cp ERR_SUCCESS
         ret nz
-
         ; Save HL in DE
         ex de, hl
         ; Look for an empty spot in the array
         ; We are sure that drivers cannot be in the first 256 bytes of the
         ; virtual memory, thus we can simply check the upper 8-bit of address
         xor a
-_zos_driver_register_loop:
         ld hl, _loaded_drivers + 1
+_zos_driver_register_loop:
         cp (hl)
         jp z, _zos_driver_register_found
         inc hl
