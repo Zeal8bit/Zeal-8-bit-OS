@@ -1,0 +1,9 @@
+config CPU_FREQ
+	int "CPU Clock Frequency (Hz)"
+	default 10000000
+    help
+        Defines the CPU frequency in Hz, this may be used for counting time when no hardware timer
+        is available.
+
+
+source "kernel/Kconfig"

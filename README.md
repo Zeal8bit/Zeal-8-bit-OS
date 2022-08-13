@@ -193,7 +193,7 @@ my_driver0_deinit:
         ; Do something
         ret
 
-SECTION VECTDRV
+SECTION DRV_VECTORS
 DEFB "DRV0"
 DEFW my_driver0_init
 DEFW my_driver0_read
@@ -205,7 +205,7 @@ DEFW my_driver0_ioctl
 DEFW my_driver0_deinit
 ```
 
-Registering a driver consists of putting these information (structure) inside a section called `VECTDRV`. The order is very important as any driver dependency shall be resolved at compile-time. For example, if driver `A` depends on driver `B`, then `B`'s structure must be put before `A` in the section `VECTDRV`.
+Registering a driver consists of putting these information (structure) inside a section called `DRV_VECTORS`. The order is very important as any driver dependency shall be resolved at compile-time. For example, if driver `A` depends on driver `B`, then `B`'s structure must be put before `A` in the section `DRV_VECTORS`.
 
 ### Architecture of the VFS
 

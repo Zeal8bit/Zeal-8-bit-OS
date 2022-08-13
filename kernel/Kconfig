@@ -1,0 +1,12 @@
+menu "Kernel configuration"
+        
+        config KERNEL_STACK_ADDR
+                hex "Kernel Stack virtual address"
+                default 0xFFFF
+                range 0x0000 0xFFFF
+                help
+                        After initializing the MMU, the kernel will set the Stack Pointer (SP).
+                        This value defines the top of the stack in the virtual memory.
+                        This address must point to RAM.  
+
+endmenu
