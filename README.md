@@ -85,7 +85,7 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 3 | close | u8 dev | | |
 4 | dstat | u8 dev | u16 dst | |
 5 | stat | u16 name | u16 dst | |
-6 | seek | u8 dev | u32 offset | |
+6 | seek | u8 dev | u32 offset | u8 whence |
 7 | ioctl | u8 dev | u8 cmd | u16 arg |
 8 | mkdir | u16 path | | |
 9 | getdir | u16 path | u16 size | |
@@ -118,6 +118,7 @@ In order to perform a syscall, the operation number must be stored in register `
 | u8 letter             | `D`          |
 | u8 fs                 | `E`          |
 | u8 id                 | `H`          |
+| u8 whence             | `H`          |
 | u16 buf               | `DE`         |
 | u16 size              | `BC`         |
 | u16 name              | `BC`         |

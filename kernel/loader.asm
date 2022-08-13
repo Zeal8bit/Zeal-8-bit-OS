@@ -132,13 +132,21 @@ _zos_load_one_call:
         ; Destination buffer is first page, in DE
         ld de, MMU_PAGE1_VIRT_ADDR
         ; Push HL as required by VFS routines
+        push bc
         call zos_vfs_read
         or a
         jp nz, _zos_load_failed
+        ; Check that BC is equal to the initial value
         ; TODO: loop until BC is 0
-        or b
-        or c
+        ; Save the opened dev in D
+        ld d, h
+        xor a
+        pop hl
+        sbc hl, bc
         jp nz, _zos_load_failed
+        ; Close the dev, no need to check the return value
+        ld h, d
+        call zos_vfs_close
         ; ============================================================================== ;
         ; KERNEL STACK CANNOT BE ACCESSED ANYMORE FROM NOW ON, JUST JUMP TO THE USER CODE!
         ; ============================================================================== ;

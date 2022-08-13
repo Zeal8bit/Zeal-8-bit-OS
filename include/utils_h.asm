@@ -9,6 +9,15 @@
                 sub l
                 ld h, a
         ENDM
+        
+        ; Performs ADD DE, A
+        MACRO ADD_DE_A _
+                add e
+                ld e, a
+                adc d
+                sub e
+                ld d, a
+        ENDM
 
         ; Performs a CALL (HL)
         MACRO CALL_HL _

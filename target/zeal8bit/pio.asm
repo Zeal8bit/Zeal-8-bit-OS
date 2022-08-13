@@ -29,14 +29,7 @@ pio_init:
         ; Mask must follow
         ld a, IO_PIO_SYSTEM_INT_MASK
         out (IO_PIO_SYSTEM_CTRL), a
-
         ld a, ERR_SUCCESS
-        ret
-
-        ; We will use IOCTL to control the I/Os
-        ; Only port A may be altered by the user app
-pio_ioctl:
-        ld a, ERR_NOT_IMPLEMENTED
         ret
 
         ; Disable the interrupts for both PIO ports
@@ -47,6 +40,19 @@ pio_deinit:
         ld a, ERR_SUCCESS
         ret
 
+        ; Perform an I/O requested by the user application.
+        ; Parameters:
+        ;       B - Dev number the I/O request is performed on.
+        ;       C - Command number. Driver-dependent.
+        ;       DE - 16-bit parameter, also driver-dependent.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A, BC, DE, HL
+pio_ioctl:
+        ld a, ERR_NOT_IMPLEMENTED
+        ret
+
         ; The following functions don't make sense for the PIO
 
         ; Open function, called everytime a file is opened on this driver
@@ -55,7 +61,8 @@ pio_deinit:
         ;       (if needed) as multiple reads will occur.
         ; Parameters:
         ;       BC - Name of the file to open
-        ;       A  - Flags 
+        ;       A  - Flags
+        ;       (D  - In case of a driver, dev number opened)
         ; Returns:
         ;       A - ERR_SUCCESS if success, error code else
         ; Alters:
@@ -63,7 +70,28 @@ pio_deinit:
 pio_open:
 pio_read:
 pio_write:
+        ; Close an opened dev number.
+        ; Parameter:
+        ;       A  - Opened dev number getting closed
+        ; Returns:
+        ;       A - ERR_SUCCESS if success, error code else
+        ; Alters: 
+        ;       A, BC, DE, HL
 pio_close:
+
+        ; Move the abstract cursor to a new position.
+        ; The new position is a 32-bit value, it can be absolute or relative
+        ; (to the current position or the end), depending on the WHENCE parameter.
+        ; Parameters:
+        ;       H - Opened dev number getting seeked.
+        ;       BCDE - 32-bit offset, signed if whence is SEEK_CUR/SEEK_END.
+        ;              Unsigned if SEEK_SET.
+        ;       A - Whence. Can be SEEK_CUR, SEEK_END, SEEK_SET.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else.
+        ;       BCDE - Unsigned 32-bit offset. Resulting offset.
+        ; Alters:
+        ;       A, BC, DE, HL
 pio_seek:
         ld a, ERR_NOT_IMPLEMENTED
         ret

@@ -9,6 +9,8 @@
         EXTERN zos_fs_rawtable_open
         EXTERN zos_fs_rawtable_stat
         EXTERN zos_fs_rawtable_read
+        EXTERN zos_fs_rawtable_write
+        EXTERN zos_fs_rawtable_close
 
         SECTION KERNEL_TEXT
 
@@ -218,16 +220,6 @@ zos_disk_open_file:
         ; The filesystem has not been found, memory corruption?
         ld a, ERR_INVALID_FILESYSTEM
         ret
-        ; TODO: Remove the stubs
-        ; STUBS FOR COMPILING
-zos_fs_zealfs_open:
-zos_fs_fat16_open:
-zos_fs_zealfs_stat:
-zos_fs_fat16_stat:
-zos_fs_zealfs_read:
-zos_fs_fat16_read:
-        ld a, ERR_NOT_IMPLEMENTED
-        ret
 
         ; Get the stats of a given opened file. The structure passed in DE will be
         ; filled in accordingly. The definition of that structure must follow
@@ -279,10 +271,9 @@ zos_disk_stat:
         ;            non-free opened file (check zos_disk_is_opnfile)
         ;       DE - Buffer to store the bytes read from the dev, the buffer must NOT cross page boundary
         ;       BC - Size of the buffer passed, maximum size is a page size
-        ;
         ; Returns:
         ;       A  - 0 on success, error value else
-        ;       BC - Number of bytes remaning to read. 0 means the buffer has been filled.
+        ;       BC - Number of bytes filled in DE.
         ; Alters:
         ;       A, BC, DE, HL
         EXTERN zos_disk_read
@@ -290,23 +281,24 @@ zos_disk_read:
         ; Load the filesystem from the opened file address
         inc hl
         ld a, (hl)
+        dec hl
         ; We have to check if the file has been opened in READ mode (at least)
         ; As the flags are in the upper nibble, we have to add 4 to the bit
         bit O_WRONLY_BIT + 4, a
         ; If z flag is set, then the file is not write only, we can read it
-        jr nz, _zos_disk_read_not_readable
+        jr nz, _zos_disk_bad_mode
         ; Only keep the filesystem number now
         DISKS_OPN_FILE_GET_FS()
         push hl
         push af
-        ; Save the paramters to pass to the filesystem
+        ; Save the parameters to pass to the filesystem
         push de
         push bc
         ; We have to check if the size given will reach the end of the file or not
         ; For example, if the file size is 1000 bytes, the offset is 50 bytes,
         ; and the size to read (BC) is 1500 bytes, we have to adjust BC to 950 bytes.
         ; Make HL point to the size
-        ld a, opn_file_size_t - 1 ; HL has already been incremented
+        ld a, opn_file_size_t
         ADD_HL_A()
         ; We have to perform the 32-bit operation: size-offset, while saving the result
         ; in BC. 16-bit are enough for the simple reason that if the result is bigger than
@@ -347,29 +339,471 @@ zos_disk_read:
         xor a   ; clear flags
         sbc hl, bc
         ; If we have no carry, it means that HL >= BC, so BC is the minimum
-        jr nc, _zos_disk_read_add_min_is_bc
+        jr nc, _zos_disk_read_add_min_is_bc_no_pop
         ; If we have a carry, HL was smaller than BC, set BC to HL former value
         add hl, bc
         ld b, h
         ld c, l
-        jr _zos_disk_read_add_min_is_bc
-_zos_disk_read_add_min_is_bc_pop:
-        pop bc  
+        jr _zos_disk_read_add_min_is_bc_no_pop
 _zos_disk_read_add_min_is_bc:
+        pop bc
+_zos_disk_read_add_min_is_bc_no_pop:
         pop de
         pop af
         pop hl
+        push hl ; Save HL on the stack again
+        ; TODO: Optimize with a table?
         cp FS_RAWTABLE
-        jp z, zos_fs_rawtable_read
+        jr z, _zos_disk_read_rawtable
         cp FS_ZEALFS
-        jp z, zos_fs_zealfs_read
+        jp z, _zos_disk_read_zealfs
         cp FS_FAT16
-        jp z, zos_fs_fat16_read
+        jp z, _zos_disk_read_fat16
         ; The filesystem has not been found, memory corruption?
         ld a, ERR_INVALID_FILESYSTEM
         ret
-_zos_disk_read_not_readable:
+_zos_disk_read_zealfs:
+        call zos_fs_zealfs_read
+        jp _zos_disk_read_epilogue
+_zos_disk_read_fat16:
+        call zos_fs_fat16_read
+        jp _zos_disk_read_epilogue
+_zos_disk_read_rawtable:
+        call zos_fs_rawtable_read
+_zos_disk_read_epilogue:
+        ; Get the original HL, the one pointing to the opened file
+        pop hl
+        ; Check the return value
+        or a
+        ; If there was an error, return directly
+        ret nz
+        ; Else, we have to update the offset field in the opened file.
+        ; The fastest way is to use de and then add hl, de
+        ; Using ADD_HL_A() takes more clock cycles, pushing/popping
+        ; HL when it was already calculated takes the same amount of
+        ; clock cycles.
+        ld de, opn_file_off_t
+        add hl, de
+        ; Now add BC to the offset in the file. BC must not be altered because
+        ; we need to return it. It can be a tail-call as our stack is clean,
+        ; we have nothing more to do.
+        jp zos_disk_add_offset_bc
+_zos_disk_bad_mode:
         ld a, ERR_BAD_MODE
+        ret
+
+
+        ; Write bytes to an opened file.
+        ; Parameters:
+        ;       HL - Address of the opened file. Guaranteed by the caller to be a
+        ;            non-free opened file. (check zos_disk_is_opnfile)
+        ;       DE - Buffer containing the bytes to write to the dev. The buffer is guaranteed
+        ;            to not cross page boundary.
+        ;       BC - Size of the buffer passed, maximum size is a page size.
+        ; Returns:
+        ;       A  - 0 on success, error value else
+        ;       BC - Number of bytes written from DE.
+        ; Alters:
+        ;       A, BC, DE, HL
+        DEFC O_WRITE_MASK = (O_WRONLY | O_RDWR)
+        PUBLIC zos_disk_write
+zos_disk_write:
+        ; Load the filesystem from the opened file address
+        inc hl
+        ld a, (hl)
+        ; We have to check if the file has been opened in WRITE mode (at least)
+        ; As the flags are in the upper nibble, we have to shift the value 4 times to the left
+        and O_WRITE_MASK << 4
+        jr z, _zos_disk_bad_mode
+        ; Write flag was provided, this is a valid operation.
+        ; Check if the file was opened with `O_APPEND` flag. If this is the case,
+        ; We need to set the cursor to the end of the file before calling the
+        ; filesystem.
+        ld a, (hl)
+        and O_APPEND << 4
+        ; If the result is 0, the flag was not provided, no need to modify the cursor beforehand
+        jr z, _zos_disk_write_no_append
+        ; Set the cursor to the file size as O_APPEND was provided
+        ; HL points to the fs field, make it point to size field, and DE to the
+        ; offset field.
+        push hl
+        push de
+        inc hl
+        inc hl
+        inc hl
+        ; HL points to the size field
+        ld d, h
+        ld e, l
+        REPT opn_file_off_t - opn_file_size_t
+        inc de
+        ENDR
+        ; Save BC as it is going to get modified
+        push bc
+        ; Copy [HL] inside [DE] 4 times, as off_t is 4-byte long
+        REPT opn_file_off_t - opn_file_size_t
+        ldi
+        ENDR
+        pop bc
+        pop de
+        pop hl
+_zos_disk_write_no_append:
+        ; Load the filesystem out of the opened file structure
+        ld a, (hl)
+        DISKS_OPN_FILE_GET_FS()
+        ; Before calling the FS function, decrement HL to make it point
+        ; to the beginning of the structure
+        dec hl
+        push hl
+        cp FS_RAWTABLE
+        jr z, _zos_disk_write_rawtable
+        cp FS_ZEALFS
+        jp z, _zos_disk_write_zealfs
+        cp FS_FAT16
+        jp z, _zos_disk_write_fat16
+        ; The filesystem has not been found, memory corruption?
+        ld a, ERR_INVALID_FILESYSTEM
+        ret
+_zos_disk_write_rawtable:
+        call zos_fs_rawtable_write
+        jp _zos_disk_read_epilogue
+_zos_disk_write_zealfs:
+        call zos_fs_zealfs_write
+        jp _zos_disk_read_epilogue
+_zos_disk_write_fat16:
+        call zos_fs_fat16_write
+_zos_disk_write_epilogue:
+        pop hl
+        ; Check if an error occured, stack is clean, we can ret at any time
+        or a
+        ret nz
+        ; Write was a success, we have the number of bytes written in BC
+        ; Check if it's 0, this is a small optimization
+        ld a, b
+        or c
+        ret z   ; A is 0, it's a success, BC is also 0
+        ; Else, we will have to add BC to both the size in the structure
+        ; and the offset. Make HL point to the file size.
+        ld de, opn_file_size_t - opn_file_magic_t
+        add hl, de
+        ; Save the address of HL in DE as we will need it later to get the
+        ; address of offset field
+        ld d, h
+        ld e, l
+        ; Perform (UINT32) [HL] += (UINT16) BC
+        call zos_disk_add_offset_bc
+        ; Perform the same operation on the offset, it will return ERR_SUCCESS
+        ; in all cases, we can do a tail-call here
+        ex de, hl
+        ld de, opn_file_off_t - opn_file_size_t
+        add hl, de
+        jp zos_disk_add_offset_bc
+
+
+        ; Move the cursor of an opened file or an opened driver.
+        ; In case of a driver, the implementation is driver-dependent.
+        ; In case of a file, the cursor never moves further than
+        ; the file size. If the given whence is SEEK_SET, and the
+        ; given offset is bigger than the file, the cursor will
+        ; be set to the end of the file.
+        ; Similarly, if the whence is SEEK_END and the given offset
+        ; is positive, the cursor won't move further than the end of
+        ; the file.
+        ; Parameters:
+        ;       HL - Address of the opened file. Guaranteed by the caller to be a
+        ;            non-free opened file (check zos_disk_is_opnfile)
+        ;       BCDE - 32-bit offset, signed if whence is SEEK_CUR/SEEK_END.
+        ;              Unsigned if SEEK_SET.
+        ;       A - Whence. Guaranteed to be SEEK_CUR, SEEK_END, SEEK_SET.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else.
+        ;       BCDE - Unsigned 32-bit offset. Resulting file offset.
+        PUBLIC zos_disk_seek
+zos_disk_seek:
+        ; Make HL point to the size field
+        REPT opn_file_size_t
+        inc hl
+        ENDR
+        cp SEEK_SET
+        jr z, _zos_disk_seek_set
+        ; Whence is SEEK_CUR or SEEK_END
+        ; In both cases, we are going to dereference HL into BCDE,
+        ; but in the case of SEEK_CUR, we need to perform HL+=4 beforehand,
+        ; to make it point to the offset field
+        cp SEEK_END
+        jr z, _zos_disk_seek_end
+        ; Whence is SEEK_CUR. Several things to check here:
+        ; - BCDE + file offset must not overflow if BCDE positive
+        ; - file offset - BCDE must not be less than 0 (underflow) 
+        ; Make Hl point to the offset field
+        push hl
+        REPT opn_file_off_t - opn_file_size_t
+        inc hl
+        ENDR
+        bit 7, b
+        jr z, _zos_disk_seek_cur_positive
+        ; BCDE is negative, check if -BCDE is greater than [HL]
+        call zos_disk_bcde_gt_addr
+        or a    ; A is > 0 if -BCDE is greater, 0 else
+        jp nz, _zos_disk_seek_set_beginning_pophl
+        ; Else, [HL] + BCDE will not trigger any issue, we can continue
+        call zos_disk_addr_add_bcde
+        pop hl
+        jr _zos_disk_seek_set
+_zos_disk_seek_cur_positive:
+        ; If BCDE is positive, perform BCDE = [HL] + BCDE directly
+        call zos_disk_addr_add_bcde
+        pop hl
+        ; If there was an overflow, then, set it to the end of the file
+        jr c, _zos_disk_seek_set_end
+        ; Else, the offset is correct, we can calculate it normally,
+        ; just as if it was a SEEK_SET request.
+        jr _zos_disk_seek_set
+_zos_disk_seek_end:
+        ; Before calculating the new offset, we have to make some checks:
+        ; - Offset must not be a positive value. If it is, then set the cursor
+        ;   to the end (file size)
+        bit 7, b
+        jr z, _zos_disk_seek_set_end
+        ; - The opposite of offset must not be bigger than the file size
+        call zos_disk_bcde_gt_addr
+        or a    ; A is > 0 if -BCDE is greater, 0 else
+        jp nz, _zos_disk_seek_set_beginning
+        ; Let's calculate [HL] + BCDE, result in BCDE
+        push hl ; HL is still pointing to the size field
+        call zos_disk_addr_add_bcde
+        pop hl
+        ; The offset calculated is correct else, we can fall-through
+_zos_disk_seek_set:
+        ; Entering this branch, HL must point to the size field
+        ; Make HL point to the offset field (to get highest byte of size)
+        REPT opn_file_off_t - opn_file_size_t
+        inc hl
+        ENDR
+        ; BCDE is now interpreted as an unsigned 32-bit offset.
+        ; Compare it to the size of the file. We have to keep the minimum.
+        REPTI reg, b, c, d, e
+        dec hl
+        ld a, (hl)
+        cp reg
+        jr c, _zos_disk_seek_set_size_min_##reg
+        jp nz, _zos_disk_seek_set_offset_min_##reg
+        ENDR
+        ; If we reach this point (no jump), then both are equal,
+        ; which can also be interpreterd as "given offset is the minimum".
+        ; Thus, we can set the given offset inside the file's offset and
+        ; return it directly. Make HL point to the offset field.
+_zos_disk_seek_set_offset_min_e:
+        inc hl
+_zos_disk_seek_set_offset_min_d:
+        inc hl
+_zos_disk_seek_set_offset_min_c:
+        inc hl
+_zos_disk_seek_set_offset_min_b:
+        inc hl
+_zos_disk_seek_set_offset:
+        ; Save the new offset inside the structure.
+        ; HL points to the offset field entering this branch.
+        ; BCDE contains the 32-bit offset to return.
+        REPTI reg, e, d, c, b
+        ld (hl), reg
+        inc hl
+        ENDR
+        ; Success!
+        xor a
+        ret
+        ; The following code could be simplified by:
+        ; REPTI reg, b, c, d, e
+        ; _zos_disk_seek_set_size_min_##reg:
+        ;     ld reg, (hl)
+        ;     IF reg != e
+        ;     dec hl
+        ;     ENDIF
+        ;     ENDR
+        ; But the assembler doesn't like it, so let's do it by hand.
+        ; The idea is that we assign all the untested/remaining bytes inside
+        ; BCDE, as this will be the return value.
+        ; Before returning, we jump to _zos_disk_seek_set_offset_min_e as
+        ; it will assign that value inside the opened file's offset field.
+_zos_disk_seek_set_size_min_b:
+        ld b, (hl)
+        dec hl
+_zos_disk_seek_set_size_min_c:
+        ld c, (hl)
+        dec hl
+_zos_disk_seek_set_size_min_d:
+        ld d, (hl)
+        dec hl
+_zos_disk_seek_set_size_min_e:
+        ld e, (hl)
+        jp _zos_disk_seek_set_offset_min_e
+        ; Set the cursor to the end of the file, i.e. the file size
+        ; HL points to the size field entering this branch.
+        ; BCDE will contain the file size.
+_zos_disk_seek_set_end:
+        REPTI reg, e, d, c, b
+        ld reg, (hl)
+        inc hl
+        ENDR
+        ; Set the BCDE offset inside the file structure, Hl points to the
+        ; offset field.
+        jr _zos_disk_seek_set_offset
+_zos_disk_seek_set_beginning_pophl:
+        pop hl
+        ; Set the cursor to the beginning of the file, 0.
+        ; HL points to the size field entering this branch
+        ; BCDE will contain 0.
+_zos_disk_seek_set_beginning:
+        ; Make HL point to the offset field
+        ld de, opn_file_off_t - opn_file_size_t
+        add hl, de
+        ; D is 0 (the offset is smaller than 256)
+        ld (hl), d
+        inc hl
+        ld (hl), d
+        inc hl
+        ld (hl), d
+        inc hl
+        ld (hl), d
+        ld e, d
+        ld b, d
+        ld c, d
+        ; Return success
+        xor a
+        ret
+
+        ; Routine testing whether -BCDE is greater than the 32-bit value
+        ; pointed by HL.
+        ; Parameters:
+        ;       HL - Address of a 32-bit value
+        ;       BCDE - Negative 32-bit value offset
+        ; Returns:
+        ;       A - 1 if greater, 0 else
+        ; Alters:
+        ;       A
+zos_disk_bcde_gt_addr:
+        push hl
+        push bc
+        push de
+        ; Calculate -BCDE, which is equivalent to ~BCDE + 1
+        REPTI reg, b, c, d, e
+        ld a, reg
+        cpl
+        ld reg, a
+        ENDR    ; 44 T-states
+        inc de
+        ld a, d
+        or e
+        jr nz, _zos_disk_bcde_inverted
+        inc bc  ; 44+30 = 74 cycles
+_zos_disk_bcde_inverted:
+        inc hl
+        inc hl
+        inc hl
+        ; HL points to the higher byte
+        REPTI reg, b, c, d, e
+        ld a, (hl)
+        cp reg
+        jp c, _zos_disk_bcde_is_gt
+        ld a, 0 ; Prepare return value just in case
+        jp nz, _zos_disk_addr_is_gt
+        dec hl
+        ENDR
+_zos_disk_bcde_is_gt:
+        ld a, 1
+_zos_disk_addr_is_gt:
+        pop de
+        pop bc
+        pop hl
+        ret
+
+        ; Routine performing an add between the 32-bit value pointed by
+        ; HL and the 32-bit value in BCDE.
+        ; Parameters:
+        ;       HL - Address of a 32-bit value
+        ;       BCDE - 32-bit value to add
+        ; Returns:
+        ;       BCDE - Sum of both
+        ;       Flag C - Set if underflow/overflow
+        ; Alters:
+        ;       HL, BCDE
+zos_disk_addr_add_bcde:
+        push bc
+        push de
+        ; Dereference the 32-bit value (little-endian)
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
+        inc hl
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        ; Now we have to calculate BCDE += [SP:SP+1]
+        pop hl
+        ex de, hl
+        add hl, de
+        ex de, hl
+        ld h, b
+        ld l, c
+        pop bc
+        adc hl, bc
+        ld b, h
+        ld c, l
+        ; BCDE contains BCDE + [SP:SP+1], the stack is clean
+        ret
+
+        ; Close an opened file.
+        ; Parameters:
+        ;       HL - Address of the opened file. Guaranteed by the caller to be a
+        ;            non-free opened file (check zos_disk_is_opnfile)
+        ; Returns:
+        ;       A  - 0 on success, error value else
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC zos_disk_close
+zos_disk_close:
+        ; Load the filesystem from the opened file address
+        push hl
+        inc hl
+        ld a, (hl)
+        ; Only keep the filesystem number now
+        DISKS_OPN_FILE_GET_FS()
+        ; Get the driver out of the opened file
+        inc hl
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
+        inc hl
+        ; Point to the user field. HL is pointing to the size field.
+        inc hl
+        inc hl
+        inc hl
+        inc hl
+        ; Call the filesystem now
+        ; FIXME: Use a vector table?
+        cp FS_RAWTABLE
+        jp z, _zos_disk_close_rawtable
+        cp FS_ZEALFS
+        jp z, _zos_disk_close_zealfs
+        cp FS_FAT16
+        jp z, _zos_disk_close_fat16
+        ; The filesystem has not been found, memory corruption?
+        pop hl
+        ld a, ERR_INVALID_FILESYSTEM
+        ret
+_zos_disk_close_rawtable:
+        call zos_fs_rawtable_close
+        jr _zos_disk_close_epilogue
+_zos_disk_close_zealfs:
+        call zos_fs_zealfs_close
+        jr _zos_disk_close_epilogue
+_zos_disk_close_fat16:
+        call zos_fs_fat16_close
+_zos_disk_close_epilogue:
+        pop hl
+        or a
+        ret nz
+        ; Clean the entry
+        ld (hl), DISKS_OPN_FILE_MAGIC_FREE
         ret
 
         ; Function returning the address of an empty opened-file structure
@@ -482,6 +916,60 @@ zos_disk_is_opnfile:
         ret z
         ; Error, not an opened file
         ld a, ERR_INVALID_FILEDEV
+        ret
+
+
+        ;======================================================================;
+        ;================= P R I V A T E   R O U T I N E S ====================;
+        ;======================================================================;
+
+
+        ; TODO: Remove the stubs
+        ; STUBS FOR COMPILING
+zos_fs_zealfs_open:
+zos_fs_fat16_open:
+zos_fs_zealfs_stat:
+zos_fs_fat16_stat:
+zos_fs_zealfs_read:
+zos_fs_fat16_read:
+zos_fs_zealfs_close:
+zos_fs_fat16_close:
+zos_fs_zealfs_write:
+zos_fs_fat16_write:
+        ld a, ERR_NOT_IMPLEMENTED
+        ret
+
+        ; Perform a addition of an unsigned 32-bit value pointed by HL with the
+        ; unsigned 16-bit value in BC.
+        ; Parameters:
+        ;       HL - Address of an unsigned 32-bit value (little-endian)
+        ;       BC - Unsigned 16-bit value
+        ; Alters:
+        ;       [HL] - Sum of (uint32*) [HL] and (uint16) BC
+        ;       A - ERR_SUCCESS in all cases
+zos_disk_add_offset_bc:
+        ld a, (hl)
+        add c
+        ld (hl), a
+        inc hl
+        ; Second byte
+        ld a, (hl)
+        adc b
+        ld (hl), a
+        ; Third and fourth byte, can be optimized: if there is no carry,
+        ; no need to continue, we can return directly
+        ld a, 0 ; DO NOT use xor a here as we don't want to alter the flags
+        ret nc
+        ; There is a carry, propage it. We can use inc (hl) but it doesn't set the
+        ; carry flag, it sets the zero flag. In fact, if we have an overflow (carry),
+        ; the result will be 0 because we only added 1 (increment)
+        inc hl
+        inc (hl)
+        ; If no overflow, we can return
+        ret nz
+        ; Propagate the overflow to the last byte
+        inc hl
+        inc (hl)
         ret
 
         SECTION KERNEL_BSS

@@ -9,7 +9,10 @@
         EXTERN zos_driver_find_by_name
         EXTERN zos_disk_open_file
         EXTERN zos_disk_read
+        EXTERN zos_disk_write
+        EXTERN zos_disk_seek
         EXTERN zos_disk_stat
+        EXTERN zos_disk_close
         EXTERN zos_disk_is_opnfile
         EXTERN strncat
 
@@ -119,6 +122,10 @@ zos_vfs_set_stdin:
         xor a   ; Optimization for A = ERR_SUCCESS
         ret
 
+_zos_vfs_invalid_parameter_popdehl:
+        pop de
+_zos_vfs_invalid_parameter_pophl:
+        pop hl
 _zos_vfs_invalid_parameter:
         ld a, ERR_INVALID_PARAMETER
         ret
@@ -150,6 +157,10 @@ zos_vfs_open_syscall:   ; Syscalls already pushed HL on the stack
         ld a, b
         or c
         jp z, _zos_vfs_open_ret_invalid
+        ; Cehck flags consistency
+        call zos_vfs_check_opn_flags
+        or a
+        jp nz, _zos_vfs_open_ret_err
         ; Check that we have room in the dev table. HL will be altered, save H (flags in D)
         ld d, h
         call zos_vfs_find_entry
@@ -314,7 +325,11 @@ _zos_vfs_open_drv:
         ld b, h
         ; ld c, l // C hasn't been modified
         GET_DRIVER_OPEN()
-        pop af  ; Retrieve the opening flags (A) from the stack
+        ; Set the opened dev number in D
+        ld a, (_vfs_work_buffer)
+        ld d, a
+        ; Retrieve the opening flags (A) from the stack
+        pop af
         CALL_HL()
         pop de
         ; Check the return value
@@ -346,7 +361,7 @@ _zos_vfs_open_ret_invalid:
         ;       BC - Size of the buffer passed, maximum size is a page size
         ; Returns:
         ;       A  - 0 on success, error value else
-        ;       BC - Number of bytes remaning to read. 0 means the buffer has been filled.
+        ;       BC - Number of bytes filled in DE.
         ; Alters:
         ;       A, BC
         PUBLIC zos_vfs_read
@@ -414,20 +429,65 @@ _zos_vfs_read_isfile:
         ret
 
 
-        ; Write to the given dev number
+        ; Write to the given dev number.
         ; Parameters:
         ;       H  - Number of the dev to write to
-        ;       DE - Buffer to write to the dev
-        ;       BC - Size of the buffer passed. The maximum size is 32K.
-        ;            If the size is less than or equal to 16KB, cross page boundary buffer is NOT allowed
-        ;            If the size is more than 16KB, the buffer can only cross 2 virtual pages, not more.
+        ;       DE - Buffer to write to the dev. the buffer must NOT cross page boundary.
+        ;       BC - Size of the buffer passed. Maximum size is a page size.
         ; Returns:
         ;       A  - 0 on success, error value else
         ;       BC - Number of bytes remaining to be written. 0 means everything has been written.
         ; Alters:
         ;       A, HL, BC
         PUBLIC zos_vfs_write
-zos_vfs_write:     
+        PUBLIC zos_vfs_write_syscall
+zos_vfs_write:
+        push hl
+zos_vfs_write_syscall:
+        ; We use the same flow as the one for the read function
+        push de
+        call zof_vfs_get_entry
+        pop de
+        or a
+        jp nz, _zos_vfs_pop_ret
+        call zos_check_buffer_size
+        or a
+        jp nz, _zos_vfs_pop_ret
+        ; Check if the opened dev is a file or a driver
+        call zos_disk_is_opnfile
+        or a
+        jr z, _zos_vfs_write_isfile
+        ; We have a driver here, we will call its `write` function directly with the right
+        ; parameters.
+        push de
+        ex de, hl 
+        ; Retrieve driver (DE) `write` function address, in HL.
+        GET_DRIVER_WRITE()
+        pop de
+        ; HL now contains `write` function's address.
+        ; Encode jp driver_write_function inside the work buffer
+        ld a, 0xc3      ; jp instruction
+        ld (_vfs_work_buffer), a
+        ld (_vfs_work_buffer + 1), hl
+        push de
+        ld hl, zos_vfs_write_driver_return
+        push hl ; Return address
+        ld hl, 0
+        push hl
+        push hl ; 32-bit offset parameter (0)
+        ; Jump to that read function
+        jp _vfs_work_buffer
+zos_vfs_write_driver_return:
+        ; Restore DE and HL before returning
+        pop de
+        pop hl
+        ret
+_zos_vfs_write_isfile:
+        push de
+        call zos_disk_write
+        pop de
+        pop hl
+        ret
 
         ; Close the given dev number
         ; This should be done as soon as a dev is not required anymore, else, this could
@@ -435,7 +495,7 @@ zos_vfs_write:
         ; Note: when a program terminates, all its opened devs are closed and STDIN/STDOUT
         ; are reset.
         ; Parameters:
-        ;       A - Number of the dev to close
+        ;       H - Number of the dev to close
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
         PUBLIC zos_vfs_close
@@ -443,6 +503,39 @@ zos_vfs_write:
 zos_vfs_close:
         push hl
 zos_vfs_close_syscall:
+        ; Save the dev number, we will pass it to the close function
+        ; in case it is a driver
+        ld a, h
+        ld (_vfs_work_buffer), a
+        push de
+        call zof_vfs_get_entry
+        pop de
+        or a
+        jp nz, _zos_vfs_pop_ret
+        ; Check if the opened dev is a file or a driver
+        call zos_disk_is_opnfile
+        or a
+        jr z, _zos_vfs_close_isfile
+        ; We have a driver here, we will call its `close` function directly.
+        push de
+        push bc
+        ex de, hl 
+        ; Retrieve driver (DE) close function address, in HL.
+        GET_DRIVER_CLOSE()
+        ; HL now contains the address of driver's close function. Call it
+        ; with the dev number as a parameter
+        ld a, (_vfs_work_buffer) 
+        CALL_HL()
+        ; Restore DE and HL before returning
+        pop bc
+        pop de
+        pop hl
+        ret
+_zos_vfs_close_isfile:
+        push de
+        call zos_disk_close
+_zos_vfs_popdehl_ret:
+        pop de
         pop hl
         ret
 
@@ -455,8 +548,6 @@ zos_vfs_close_syscall:
         ;            enough to store the file information
         ; Returns:
         ;       A - 0 on success, error else
-        ; Alters:
-        ;       TBD
         PUBLIC zos_vfs_dstat
         PUBLIC zos_vfs_dstat_syscall
 zos_vfs_dstat:
@@ -489,24 +580,114 @@ _zos_vfs_pop_ret:
         pop hl
         ret
 
-        ; Returns the stats of a file.
-        ; Same as the function above, but with a file path instead of an opened dev.
-        ; Parameters:
-        ;       BC - Path to the file
-        ;       DE - File info stucture, this memory pointed must be big
-        ;            enough to store the file information (>= STAT_STRUCT_SIZE)
-        ; Returns:
-        ;       A - 0 on success, error else
-        ; Alters:
-        ;       TBD
-        PUBLIC zos_vfs_stat
-zos_vfs_stat:
 
+        ; Performs an IO request to an opened driver.
+        ; The behavior of this syscall is driver-dependent.
+        ; Parameters:
+        ;       H - Dev number, must refer to an opened driver (not a file)
+        ;       C - Command number. This is driver-dependent, check the
+        ;           driver documentation for more info.
+        ;       DE - 16-bit parameter. This is also driver dependent.
+        ;            This can be used as a 16-bit value or as an address.
+        ;            Similarly to the buffers in `read` and `write` routines,
+        ;            If this is an address, it must not cross a page boundary.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        PUBLIC zos_vfs_ioctl
+        PUBLIC zos_vfs_ioctl_syscall
+zos_vfs_ioctl:
+        push hl
+zos_vfs_ioctl_syscall:        
+        push bc
+        ld b, h
+        ; Get the entry address in HL
+        push de
+        call zof_vfs_get_entry
+        ; Return directly if an error occured
+        or a
+        jp nz, _zos_vfs_ioctl_pop_ret
+        ; If the entry is a opened file/directory, return an error too
+        call zos_disk_is_opnfile
+        or a
+        ld a, ERR_INVALID_PARAMETER
+        jp z, _zos_vfs_ioctl_pop_ret
+        ; HL points to a driver, get the IOCTL routine address
+        ex de, hl
+        GET_DRIVER_IOCTL()
+        ; HL points to the IOCTL routine, prepare the parameters.
+        ; C has not been modified, B conains the dev number
+        pop de
+        push de
+        CALL_HL()
+_zos_vfs_ioctl_pop_ret:
+        pop de
+        pop bc
+        pop hl
+        ret
+
+        ; Move the cursor of an opened file or an opened driver.
+        ; In case of a driver, the implementation is driver-dependent.
+        ; In case of a file, the cursor never moves further than
+        ; the file size. If the given whence is SEEK_SET, and the
+        ; given offset is bigger than the file, the cursor will
+        ; be set to the end of the file.
+        ; Similarly, if the whence is SEEK_END and the given offset
+        ; is positive, the cursor won't move further than the end of
+        ; the file.
+        ; Parameters:
+        ;       H - Dev number, must refer to an opened driver (not a file)
+        ;       BCDE - 32-bit offset, signed if whence is SEEK_CUR/SEEK_END.
+        ;              Unsigned if SEEK_SET.
+        ;       A - Whence. Can be SEEK_CUR, SEEK_END, SEEK_SET.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else.
+        ;       BCDE - Unsigned 32-bit offset. Resulting file offset.
         PUBLIC zos_vfs_seek
 zos_vfs_seek:
+        ; check if the whence is valid
+        cp SEEK_END + 1 
+        jp nc, _zos_vfs_invalid_parameter
+        ; Save the whence in memory as we will need it later
+        ld (_vfs_work_buffer + 2), a
+        push hl
+        push de
+        call zof_vfs_get_entry
+        or a
+        jp nz, _zos_vfs_popdehl_ret
+        ; Check if the opened dev is a file or a driver
+        call zos_disk_is_opnfile
+        or a
+        jr z, _zos_vfs_seek_isfile
+        ; HL points to a driver, get its `seek` function.
+        ex de, hl 
+        ; Retrieve driver (DE) read function address, in HL.
+        GET_DRIVER_SEEK()
+        ; HL now contains address of `seek` routine.
+        ; In theory, we could use CALL_HL() directly.
+        ; In practice, this would mean we would have to drop
+        ; one of the parameter, which we should avoid.
+        ld a, 0xc3      ; jp instruction
+        ld (_vfs_work_buffer), a
+        ld (_vfs_work_buffer + 1), hl
+        ; Put the whence in A
+        ld a, (_vfs_work_buffer + 2)
+        pop de
+        ; We have to get the original HL from the stack too as it contains
+        ; the "dev" number.
+        pop hl
+        ; Save it back as it must not be modified
+        push hl
+        call _vfs_work_buffer
+        pop hl
+        ret
+_zos_vfs_seek_isfile:
+        ; DE is not preserved accross the call, no need to save it
+        ; again after popping it.
+        pop de
+        call zos_disk_seek
+        pop hl
+        ret
 
-        PUBLIC zos_vfs_ioctl
-zos_vfs_ioctl:
 
         PUBLIC zos_vfs_mkdir
 zos_vfs_mkdir:
@@ -526,24 +707,96 @@ zos_vfs_rm:
         PUBLIC zos_vfs_mount
 zos_vfs_mount:
 
-        ; Duplicate on dev number to another dev number
+        ; Duplicate on dev number to another dev number.
         ; This can be handy to override the standard input or output
         ; Note: New dev number MUST be empty/closed before calling this
         ; function, else, an error will be returned
         ; Parameters:
-        ;       A - Old dev number
+        ;       H - Old dev number
         ;       E - New dev number
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
-        ;
         PUBLIC zos_vfs_dup
 zos_vfs_dup:
+        push hl
+        push de
+        ; Check that the "old" dev is a valid entry
+        call zof_vfs_get_entry
+        pop de
+        or a
+        jp nz, _zos_vfs_pop_ret
+        ; Check that the "new" dev entry is empty
+        ld a, e
+        cp CONFIG_KERNEL_MAX_OPENED_DEVICES
+        jp nc, _zos_vfs_invalid_parameter_pophl
+        push de
+        push hl
+        ; We need to multiple A by two as each entry is 2 bytes long
+        rlca
+        ld hl, _dev_table
+        ADD_HL_A()
+        ld a, (hl)
+        inc hl
+        or (hl)
+        ; Before checking A, pop the "old" dev's content in DE
+        ; After this, two elements are on the stack: former DE value,
+        ; and former HL value.
+        pop de
+        ; If A is not zero, then the entry is not free
+        jp nz, _zos_vfs_invalid_parameter_popdehl
+        ; It's free! Copy the "old" dev value to it.
+        ld (hl), d
+        dec hl
+        ld (hl), e
+        pop de
+        pop hl
+        ; Both "new" and "old" devs can be used now
+        ; Return success, A is already 0.
+        ret
+
+
+        ; Returns the stats of a file.
+        ; Same as the function above, but with a file path instead of an opened dev.
+        ; Parameters:
+        ;       BC - Path to the file
+        ;       DE - File info stucture, this memory pointed must be big
+        ;            enough to store the file information (>= STAT_STRUCT_SIZE)
+        ; Returns:
+        ;       A - 0 on success, error else
+        ; Alters:
+        ;       TBD
+        PUBLIC zos_vfs_stat
+zos_vfs_stat:
         ld a, ERR_NOT_IMPLEMENTED
         ret
 
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
         ;======================================================================;
+
+        ; Check the consistency of the passed flags for open routine.
+        ; For example, it is inconsistent to pass both 
+        ; O_RDWR and O_WRONLY flag, or both O_TRUNC and O_APPEND
+        ; Parameters:
+        ;       H - Flags
+        ; Returns:
+        ;       A - ERR_SUCCESS on success or error code else
+zos_vfs_check_opn_flags:
+        ld a, h
+        ; Check that we don't have both O_RDWR and O_WRONLY
+        and O_WRONLY | O_RDWR
+        cp O_WRONLY | O_RDWR
+        jr z, _zos_vfs_invalid_flags
+        ; Check that O_TRUNC is not given with O_APPEND
+        ld a, h
+        and O_TRUNC | O_APPEND
+        cp O_TRUNC | O_APPEND
+        jr z, _zos_vfs_invalid_flags
+        xor a
+        ret
+_zos_vfs_invalid_flags:
+        ld a, ERR_BAD_MODE
+        ret
 
         ; Check that a buffer address and its size are valid.
         ; They are valid if the size is less or equal to an MMU page size, and if
@@ -599,16 +852,25 @@ zos_vfs_find_entry:
         push bc
         ld hl, _dev_table
         ld b, CONFIG_KERNEL_MAX_OPENED_DEVICES
+        ld c, 0 ; Index of the entry found
 _zos_vfs_find_entry_loop:
         ld a, (hl)
         inc hl
         or (hl)
         inc hl
         jp z, _zos_vfs_find_entry_found
+        inc c
         djnz _zos_vfs_find_entry_loop
         ; Not found
         ld a, ERR_CANNOT_REGISTER_MORE
+        pop bc
+        ret
 _zos_vfs_find_entry_found:
+        ; Save the index in the work buffer
+        ld a, c
+        ld (_vfs_work_buffer), a
+        ; Return ERR_SUCCESS
+        xor a
         ; Make HL point to the empty entry
         dec hl
         dec hl

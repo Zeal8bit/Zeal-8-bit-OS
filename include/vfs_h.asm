@@ -7,11 +7,19 @@
                 FS_RAWTABLE,    ; Check fs/rawtable.asm for more info
                 FS_ZEALFS,
                 FS_FAT16,
+                FS_END,
         }
 
         ; Standard index in the opened devs table 
         DEFC STANDARD_OUTPUT = 0
         DEFC STANDARD_INPUT = 1
+
+        ; Whences for seek routine
+        DEFGROUP {
+                SEEK_SET,
+                SEEK_CUR,
+                SEEK_END,       ; Last valid entry
+        }
 
         ; Define the bit index for the WRONLY flag.
         DEFC O_WRONLY_BIT = 0

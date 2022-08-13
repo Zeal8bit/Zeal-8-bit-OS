@@ -126,5 +126,8 @@ prepare_dirs:
 dump:
 	$(DISASSEMBLER) -x $(BINDIR)/os.map $(BINDIR)/$(BIN) | less
 
+fdump:
+	$(DISASSEMBLER) -x $(BINDIR)/os.map $(BINDIR)/$(BIN) > $(BINDIR)/os.dump
+
 clean:
 	rm -rf $(OSCONFIG_ASM) *.bin *.o *.map *.sym $(BINDIR) 

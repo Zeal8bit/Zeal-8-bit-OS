@@ -53,6 +53,26 @@
         MACRO GET_DRIVER_READ _
             GET_DRIVER_FUN(driver_read_t)
         ENDM
+        
+        ; Macro used to reference `write` function from the driver in DE
+        MACRO GET_DRIVER_WRITE _
+            GET_DRIVER_FUN(driver_write_t)
+        ENDM
+
+        ; Macro used to reference `close` function from the driver in DE
+        MACRO GET_DRIVER_CLOSE _
+            GET_DRIVER_FUN(driver_close_t)
+        ENDM
+        
+        ; Macro used to reference `ioctl` function from the driver in DE
+        MACRO GET_DRIVER_IOCTL _
+            GET_DRIVER_FUN(driver_ioctl_t)
+        ENDM
+
+        ; Macro used to reference `close` function from the driver in DE
+        MACRO GET_DRIVER_SEEK _
+            GET_DRIVER_FUN(driver_seek_t)
+        ENDM
 
         ; Maximum length of a driver name
         DEFC DRIVER_NAME_LENGTH = 4

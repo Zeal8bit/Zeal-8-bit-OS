@@ -30,6 +30,8 @@
         DEFC RAWTABLE_SIZE_OFFSET = rawtable_size_t - rawtable_name_t
         ASSERT(RAWTABLE_ENTRY_SIZE == 32)
 
+        DEFC JP_INSTR_OPCODE = 0xC3
+
         EXTERN _vfs_work_buffer
         EXTERN strchrnul
 
@@ -114,7 +116,7 @@ zos_fs_rawtable_open:
         ; to RAM)
         ; Here, we need to implement a call read_function in RAM. This will take more
         ; time than push + pop everytime BUT this needs to be done a signle time.
-        ld a, 0xc3      ; jp opcode
+        ld a, JP_INSTR_OPCODE
         ld (RAM_EXE_CODE), a
         ld (RAM_EXE_CODE + 1), hl
         ; ================== Start reading ================== ; 
@@ -282,7 +284,7 @@ zos_fs_rawtable_stat:
         GET_DRIVER_READ()
         ; Just like the open function, we have to create a jump instruction
         ; to that function, check line 115 for more details.
-        ld a, 0xc3      ; jp opcode
+        ld a, JP_INSTR_OPCODE      ; jp opcode
         ld (RAM_EXE_CODE), a
         ld (RAM_EXE_CODE + 1), hl
         ; Driver's read function is set up, we can read the file header out of the
@@ -326,9 +328,174 @@ _zos_fs_rawtable_stat_return:
         xor a   ; Optimizaiton for ERR_SUCCESS
         ret
 
+        ; Read bytes of an opened file, which is located on a disk that is
+        ; using the rawtable filesystem.
+        ; At most BC bytes must be read in the buffer pointed by DE.
+        ; Upon completion, the actual number of bytes filled in DE must be
+        ; returned in BC register. It must be less or equal to the initial
+        ; value of BC. 
+        ; Note: _vfs_work_buffer can be used at our will here
+        ; Parameters:
+        ;       HL - Address of the opened file. Guaranteed by the caller to be a
+        ;            valid opened file. It embeds the offset to read from the file,
+        ;            the driver address and the user field (filled above).
+        ;            READ-ONLY, MUST NOT BE MODIFIED.
+        ;       DE - Buffer to fill with the read bytes. Guaranteed to not be cross page boundaries.
+        ;       BC - Size of the buffer passed, maximum size is a page size guaranteed.
+        ;            It is also guaranteed to not overflow the file's total size. 
+        ; Returns:
+        ;       A  - 0 on success, error value else
+        ;       BC - Number of bytes filled in DE.
+        ; Alters:
+        ;       A, BC, DE, HL
         PUBLIC zos_fs_rawtable_read
 zos_fs_rawtable_read:
+        ; We first need to retrieve the driver's address and then the read address
+        push de
+        push bc
+        ; Let's optimize the accessto the opened file structure, ideally, we need
+        ; an abstraction, but for performance reason, we will directly access the fields.
+        ; FIXME: Use a (good) abstraction to access the fields?
+        inc hl
+        inc hl
+        ; Dereference HL into DE to get the driver address
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
+        inc hl
+        ; Get the read function out of the driver pointed by DE, the resulted 
+        ; function address will be in HL. Save it beforehand.
+        push hl
+        GET_DRIVER_READ()
+        ; Create the jp driver_read instruction just like in other routines
+        ld a, JP_INSTR_OPCODE
+        ld (RAM_EXE_CODE), a
+        ld (RAM_EXE_CODE + 1), hl
+        ; Make HL point to the offset in the file
+        ; FIXME: Use an abstraction?
+        pop hl
+        inc hl
+        inc hl
+        inc hl
+        inc hl
+        ; What we have to do now is to add the offset of the file in the disk
+        ; with the offset in the file, both are 32 bits.
+        ; For example, if the opened file is at offset 0x100 in the romdisk,
+        ; and we have to read the offset 0x50 of the file, then we have to read
+        ; offset 0x150 out of the rom disk.
+        ; Retrieve the user field out of the opened file structure
+        ; FIXME: Use an abstraction?
+        push hl
+        inc hl
+        inc hl
+        inc hl
+        inc hl
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
+        ; DE contains the offset of the file's header in the romdisk...
+        ; So we have to perform a read to retrieve the info that interests us:
+        ; the offset of the file in the disk
+        ld a, rawtable_offset_t - rawtable_name_t
+        ADD_DE_A()
+        ; DE points to the file header's offset field, which is 32-bit long
+        ld bc, 4
+        ; For the save reasons as explained above, we need to manually push
+        ; the return address
+        ld hl, _zos_fs_rawtable_read_header_ret
+        push hl
+        ; Push the offset
+        push de
+        ; B is zero, use it to make HL be 0
+        ld h, b
+        ld l, b
+        push hl
+        ; Almost ready, set the temporary destination buffer
+        ld de, RAM_BUFFER
+        jp RAM_EXE_CODE
+_zos_fs_rawtable_read_header_ret:
+        or a
+        jp nz, _zos_fs_rawtable_read_header_err
+        ; RAM_BUFFER contains the offset of the file in the romdisk!
+        ; Pop out the address of the offset we need to read
+        pop hl
+        ld de, RAM_BUFFER
+        ; Perform the 32-bit addition
+        ld a, (de)
+        add (hl)
+        ld (de), a
+        inc hl
+        inc de
+        REPT 2  ; For the 2 other bytes, optimize the last one by omitting inc
+        ld a, (de)
+        adc (hl)
+        ld (de), a
+        inc hl
+        inc de
+        ENDR
+        ld a, (de)
+        adc (hl)
+        ld (de), a
+        ; We don't need HL value anymore, we can reuse it.
+        ; Prepare the parameters for the final call to read
+        pop bc
+        pop de
+        ; We don't need to push the return address, because we
+        ; don't have to check anything upon return, so this will
+        ; be a tail-call
+        ld hl, (RAM_BUFFER)
+        push hl
+        ld hl, (RAM_BUFFER + 2)
+        push hl
+        jp RAM_EXE_CODE
+        ; No return.
+_zos_fs_rawtable_read_header_err:
+        ; Error encountered while reading the file header
+        pop hl
+        pop bc
+        pop de
         ret
+
+
+        ; Perform a write on an opened file, which is located on a
+        ; disk that is using a rawtable filesystem.
+        ; Parameters:
+        ;       HL - Address of the opened file. Guaranteed by the caller to be a
+        ;            valid opened file. It embeds the offset to write to the file,
+        ;            the driver address and the user field.
+        ;            READ-ONLY, MUST NOT BE MODIFIED.
+        ;       DE - Buffer containing the bytes to write to the opened file, the buffer is gauranteed to 
+        ;            NOT cross page boundary.
+        ;       BC - Size of the buffer passed, maximum size is a page size
+        ; Returns:
+        ;       A  - ERR_SUCCESS on success, error code else
+        ;       BC - Number of bytes in DE.
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC zos_fs_rawtable_write
+zos_fs_rawtable_write:
+        ; Rawtable is a read-only filesystem
+        ld a, ERR_NOT_IMPLEMENTED
+        ret
+
+        ; Close an opened file, which is located on a disk that is
+        ; using the rawtable filesystem.
+        ; Note: _vfs_work_buffer can be used at our will here
+        ; Parameters:
+        ;       HL - (RW) Address of the user field in the opened file structure
+        ;       DE - Driver address
+        ; Returns:
+        ;       A  - 0 on success, error value else
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC zos_fs_rawtable_close
+zos_fs_rawtable_close:
+        ; Nothing special for rawtable FS, closing a file won't require any
+        ; flush or any particular behavior. Calling the driver's close
+        ; function will be enough.
+        ; Retrieve driver (DE) close function address, in HL.
+        GET_DRIVER_CLOSE()
+        jp (hl)
 
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
