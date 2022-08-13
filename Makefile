@@ -13,23 +13,46 @@ BINDIR=build
 MAPFILE=os.map
 # Sources related
 LINKERFILE := linker.asm
-MKFILE := unit.mk		 # Name of the makefile in the components/units
-ASMFLAGS :=
-ASMSRCS:=
-INCLUDEDIRS:= include/
-SUBMKFILE = $(wildcard */$(MKFILE)) # List all sub MKFILE
+MKFILE := unit.mk # Name of the makefile in the components/units
+ASMFLAGS := -Iinclude/
+INCLUDEDIRS:=
 
 # Before including the Makefiles, include the configuration one if it exists
 -include $(KCONFIG_CONFIG)
 
+# Define the TARGET as a make variable. In other words, remove the quotes which surround
+# it.
+TARGET=$(shell echo $(CONFIG_TARGET))
+
 # Include all the Makefiles in the different directories
+# Parameters:
+#	- $1: makefile to include
+#	- $2: Variable name where SRCS will be appended
+#	- $3: Variable name where INCLUDES will be appended
 define IMPORT_unitmk =
- include $1
- ASMSRCS += $$(addprefix $$(dir $(1)),$$(SRCS))
- INCLUDEDIRS += $$(addprefix -I$$(dir $(1)),$$(INCLUDES))
+    SRCS :=
+    INCLUDES :=
+    PWD := $$(dir $1)
+    include $1
+    CURRENTDIR := $$(shell basename $$(dir $1))/
+    $2 := $$($2) $$(addprefix $$(CURRENTDIR),$$(SRCS))
+    $3 := $$($3) $$(addprefix $$(CURRENTDIR),$$(INCLUDES))
 endef
 
-$(foreach file,$(SUBMKFILE),$(eval $(call IMPORT_unitmk,$(file))))
+# Parameters:
+#	- $1: Variable name where SRCS will be stored
+#	- $2: Variable name where INCLUDES will be stored
+define IMPORT_subunitmk = 
+    SUBMKFILE = $$(wildcard */$$(MKFILE))
+    TMP1 :=
+    TMP2 :=
+    $$(foreach file,$$(SUBMKFILE),$$(eval $$(call IMPORT_unitmk,$$(file),TMP1,TMP2)))
+    $1 := $$(TMP1)
+    $2 := $$(TMP2)
+endef
+
+$(eval $(call IMPORT_subunitmk,ASMSRCS,INCLUDEDIRS))
+$(info "ASMSRCS = $(ASMSRCS), INCLUDES = "$(INCLUDEDIRS)")
 
 # Generate the .o files out of the .c files
 OBJS = $(patsubst %.asm,%.o,$(ASMSRCS))
@@ -37,8 +60,9 @@ OBJS = $(patsubst %.asm,%.o,$(ASMSRCS))
 BUILTOBJS = $(addprefix $(BINDIR)/,$(OBJS))
 
 # We have to manually do it for the linker script
- LINKERFILE_OBJ=$(patsubst %.asm,%.o,$(LINKERFILE))
- LINKERFILE_BUILT=$(addprefix $(BINDIR)/,$(LINKERFILE_OBJ))
+LINKERFILE_PATH=target/$(TARGET)/$(LINKERFILE)
+LINKERFILE_OBJ=$(patsubst %.asm,%.o,$(LINKERFILE_PATH))
+LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
 .PHONY: check menuconfig $(SUBDIRS)
 
@@ -51,7 +75,7 @@ $(KCONFIG_CONFIG):
 	@test -e $@ || { echo "Configuration file $@ could not be found. Please run make menuconfig first"; exit 1; }
 
 %.o: %.asm
-	$(CC) $(ASMFLAGS) -I$(INCLUDEDIRS) -O$(BINDIR) $<
+	$(CC) $(ASMFLAGS) $(addprefix -I,$(INCLUDEDIRS)) -O$(BINDIR) $<
 
 check:
 	@python3 --version > /dev/null || (echo "Cannot find python3 binary, please install it and retry")
@@ -61,10 +85,13 @@ check:
 # Check where pip installs binaries, concatenate bin/ folder
 # and execute the menuconfig script.
 # Afterwards, the .config file is converted to a .asm file, that can be included
-# inside any ASM source file
+# inside any ASM source file.
+# Note: DEFC cannot define a string like DEFC test = "test" for some reasons.
+# Thus, remove any string config from the ASM file.
 define CONVERT_config_asm =
     cat $1 | \
     grep "^CONFIG_" | \
+    grep -v "\"" | \
     sed 's/=y/=1/g' | sed 's/=n/=0/g' | \
     sed 's/^/DEFC /g' > $2
 endef

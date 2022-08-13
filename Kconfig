@@ -4,6 +4,29 @@ config CPU_FREQ
     help
         Defines the CPU frequency in Hz, this may be used for counting time when no hardware timer
         is available.
+        
+        
+config TARGET
+    string
+    default "zeal8bit" if TARGET_ZEAL_8_BIT
+    default "example" if TARGET_EXAMPLE
 
+choice COMPILATION_TARGET
+    prompt "Target board"
+    help
+        Choose the compilation target.
+
+    config TARGET_ZEAL_8_BIT
+        bool
+        prompt "Zeal 8-bit computer"
+        help
+            Compile for Zeal 8-bit computer.
+
+    config TARGET_EXAMPLE
+        bool
+        prompt "Example target"
+        help
+            Compile for example board.
+endchoice
 
 source "kernel/Kconfig"
