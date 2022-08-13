@@ -770,3 +770,40 @@ to_upper:
 _to_lower_not_char_ccf:
     ccf
     ret
+
+
+    ; Convert an 8-bit value to ASCII
+    ; Parameters:
+    ;       A - Value to convert
+    ; Returns:
+    ;       D - First character
+    ;       E - Second character 
+    ; Alters:
+    ;       A
+    PUBLIC byte_to_ascii
+byte_to_ascii:
+    ld e, a
+    rlca
+    rlca
+    rlca
+    rlca
+    and 0xf
+    call _byte_to_ascii_nibble
+    ld d, a
+    ld a, e
+    and 0xf
+    call _byte_to_ascii_nibble
+    ld e, a
+    ret
+
+_byte_to_ascii_nibble:
+    ; If the byte is between 0 and 9 included, add '0'
+    sub 10
+    jp nc, _byte_to_ascii_af
+    ; Byte is between 0 and 9
+    add '0' + 10
+    ret
+_byte_to_ascii_af:
+    ; Byte is between A and F
+    add 'A'
+    ret

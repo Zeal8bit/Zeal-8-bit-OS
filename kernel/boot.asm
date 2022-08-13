@@ -7,6 +7,7 @@
         EXTERN zos_drivers_init
         EXTERN zos_vfs_init
         EXTERN zos_sys_init
+        EXTERN zos_log_init
         EXTERN zos_vfs_restore_std
         EXTERN zos_disks_init
         EXTERN zos_disks_get_default
@@ -50,6 +51,9 @@ zos_entry:
         ; Initialize the VFS
         call zos_vfs_init
 
+        ; Initialize the logger
+        call zos_log_init
+
         ; Initialize all the drivers
         call zos_drivers_init
 
@@ -65,3 +69,9 @@ zos_entry:
 
 _zos_default_init:
         DEFM "init.bin", 0
+        ; Define the boilerplate to print as soon as 
+        ; a logging function is available
+        PUBLIC zos_boilerplate
+zos_boilerplate:
+        INCBIN "version.txt"
+        DEFB "\n", 0

@@ -7,6 +7,7 @@
         INCLUDE "utils_h.asm"
 
         EXTERN zos_driver_find_by_name
+        EXTERN zos_log_stdout_ready
         EXTERN strncat
 
         SECTION KERNEL_TEXT
@@ -102,6 +103,16 @@ zos_vfs_set_stdout:
         or l
         jp z, _zos_vfs_invalid_parameter
         ld (_dev_default_stdout), hl
+        ; If entry STANDARD_OUTPUT is null, fill it now
+        push hl
+        ld hl, (_dev_table + STANDARD_OUTPUT)
+        ld a, h
+        or l
+        pop hl
+        jr nz, _zos_vfs_set_stdout_no_set
+        ld (_dev_table + STANDARD_OUTPUT), hl
+_zos_vfs_set_stdout_no_set:
+        call zos_log_stdout_ready
         xor a   ; Optimization for A = ERR_SUCCESS
         ret        
 

@@ -127,9 +127,9 @@ zos_sys_reserve_page_1:
         rlca
         rlca
         and 3
-        ; If the page it is mapped to is 0, then there is a problem
-        ; as this page is supposed to be the current code...
-        jp z, _zos_sys_reserve_page_invalid
+        ; If the page it is mapped to is 0, then we won't remap it
+        ; because it means the kernel is trying to print something.
+        ret z
         dec a
         jp z, _zos_sys_reserve_page_remap_1
         ; No remap necessary as DE is in page of index 2 (HL is 0 already)

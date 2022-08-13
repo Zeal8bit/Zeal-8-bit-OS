@@ -2,9 +2,14 @@
         INCLUDE "drivers_h.asm"
         INCLUDE "errors_h.asm"
         INCLUDE "utils_h.asm"
+        INCLUDE "vfs_h.asm"
 
         ; Forward declaraction of symbols used below
         EXTERN zos_drivers_init
+        EXTERN _vfs_work_buffer
+        EXTERN byte_to_ascii
+        EXTERN zos_log_error
+        EXTERN zos_log_info
         EXTERN __KERNEL_DRV_VECTORS_head
         EXTERN __KERNEL_DRV_VECTORS_size
 
@@ -12,6 +17,12 @@
 
         PUBLIC zos_drivers_init
 zos_drivers_init:
+        ; Initialize the messages, use the global usable buffer
+        ld hl, _driver_log_success
+        ld de, _vfs_work_buffer
+        ld bc, _driver_log_end - _driver_log_success
+        ldir
+
         ; Browse the driver vectors and try to initialize them all
         ld hl, __KERNEL_DRV_VECTORS_head
         ; Load the size of the vectors in B
@@ -23,26 +34,85 @@ _zos_driver_init_next_driver:
         call zos_driver_name_valid     ; Check if the name is valid
         jp nc, _zos_valid_name
         ; Invalid name
+        ld a, ERR_INVALID_NAME
+        call _zos_driver_log_error
         ; Log that this driver has an invalid name
         jp _zos_next_driver
 _zos_valid_name:
         call zos_driver_find_by_name     ; Check if the name already exists
         jp nz, _zos_register_driver
         ; Driver name already exists
-        ; TODO: Log this error
+        ld a, ERR_ALREADY_EXIST
+        call _zos_driver_log_error
         jp _zos_next_driver        
 _zos_register_driver:
         ; Register the driver in the list
         call zos_driver_register
-        jp nz, _zos_next_driver
-        ; Error registering the driver, log this
+        or a
+        ; Log success will not alter the flags, so if Z is set when entering
+        ; the routine, it will be set when exiting the routine.
+        call z, _zos_driver_log_success
+        call nz, _zos_driver_log_error
 _zos_next_driver:
         ; Skip to the next driver in the list
         ld a, driver_end
         ADD_HL_A()
         djnz _zos_driver_init_next_driver
-
         ; Log finished registering drivers
+        ret
+
+_driver_log_success: DEFM "Driver: .... init success\n", 0
+_driver_log_failed: DEFM "Driver: .... init failed, error $..\n", 0
+_driver_log_end:
+
+        DEFC SUCCESS_MESSAGE_LEN = _driver_log_failed - _driver_log_success
+        DEFC FAILED_MESSAGE_LEN = _driver_log_end - _driver_log_failed
+        DEFC LOG_MESSAGES_LEN = FAILED_MESSAGE_LEN + SUCCESS_MESSAGE_LEN
+        ASSERT(VFS_WORK_BUFFER_SIZE >= SUCCESS_MESSAGE_LEN + FAILED_MESSAGE_LEN)
+
+        ; Copies the driver name and the error to the log buffer.
+        ; Then calls the error log function.
+        ; Parameters:
+        ;       HL - Driver name (4 characters)
+        ;       A - Error code
+        ; Alters:
+        ;       A, C, DE
+_zos_driver_log_error:
+        ; Setting C to DRIVER_NAME_LENGTH will prevent any modification
+        ; on B when performing ldir
+        ld c, DRIVER_NAME_LENGTH
+        push hl
+        ; Point to the log failed message
+        ld de, _vfs_work_buffer + SUCCESS_MESSAGE_LEN + 8
+        REPT DRIVER_NAME_LENGTH
+        ldi
+        ENDR
+        ; Point to failed log message's error code 
+        ld hl, _vfs_work_buffer + LOG_MESSAGES_LEN - 4
+        call byte_to_ascii
+        ld (hl), d
+        inc hl
+        ld (hl), e
+        ld hl, _vfs_work_buffer + SUCCESS_MESSAGE_LEN
+        call zos_log_error
+        pop hl
+        ret
+        ; Same as above but with a success
+_zos_driver_log_success:
+        ; Setting C to DRIVER_NAME_LENGTH will prevent any modification
+        ; on B when performing ldir
+        ld c, DRIVER_NAME_LENGTH
+        push hl
+        ; Point to the log failed message
+        ld de, _vfs_work_buffer + 8
+        REPT DRIVER_NAME_LENGTH
+        ldi
+        ENDR
+        ld hl, _vfs_work_buffer
+        call zos_log_info
+        pop hl
+        ; Do not alter former flags 
+        or a
         ret
 
         ; Checks whether the name has already been registered
@@ -225,3 +295,5 @@ _loaded_drivers_count: DEFS 1
 ; Allocate 2 bytes per cell, each cell contains a pointer to the driver structure.
 _loaded_drivers: DEFS CONFIG_KERNEL_MAX_LOADED_DRIVERS * 2 
 _loaded_drivers_end:
+; Log message
+_driver_log_msg: DEFS 16

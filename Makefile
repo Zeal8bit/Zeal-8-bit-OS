@@ -77,13 +77,20 @@ LINKERFILE_PATH=target/$(TARGET)/$(LINKERFILE)
 LINKERFILE_OBJ=$(patsubst %.asm,%.o,$(LINKERFILE_PATH))
 LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
-.PHONY: check menuconfig $(SUBDIRS)
+.PHONY: check menuconfig $(SUBDIRS) version
 
-all: precmd $(KCONFIG_CONFIG) $(LINKERFILE_OBJ) $(OBJS)
+all: version precmd $(KCONFIG_CONFIG) $(LINKERFILE_OBJ) $(OBJS)
 	$(CC) -o$(BINDIR)/$(BIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
 	@#$(PYTHON) merge_bin.py $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN)
 	@echo "Executing post commands..."
 	$(POSTCMD)
+
+
+    # Generate a version file that will be used as a boilerplate
+    # when the system starts
+version:
+	@echo ZealOS `git describe --tags` > version.txt
+	@echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt
 
 precmd:
 	@echo "Executing pre commands..."
