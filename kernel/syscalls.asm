@@ -147,6 +147,7 @@ _zos_sys_reserve_page_remap_1:
         ld l, a
         ; Get page 1 number to map it inside the second page
         MMU_GET_PAGE_NUMBER(MMU_PAGE_1)
+        ld h, a
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ; Make DE point to the page. If DE is 0x4000, it shall now be 0x8000.
         ; Upper two bits to modify
@@ -173,6 +174,9 @@ zos_sys_restore_pages:
         ; Else, restore the page 2 physical address
         ld a, l
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
+        ; Same for page 1
+        ld a, h
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
         xor a
         ret
 
