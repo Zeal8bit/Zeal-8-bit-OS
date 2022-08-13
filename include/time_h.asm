@@ -45,6 +45,7 @@
         EXTERN zos_time_gettime
 
         EXTERN zos_date_init
+        EXTERN zos_time_is_available
         EXTERN zos_date_setdate
         EXTERN zos_date_getdate
 

@@ -1,5 +1,6 @@
         INCLUDE "osconfig.asm"
         INCLUDE "errors_h.asm"
+        INCLUDE "utils_h.asm"
         INCLUDE "mmu_h.asm"
         INCLUDE "target_h.asm"
         INCLUDE "log_h.asm"
@@ -66,8 +67,21 @@ zos_entry:
         call zos_sys_init
 
         ; Check if we have current time
+        call zos_time_is_available
+        rrca
+        jp c, _zos_boot_time_ok
+        ; Print a warning saying that we don't have any time driver
+        ld b, a ; BC not altered by log
         ld hl, zos_time_warning
         call zos_log_warning
+        ld a, b
+_zos_boot_time_ok:
+        rrca
+        jp c, _zos_boot_date_ok
+        ; Print a warning saying that we don't have any date driver
+        ld hl, zos_date_warning
+        call zos_log_warning
+_zos_boot_date_ok:
 
         ; Load the init file from the default disk drive
         ld hl, zos_kernel_ready
@@ -86,9 +100,11 @@ _zos_default_init:
 zos_boilerplate:
         INCBIN "version.txt"
         DEFB "\n", 0
-zos_time_warning:
-        DEFM "Time unavailable: ERR_NOT_IMPLEMENTED\n", 0
+zos_time_warning: DEFM "Time unavailable\n", 0
+zos_date_warning: DEFM "Date unavailable\n", 0
 zos_kernel_ready:
-        DEFM "Kernel ready.\nLoading file "
+        DEFM "Kernel ready.\nLoading "
         CONFIG_KERNEL_INIT_EXECUTABLE
-        DEFM " at address 0x4000\n\n", 0
+        DEFM "  @"
+        STR(CONFIG_KERNEL_INIT_EXECUTABLE_ADDR)
+        DEFM "\n\n", 0

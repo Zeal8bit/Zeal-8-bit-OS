@@ -30,6 +30,33 @@ zos_time_init:
         xor a
         ret
 
+
+        ; Check whether a time and a date drivers are available
+        ; Parameters:
+        ;       None
+        ; Returns:
+        ;       A - Bit 0: Timer available if 1, else 0
+        ;           Bit 1: Date available if 1, else 0
+        ; Alters:
+        ;       A, B, HL
+        PUBLIC zos_time_is_available
+zos_time_is_available:
+        ld b, 3
+        ld hl, (_zos_time_driver_gettime)
+        ld a, h
+        or l
+        jr nz, _zos_time_is_date_available
+        dec b ; Remove bit 0
+_zos_time_is_date_available:
+        ld hl, (_zos_date_driver_getdate)
+        ld a, h
+        or l
+        ld a, b
+        ret nz
+        ; Reset bit 1, keep only bit 0
+        and 1
+        ret
+
         ; Sleep for a given amount of time, in milliseconds.
         ; Parameters:
         ;       DE - 16-bit duration (maximum 65 seconds)

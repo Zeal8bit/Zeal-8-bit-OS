@@ -24,6 +24,22 @@
                 rst 0x10
         ENDM
 
+        ; Convert a litteral 16-bit value into string
+        MACRO STR lit
+                STRHEX((lit >> 12) & 0xf)
+                STRHEX((lit >> 8) & 0xf)
+                STRHEX((lit >> 4) & 0xf)
+                STRHEX((lit >> 0) & 0xf)
+        ENDM
+
+        MACRO STRHEX param
+                if ((param) < 0xa)
+                        DEFB ((param) + '0')
+                else
+                        DEFB ((param) - 10 + 'a')
+                endif
+        ENDM
+
         EXTERN is_alpha_numeric
         EXTERN strncmp
 
