@@ -1,6 +1,6 @@
 INCLUDES := ./ ./include
 # Load the video driver first, in order to get an output early on
-SRCS := video.asm pio.asm romdisk.asm
+SRCS := video.asm pio.asm keyboard.asm romdisk.asm interrupt_vect.asm
 	# Command to be executed before compiling the whole OS.
 	# In our case, compile the programs taht will be part of ROMDISK and create it.
 PRECMD := (cd $(PWD)/romdisk ; ./create.sh)

@@ -9,8 +9,9 @@
     DEFC SCREEN_SCROLL_ENABLED = 0x1
 
     ; Colors used by default
-    DEFC DEFAULT_CHARS_COLOR   = 0x0f ; Black background, white foreground
-
+    DEFC DEFAULT_CHARS_COLOR     = 0x0f ; Black background, white foreground
+    DEFC DEFAULT_CHARS_COLOR_INV = 0xf0
+    
     ; Physical address of the FPGA video
     DEFC IO_VIDEO_PHYS_ADDR_START  = 0x100000
     DEFC IO_VIDEO_PHYS_ADDR_TEXT   = IO_VIDEO_PHYS_ADDR_START

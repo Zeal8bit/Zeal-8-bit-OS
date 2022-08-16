@@ -13,6 +13,7 @@
 
         ; Public routines
         EXTERN zos_disks_init
+        EXTERN zos_disks_get_default
         EXTERN zos_disk_open_file
         EXTERN zos_disk_read
         EXTERN zos_disk_write

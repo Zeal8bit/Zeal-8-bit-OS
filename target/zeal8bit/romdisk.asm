@@ -7,9 +7,9 @@
         INCLUDE "mmu_h.asm"
         INCLUDE "drivers_h.asm"
         INCLUDE "vfs_h.asm"
+        INCLUDE "disks_h.asm"
+        INCLUDE "interrupt_h.asm"
 
-        EXTERN zos_disks_get_default
-        EXTERN zos_disks_mount
 
         SECTION KERNEL_DRV_TEXT
 romdisk_init:
@@ -24,6 +24,8 @@ romdisk_init:
         ; A has the status, return it if error
         or a
         ret nz
+        ; This is the last driver, enable interrupts here
+        INTERRUPTS_ENABLE()
         ; Else, return ERR_DRIVER_HIDDEN as we don't want this driver to be
         ; directly used by users.
         ld a, ERR_DRIVER_HIDDEN
