@@ -89,19 +89,20 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 7 | ioctl | u8 dev | u8 cmd | u16 arg |
 8 | mkdir | u16 path | | |
 9 | chdir | u16 path | | |
-10 | opendir | u16 path | | |
-11 | readdir | u8 dev | u16 dst | |
-12 | rm | u16 path | | |
-13 | mount | u8 dev | u8 letter | u8 fs |
-14 | exit | | | |
-15 | exec | u16 name | u16 argv | |
-16 | dup | u8 dev | u8 ndev | |
-17 | msleep | u16 duration | | |
-18 | settime | u8 id | u16 time | |
-19 | gettime | u8 id | u16 time | |
-18 | setdate | u16 time | |
-19 | getdate | u16 time | |
-20 | map | u16 dst | u24 src | |
+10 | curdir | u16 path | | |
+11 | opendir | u16 path | | |
+12 | readdir | u8 dev | u16 dst | |
+13 | rm | u16 path | | |
+14 | mount | u8 dev | u8 letter | u8 fs |
+15 | exit | | | |
+16 | exec | u16 name | u16 argv | |
+17 | dup | u8 dev | u8 ndev | |
+18 | msleep | u16 duration | | |
+19 | settime | u8 id | u16 time | |
+20 | gettime | u8 id | u16 time | |
+21 | setdate | u16 time | |
+22 | getdate | u16 time | |
+23 | map | u16 dst | u24 src | |
 
 Please check the [System API](#system-api) for more information about each of these call and their parameters.
 

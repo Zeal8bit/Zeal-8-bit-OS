@@ -162,7 +162,7 @@ _rawtable_code_ret:
         ; BC - String 2
         ;  E - Size
         ld e, RAWTABLE_NAME_MAX_LEN
-        call _zos_fs_rawtabe_fast_strncmp
+        call _zos_fs_rawtable_fast_strncmp
         ; Pop entries count in case we need to return now
         pop de
         ; Zero flag is set if the strings are equal
@@ -211,7 +211,7 @@ _rawtable_code_ret2:
         ; BC - String 2
         ;  E - Size
         ld e, RAWTABLE_NAME_MAX_LEN
-        call _zos_fs_rawtabe_fast_strncmp
+        call _zos_fs_rawtable_fast_strncmp
         ; Pop entries count and offset, in case we have to return
         pop hl
         pop de
@@ -645,7 +645,8 @@ zos_fs_rawtable_readdir:
         ld hl, 0        ; 32-bit offset
         push hl
         ; Let's directly read the filename
-        ld bc, DISKS_DIR_ENTRY_SIZE
+        ; Subtract 1 as we already wrote a byte above (is_dir flag) 
+        ld bc, DISKS_DIR_ENTRY_SIZE - 1
         jp RAM_EXE_CODE
 _zos_fs_rawtable_readdir_ret:
         pop bc
@@ -688,7 +689,7 @@ zos_fs_rawtable_get_and_store_driver_read:
         ; Compare strings in HL and BC, at most E bytes will be read.
         ; Alters:
         ;       A, HL, DE
-_zos_fs_rawtabe_fast_strncmp:
+_zos_fs_rawtable_fast_strncmp:
         push bc
         dec hl
         dec bc

@@ -78,6 +78,7 @@
         EXTERN zos_vfs_ioctl
         EXTERN zos_vfs_mkdir
         EXTERN zos_vfs_chdir
+        EXTERN zos_vfs_curdir
         EXTERN zos_vfs_opendir
         EXTERN zos_vfs_readdir
         EXTERN zos_vfs_rm

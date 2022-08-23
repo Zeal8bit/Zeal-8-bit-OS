@@ -28,6 +28,24 @@
                 rst 0x10
         ENDM
 
+        ; Allocate 256 bytes on the stack
+        ; Alters: HL, SP
+        MACRO ALLOC_STACK_256 _
+                ld hl, 0
+                add hl, sp
+                dec h
+                ld sp, hl
+        ENDM
+
+        ; Free the 256 bytes allocated on the stack
+        ; Alters: HL, SP
+        MACRO FREE_STACK_256 _
+                ld hl, 0
+                add hl, sp
+                inc h
+                ld sp, hl
+        ENDM
+
         ; Convert a litteral 16-bit value into string
         MACRO STR lit
                 STRHEX((lit >> 12) & 0xf)

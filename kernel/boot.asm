@@ -20,6 +20,8 @@
         EXTERN zos_load_file
         EXTERN __KERNEL_BSS_head
         EXTERN __KERNEL_BSS_size
+        EXTERN __DRIVER_BSS_head
+        EXTERN __DRIVER_BSS_size
 
         SECTION KERNEL_TEXT
         
@@ -49,6 +51,13 @@ zos_entry:
         ld hl, __KERNEL_BSS_head
         ld de, __KERNEL_BSS_head + 1
         ld bc, __KERNEL_BSS_size - 1
+        ld (hl), 0
+        ldir
+
+        ; Kernel is aware of Drivers BSS section
+        ld hl, __DRIVER_BSS_head
+        ld de, __DRIVER_BSS_head + 1
+        ld bc, __DRIVER_BSS_size - 1
         ld (hl), 0
         ldir
 

@@ -15,6 +15,7 @@
         EXTERN zos_driver_find_by_name
         EXTERN zos_log_stdout_ready
         EXTERN strncat
+        EXTERN strncpy
 
         SECTION KERNEL_TEXT
 
@@ -463,7 +464,7 @@ _zos_vfs_read_isfile:
         ;       BC - Size of the buffer passed. Maximum size is a page size.
         ; Returns:
         ;       A  - 0 on success, error value else
-        ;       BC - Number of bytes remaining to be written. 0 means everything has been written.
+        ;       BC - Number of bytes written
         ; Alters:
         ;       A, HL, BC
         PUBLIC zos_vfs_write
@@ -725,6 +726,32 @@ zos_vfs_mkdir:
 
         PUBLIC zos_vfs_chdir
 zos_vfs_chdir:
+        ret
+
+        ; Get the current working directory
+        ; Parameters:
+        ;       DE - Buffer to store the current path to. This buffer must be of at least
+        ;            CONFIG_KERNEL_PATH_MAX bytes.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A
+        PUBLIC zos_vfs_curdir
+zos_vfs_curdir:
+        push de
+        push bc
+        ; Remap the user buffer if necesary
+        call zos_sys_remap_de_page_2
+        ; Copy the current dir to the buffer
+        ld hl, _vfs_current_dir
+        ld bc, CONFIG_KERNEL_PATH_MAX
+        call strncpy
+        pop bc
+        pop de
+        ; Return success
+        xor a
+        ret
+
 
         ; Open a directory given a path.
         ; The path can be relative, absolute to the disk or absolute to the
@@ -763,11 +790,12 @@ zos_vfs_opendir_internal:
         or a
         jp z, _zos_vfs_open_ret_invalid
         cp VFS_DRIVER_INDICATOR
+        ; TODO: List all the drivers
         jp z, _zos_vfs_open_ret_invalid
         ; Open a file here
         ; Check if the first char is '/', in that case, it's an absolute path to the current disk
         cp '/'
-        inc de  ; doesn't update flags, so, safe
+        inc de  ; doesn't update flags, so it's safe
         jp z, _zos_vfs_opendir_absolute_disk
         ; Check if the driver letter was passed. It's the case when the second and third
         ; chars are ':/'
@@ -810,25 +838,43 @@ _zos_vfs_opendir_rel:
         ; FIXME: Check that the last char is not / 
         push hl        
         ; Load the filename in HL
-        ld hl, _vfs_current_dir + 3 ; skip the X:/
+        ld hl, _vfs_current_dir + 2 ; skip the X:, we point to the / now
         ; Concatenate the new path to the current path.
         ld bc, CONFIG_KERNEL_PATH_MAX
         ; Concatenate DE into HL, with a max size of BC (including \0)
         call strncat
+        ; DE now contains the position of the NULL-byte in the former HL string
         ; Check if it was a success (path too long else)
         or a
         ld a, ERR_PATH_TOO_LONG
         jp nz, _zos_vfs_open_ret_pophl
+        ; Before passing the path, we have to calculate the realpath out of the concatenation
+        ; we just did above.
+        push de ; Save former NULL-byte
+        ; Allocate on the stack 256 bytes
+        ASSERT(CONFIG_KERNEL_PATH_MAX <= 256)
+        ex de, hl
+        ALLOC_STACK_256()
+        ex de, hl
+        ; DE is now the destination pointer, on the stack, whereas HL is the source path
+        call zos_realpath
         ; Retrieve the current disk, from _vfs_current_dir and save it C
         ld a, (_vfs_current_dir)
         ld c, a
         ; We can now pass the path to the disk API
         ;       C - Disk letter
         ;       HL - Absolute path to the file (without X:/)
-        ; We also have DE : Former address of HL's NULL-byte
+        ; We also have DE: Pointer to _vfs_current_dir + 3, it will be erased, that's ok,
+        ; we don't need it
         ; It doesn't save any registers, save them here
-        push de
+        ex de, hl
         call zos_disk_opendir
+        ; Restore the stack pointer, A cannot be used, it contains the return value
+        ; but DE and BC can be used.
+        ex de, hl
+        FREE_STACK_256()
+        ex de, hl
+        ; Pop the former NULL-byte which was on the stack
         pop de
         ; Returns status in A (0 if success) and dev descriptor in HL,
         ; we have to save it in case of success.
@@ -978,7 +1024,7 @@ zos_vfs_dup:
         ; Same as the function above, but with a file path instead of an opened dev.
         ; Parameters:
         ;       BC - Path to the file
-        ;       DE - File info stucture, this memory pointed must be big
+        ;       DE - File info stucture, the memory pointed must be big
         ;            enough to store the file information (>= STAT_STRUCT_SIZE)
         ; Returns:
         ;       A - 0 on success, error else
@@ -986,12 +1032,136 @@ zos_vfs_dup:
         ;       TBD
         PUBLIC zos_vfs_stat
 zos_vfs_stat:
+        push de
+        push bc
+        call zos_sys_remap_de_page_2
+        call _zos_vfs_stat_internal
+        pop bc
+        pop de
+        ret
+_zos_vfs_stat_internal:
+
         ld a, ERR_NOT_IMPLEMENTED
         ret
 
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
         ;======================================================================;
+
+        ; Get the real full path out of a path given in BC (by a user).
+        ; The path can be relative, absolute or absolute to the system.
+        ; The resulted path will be stored in DE.
+        ; Parameters:
+        ;       BC - Path (string) to the file/directory.
+        ;            (must not be NULL)
+        ;       DE - Pointer to store the real path into. Must be at least of
+        ;            size CONFIG_KERNEL_PATH_MAX.
+        ;            (must not be NULL)
+        ; Returns:
+        ;       A - ERR_SUCCESS on succes, error code else (string length 0)
+        ; Alters:
+        ;       A, HL
+zos_get_full_path:
+        ; Check if the given path points to a driver or a file
+        ld a, (bc)
+        ; Check if the string is empty (A == 0)
+        or a
+        jp z, _zos_get_full_path_invalid
+        ; Check if the first char is '/', in that case, it's an absolute path to the current disk
+        cp '/'
+        jp z, _zos_get_full_path_absolute_disk
+        ; Check if the driver letter was given. It's the case when the second and third
+        ; chars are ':/'
+        ld l, a         ; Store the potential disk letter in L
+        inc bc          ; Point to the second character
+        ld a, (bc)
+        cp ':'
+        jp nz, _zos_get_full_path_rel
+        inc bc
+        ld a, (bc)
+        cp '/'
+        jp nz, _zos_get_full_path_rel_dec
+        ; The path given is an absolute system path, including disk letter
+ _zos_get_full_path_absolute:
+        ; BC - Address of the path, pointing to the /, right after which starts after X:
+        ; L  - Disk letter
+        ; Copy the X: to the destination
+        ld a, l
+        ld (de), a
+        inc de
+        ld a, ':'
+        ld (de), a
+        inc de
+        ; Destination is ready to receive the real path!
+        ; Setup the source path in HL
+        ld h, b
+        ld l, c
+        call zos_realpath
+        ; Restore back DE to what it was when entering this routine
+        dec de
+        dec de
+        ret
+        ; ---- end of full_path_absolute route ---- ;
+_zos_get_full_path_absolute_disk:
+        ; The path given is absolute to the current disk, get the latter and jump
+        ; to the previous label (_zos_get_full_path_absolute) as the code is fairly
+        ; similar.
+        ; BC - Address of the path, which starts at the first /
+        ld a, (_vfs_current_dir)
+        ; Setup the current disk letter in L just like what _zos_get_full_path_absolute
+        ; is expecting.
+        ld l, a
+        jr _zos_get_full_path_absolute
+        ; ---- end of full_path_absolute_disk route ---- ;
+        ; In both cases below, BC is the address of the filename, so relative to the current path.
+ _zos_get_full_path_rel_dec:
+        dec bc
+ _zos_get_full_path_rel:
+        dec bc
+        ; Start by copying the disk letter and the ':' as this won't change
+        ld hl, _vfs_current_dir
+        ldi
+        ldi
+        ; Do not modify BC
+        inc bc
+        inc bc
+        ; Copy the path given by the caller into HL. The buffer to copy from
+        ; must be in DE. But both BC and DE will be altered, save them.
+        push bc
+        push de
+        ld d, b
+        ld e, c
+        ld hl, _vfs_current_dir + 2 ; skip the X:, we point to the / now
+        ; Concatenate the new path to the current path.
+        ld bc, 2 * CONFIG_KERNEL_PATH_MAX - 2
+        ; Concatenate DE into HL, with a max size of BC (including \0)
+        call strncat
+        ; DE now contains the position of the NULL-byte in the former HL string
+        ; Check if it was a success (path too long else)
+        or a
+        jp nz, _zos_get_full_path_strncat_error
+        ; Restore the destination from the stack, but keep the current value of DE
+        ; too. Store the current value of DE in BC as realpath doesn't alter BC.
+        ld b, d
+        ld c, e
+        pop de  ; Caller's destination buffer 
+        ; Calculate the realpath in DE out of the concatenation in HL.
+        call zos_realpath
+        ; Restore the NULL-byte that was in HL before concatenation
+        ld h, b
+        ld l, c
+        ld (hl), 0
+        pop bc
+        ; Return value is in A, we cn return now
+        ret
+_zos_get_full_path_strncat_error:
+        ld a, ERR_PATH_TOO_LONG
+        pop de
+        pop bc
+        ret
+_zos_get_full_path_invalid:
+        ld a, ERR_INVALID_NAME
+        ret
 
         ; Check the consistency of the passed flags for open routine.
         ; For example, it is inconsistent to pass both 
@@ -1312,8 +1482,11 @@ _zos_realpath_print_dot:
 _dev_default_stdout: DEFS 2
 _dev_default_stdin: DEFS 2
 _dev_table: DEFS CONFIG_KERNEL_MAX_OPENED_DEVICES * 2
-_vfs_current_dir_backup: DEFS CONFIG_KERNEL_PATH_MAX + 1   ; Used before executing a program
-_vfs_current_dir: DEFS CONFIG_KERNEL_PATH_MAX + 1          ; Restored once a program exits
+_vfs_current_dir_backup: DEFS CONFIG_KERNEL_PATH_MAX + 1
+        ; As the following will also be used as a temporary buffer to calculate the realpath
+        ; of file/directories, it must be able to handle 2 paths concatenated.
+        ; +1 for the potential NULL character added by the string library.
+_vfs_current_dir: DEFS CONFIG_KERNEL_PATH_MAX * 2 + 1   
         ; Work buffer usable by any (virtual) file system. It shall only be used by one
         ; FS implementation at a time, thus, it shall be used as a temporary buffer in
         ; the routines.

@@ -287,6 +287,7 @@ zos_syscalls_table:
         DEFW zos_vfs_ioctl
         DEFW zos_vfs_mkdir
         DEFW zos_vfs_chdir
+        DEFW zos_vfs_curdir
         DEFW zos_vfs_opendir
         DEFW zos_vfs_readdir
         DEFW zos_vfs_rm
