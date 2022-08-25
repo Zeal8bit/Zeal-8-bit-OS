@@ -31,14 +31,13 @@ zos_load_file:
         ld c, l
         ; Set flags to read-only
         ld h, O_RDONLY
-        ; HL is preserved
         call zos_vfs_open_internal
         ; File descriptor in A
         ; Error if the descriptor is less than 0
         or a
         jp m, _zos_load_failed
         ; No error, let's check the file size, it must not exceed 48KB
-        ; (the system is is the first bank, so we have 3 free banks)
+        ; (the system is in the first bank, so we have 3 free banks)
         ld de, _file_stats
         ld h, a
         call zos_vfs_dstat_internal

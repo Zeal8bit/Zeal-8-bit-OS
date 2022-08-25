@@ -168,161 +168,94 @@ _zos_vfs_invalid_parameter:
         PUBLIC zos_vfs_open_internal
 zos_vfs_open:
         push bc
+        push de
         call zos_sys_remap_bc_page_2
         call zos_vfs_open_internal
+        pop de
         pop bc
         ret
 zos_vfs_open_internal:
-        push hl
-        push de
-        push bc
-        ; Check if BC is NULL
+        ; Check if NULL given as a parameter
         ld a, b
         or c
-        jp z, _zos_vfs_open_ret_invalid
-        ; Check flags consistency
-        call zos_vfs_check_opn_flags
-        or a
-        jp nz, _zos_vfs_open_ret_err
-        ; Check that we have room in the dev table. HL will be altered, save H (flags in D)
+        ; Error have to be negated in such cases
+        ld a, -ERR_INVALID_PARAMETER
+        ret z
+        ; TODO: Call check_buffer to make sure the string is not overlapping two pages
+        ; Check that we have room in the dev table, save the flags in D first.
         ld d, h
         call zos_vfs_find_entry
-        ; A is 0 on success
+        ; The empty entry to fill is in HL now
         or a
-        jp nz, _zos_vfs_open_ret_err
+        jp nz, _zos_vfs_open_ret_error
         ; Check if the given path points to a driver or a file
         ld a, (bc)
-        ; Check if the string is empty (A == 0)
-        or a
-        jp z, _zos_vfs_open_ret_invalid
         cp VFS_DRIVER_INDICATOR
-        jp z, _zos_vfs_open_drv
-        ; Open a file here
-        ; Check if the first char is '/', in that case, it's an absolute path to the current disk
-        cp '/'
-        inc bc  ; doesn't update flags, so, safe
-        jp z, _zos_vfs_open_absolute_disk
-        ; Check if the driver letter was passed. It's the case when the second and third
-        ; chars are ':/'
-        ld e, a         ; Store the disk letter in E
-        ld a, (bc)
-        cp ':'
-        jp nz, _zos_vfs_open_file
-        inc bc
-        ld a, (bc)
-        cp '/'
-        jp nz, _zos_vfs_open_file_dec
-        ; The path given is an absolute system path, including disk letter
-        ; Make BC point to the first directory name and not ('/')
-        inc bc
-_zos_vfs_open_absolute:
-        ; BC - Address of the path, which starts after X:/
-        ; DE - Flags | Disk letter
-        ; HL - Address of the empty dev.
-        ; Before calling the disk API, we have to prepare the arguments:
-        ; BC - Flags | Disk letter
-        ; HL - Absolute path to the file (without X:/)
-        ; Exchange BC with DE, then HL with DE
-        ; ex bc, de
-        ld a, d
-        ld d, b
-        ld b, a
-        ld a, e
-        ld e, c
-        ld c, a
-        ; DE now contains the full path, BC contains Flags | Disk letter
-        ex de, hl
-        ; It doesn't save any register
-        push de
-        call zos_disk_open_file
-        pop de
-        or a
-        jp nz, _zos_vfs_open_ret_err
-        ; It was a success, store the newly obtained descriptor (HL) in the free entry (DE)
-        ex de, hl
-        jp _zos_vfs_open_save_de_and_exit
-        ;=================================;
-        ; Open a file relative to the current path
-        ; For example:
-        ;       myfile.txt
-_zos_vfs_open_file_dec:
-        dec bc
-_zos_vfs_open_file:
-        dec bc
-        ; In both cases (above), at this point, BC is the address of the filename.
-        ; D - Contains the flags
-        ; HL - Address of the empty dev.
-        ; TODO: Normalize the path by getting the realpath. Currently, we are going to ignore
-        ; the fact that paths can contain .., . or multiple /, the path MUST be correct.
-        ; In practice, we should check that the last char is not / 
-        ; Here we have to retrieve the current disk, from _vfs_current_dir
+        jp z, _zos_vfs_open_driver
+        ; Save the empty entry address because we are going to need HL now
         push hl
-        ld a, (_vfs_current_dir)
-        ld e, a
-        ; Load the filename in HL
-        ld hl, _vfs_current_dir + 3 ; skip the X:/
-        ; Get the length of the current dir. We will concatenate to it the new filename.
+        ; We need to allocate at least CONFIG_KERNEL_PATH_MAX and point it from DE.
+        ; Allocate on the stack 256 bytes.
+        ASSERT(CONFIG_KERNEL_PATH_MAX <= 256)
+        ALLOC_STACK_256()       ; Alters HL
+        ; Flags are in D, they will get overwritten by this next call
         push de
-        ld d, b
-        ld e, c
-        ld bc, CONFIG_KERNEL_PATH_MAX
-        ; Concatenate DE into HL, with a max size of BC (including \0)
-        call strncat
-        ; Here, store DE (flags + disk letter) in BC as DE contains the former NULL byte address of HL
-        pop bc
-        ; Check if A is 0 (success)
-        or a
-        ; Load the error code in case
-        ld a, ERR_PATH_TOO_LONG
-        jp nz, _zos_vfs_open_ret_pophl
-        ; We can now pass the path to the disk API
-        ; B: Flags
-        ; C: Disk letter
-        ; HL: Absolute path to the file (without X:/)
-        ; DE: Former address of HL's NULL-byte
-        ; It doesn't save any registers, save them here
-        push de
-        call zos_disk_open_file
-        pop de
-        ; Returns status in A (0 if success) and dev descriptor in HL,
-        ; we have to save it in case of success.
-        ; In any case, restore HL's former NULL-byte
+        ; HL contains the destination address, put it in DE instead
         ex de, hl
-        ld (hl), 0
-        ; Check zos_disk_open_file return value
+        call zos_get_full_path
+        ; No matter what the return value is, BC won't be used from now on
+        ; Use it to restore the flags (in B)
+        pop bc
+        ; Check if an error occured
         or a
-        jp nz, _zos_vfs_open_ret_pophl
-        ; Return was a success, we can save the dev descriptor from DE (the free entry address is on the stack)
+        jp nz, _zos_vfs_open_deallocate_stack_error
+        ; Retrieve the current disk from the path and save it C (B has the flags already)
+        ld a, (de)
+        ld c, a
+        ; Make DE point to the path after X:
+        inc de
+        inc de
+        ; We can now pass the path to the disk API.
+        ; Parameters:
+        ;       B - Flags, can be O_RDWR, O_RDONLY, etc...
+        ;       C - Disk letter
+        ;       HL - Absolute path to the file (without X:/)
+        ; This call saves none of the register A, BC, DE and HL.
+        ex de, hl
+        call zos_disk_open_file
+        ; Restore the stack pointer, A and HL cannot be used, they contain the return values
+        ; but DE and BC can be used, so let's use DE to store the returned value.
+        ex de, hl
+        FREE_STACK_256()
+        ; Pop the empty entry address from the stack too
         pop hl
-_zos_vfs_open_save_de_and_exit:
+        ; Check if an error occured
+        or a
+        jp nz, _zos_vfs_open_ret_error
+_zos_vfs_open_save_entry:
+        ; Else, we have to save the returned context in our array
         ld (hl), e
         inc hl
         ld (hl), d
-        ; We have to return the index of the newly opened dev, we can calculate it
-        ; from HL. We need to perform A = (HL - 1 - _dev_table) / 2.
-        ld bc, _dev_table
-        scf
-        sbc hl, bc
-        ; HL is now an 8-bit value, because we have at most 128 entries
-        ld a, l
-        ; Divide by 2 with rra as carry is 0 (because of sbc)
-        rra
-        jp _zos_vfs_open_ret
-        ; Open a file with an absolute path of the current disk 
-        ; For example: /mydir/myfile.txt
-        ; BC is pointing at the char of index 1 already (after /)
-_zos_vfs_open_absolute_disk:
-        ; Open the file as an absolute path, but load the current disk first
-        ; Disk letter must be put in E. We cannot use HL here.
-        ld a, (_vfs_current_dir)
-        ld e, a
-        jp _zos_vfs_open_absolute
-        
+        ; Load and return the index of the current entry
+        ld a, (_dev_table_empty_entry)
+        ret
+_zos_vfs_open_deallocate_stack_error:
+        ; An error occured, deallocate the stack and return the error
+        FREE_STACK_256()        ; Alters HL only, register A unmodified
+        ; Pop HL (empty entry address) from the stack
+_zos_vfs_open_pop_ret_error:
+        pop hl
+_zos_vfs_open_ret_error:
+        ; Negate the error
+        neg
+        ret
+        ; A driver has been requested to be opened
+_zos_vfs_open_driver:
         ; Open a driver, the length of the driver name must be 4
         ; HL - The address of the empty dev entry
         ; BC - Driver name (including #)
         ; D - Flags
-_zos_vfs_open_drv:
         inc bc
         push hl
         ; The length will be check by zos_driver_find_by_name, no need to do it here
@@ -333,48 +266,35 @@ _zos_vfs_open_drv:
         call zos_driver_find_by_name
         ; Check that it was a success
         or a
-        jp nz, _zos_vfs_open_ret_pophl
+        jp nz, _zos_vfs_open_pop_ret_error
         ; Success, DE contains the driver address, HL contains the name and top of stack contains
         ; the address of the empty dev entry.
         ; Before saving the driver as opened, we have to execute its "open" routine, which MUST succeed!
         ; Parameters:
-        ;       BC - name
-        ;       H - flags
+        ;       BC - Name of the opened driver 
+        ;       H - Flags to pass to it
         ; After this, we will still need DE (driver address).
         push de
         ; Prepare the name, exchange B and H
         ld a, b
-        push af ; Save the flags
+        push af ; Save the open flags parameter (in register A)
         ld b, h
-        ; ld c, l // C hasn't been modified
+        ; ld c, l ; C hasn't been modified
         GET_DRIVER_OPEN()
         ; Set the opened dev number in D
-        ld a, (_vfs_work_buffer)
+        ld a, (_dev_table_empty_entry)
         ld d, a
         ; Retrieve the opening flags (A) from the stack
         pop af
         CALL_HL()
-        pop de
+        pop de  ; pop driver address from the stack
         ; Check the return value
         or a
-        jp nz, _zos_vfs_open_ret_pophl
-        ; Success! We can now save the driver inside the empty spot.
+        ; Pop the address of the empty dev from the stack
         pop hl
-        jp _zos_vfs_open_save_de_and_exit
-_zos_vfs_open_ret_pophl:
-        pop hl
-_zos_vfs_open_ret_err:
-        ; Error value here, negate it before returning
-        neg
-_zos_vfs_open_ret:
-        pop bc
-        pop de
-        ; All "syscall" accessible functions, we must pop hl before returning
-        pop hl
-        ret
-_zos_vfs_open_ret_invalid:
-        ld a, ERR_INVALID_NAME
-        jr _zos_vfs_open_ret_err
+        jp nz, _zos_vfs_open_ret_error
+        ; Success! We can now save the driver (DE) inside the empty spot (HL).
+        jp _zos_vfs_open_save_entry
 
 
         ; Read the given dev number
@@ -536,7 +456,7 @@ zos_vfs_close:
         ; Save the dev number, we will pass it to the close function
         ; in case it is a driver
         ld a, h
-        ld (_vfs_work_buffer), a
+        ld (_dev_table_empty_entry), a
         push de
         call zof_vfs_get_entry
         pop de
@@ -553,7 +473,7 @@ zos_vfs_close:
         GET_DRIVER_CLOSE()
         ; HL now contains the address of driver's close function. Call it
         ; with the dev number as a parameter
-        ld a, (_vfs_work_buffer) 
+        ld a, (_dev_table_empty_entry) 
         CALL_HL()
         ; Restore DE and HL before returning
         pop bc
@@ -764,103 +684,57 @@ zos_vfs_curdir:
         ; Returns:
         ;       A - Number for the newly opened dev on success, negated error value else.
         ; Alters:
-        ;       A
+        ;       A (could also alter HL)
         PUBLIC zos_vfs_opendir
 zos_vfs_opendir:
         push de
+        push bc
         call zos_sys_remap_de_page_2
         call zos_vfs_opendir_internal
+        pop bc
         pop de
         ret
 zos_vfs_opendir_internal:
-        push hl
-        push de
-        push bc
-        ; Check if DE is NULL
+        ; Check if NULL given
         ld a, d
         or e
-        jp z, _zos_vfs_open_ret_invalid
+        ; Error have to be negated in such cases
+        ld a, -ERR_INVALID_PARAMETER
+        ret z
+        ; TODO: Check that the string is not overlapping two pages
         ; Check that we have room in the dev table
         call zos_vfs_find_entry
+        ; The empty entry to fill is in HL now
         or a
-        jp nz, _zos_vfs_open_ret_err
+        jp nz, _zos_vfs_opendir_ret_error
         ; Check if the given path points to a driver or a file
         ld a, (de)
-        ; Check if the string is empty (A == 0)
-        or a
-        jp z, _zos_vfs_open_ret_invalid
         cp VFS_DRIVER_INDICATOR
         ; TODO: List all the drivers
-        jp z, _zos_vfs_open_ret_invalid
-        ; Open a file here
-        ; Check if the first char is '/', in that case, it's an absolute path to the current disk
-        cp '/'
-        inc de  ; doesn't update flags, so it's safe
-        jp z, _zos_vfs_opendir_absolute_disk
-        ; Check if the driver letter was passed. It's the case when the second and third
-        ; chars are ':/'
-        ld c, a         ; Store the disk letter in C
-        ld a, (de)
-        cp ':'
-        jp nz, _zos_vfs_opendir_rel
-        inc de
-        ld a, (de)
-        cp '/'
-        jp nz, _zos_vfs_opendir_rel_dec
-        ; The path given is an absolute system path, including disk letter
-        ; Make BC point to the first directory name and not ('/')
-        inc bc
-_zos_vfs_opendir_absolute:
-        ; DE - Address of the path, which starts after X:/
-        ; C  - Disk letter
-        ; HL - Address of the empty dev.
-        ex de, hl
-        ; It doesn't save any register so backup DE (empty dev address)
-        push de
-        ; Parameters:
-        ;       C  - Disk letter
-        ;       HL - Absolute path to the file (without X:/)
-        call zos_disk_opendir
-        pop de
-        or a
-        jp nz, _zos_vfs_open_ret_err
-        ; It was a success, store the newly obtained descriptor (HL) in the free entry (DE)
-        ex de, hl
-        jp _zos_vfs_open_save_de_and_exit
-        ;=================================;
-        ; Open a directory relative to the current path
-_zos_vfs_opendir_rel_dec:
-        dec de
-_zos_vfs_opendir_rel:
-        dec de
-        ; In both cases (above), at this point, DE is the address of the filename.
-        ; HL - Address of the empty dev.
-        ; FIXME: Check that the last char is not / 
-        push hl        
-        ; Load the filename in HL
-        ld hl, _vfs_current_dir + 2 ; skip the X:, we point to the / now
-        ; Concatenate the new path to the current path.
-        ld bc, CONFIG_KERNEL_PATH_MAX
-        ; Concatenate DE into HL, with a max size of BC (including \0)
-        call strncat
-        ; DE now contains the position of the NULL-byte in the former HL string
-        ; Check if it was a success (path too long else)
-        or a
-        ld a, ERR_PATH_TOO_LONG
-        jp nz, _zos_vfs_open_ret_pophl
-        ; Before passing the path, we have to calculate the realpath out of the concatenation
-        ; we just did above.
-        push de ; Save former NULL-byte
+        ld a, -ERR_INVALID_PATH
+        jp z, _zos_vfs_opendir_ret_error
+        ; As required by zos_get_full_path, put the user's path in BC
+        ld b, d
+        ld c, e
+        ; Save the empty entry address because we are going to need HL now
+        push hl
+        ; We need to allocate at least CONFIG_KERNEL_PATH_MAX and point it from DE.
+        ; Allocate this memory from the stack.
         ; Allocate on the stack 256 bytes
         ASSERT(CONFIG_KERNEL_PATH_MAX <= 256)
+        ALLOC_STACK_256()       ; Alters HL
+        ; HL contains the destination address, put it in DE instead
         ex de, hl
-        ALLOC_STACK_256()
-        ex de, hl
-        ; DE is now the destination pointer, on the stack, whereas HL is the source path
-        call zos_realpath
-        ; Retrieve the current disk, from _vfs_current_dir and save it C
-        ld a, (_vfs_current_dir)
+        call zos_get_full_path
+        ; Check if an error occured
+        or a
+        jp nz, _zos_vfs_opendir_deallocate_stack_error
+        ; Retrieve the current disk from the path and save it C
+        ld a, (de)
         ld c, a
+        ; Make DE point to the path after X:
+        inc de
+        inc de
         ; We can now pass the path to the disk API
         ;       C - Disk letter
         ;       HL - Absolute path to the file (without X:/)
@@ -869,33 +743,31 @@ _zos_vfs_opendir_rel:
         ; It doesn't save any registers, save them here
         ex de, hl
         call zos_disk_opendir
-        ; Restore the stack pointer, A cannot be used, it contains the return value
-        ; but DE and BC can be used.
+        ; Restore the stack pointer, A and HL cannot be used, they contain the return values
+        ; but DE and BC can be used, so let's use DE to store the returned value.
         ex de, hl
         FREE_STACK_256()
-        ex de, hl
-        ; Pop the former NULL-byte which was on the stack
-        pop de
-        ; Returns status in A (0 if success) and dev descriptor in HL,
-        ; we have to save it in case of success.
-        ; In any case, restore HL's former NULL-byte
-        ex de, hl
-        ld (hl), 0
-        ; Check zos_disk_open_file return value
-        or a
-        jp nz, _zos_vfs_open_ret_pophl
-        ; Return was a success, we can save the dev descriptor from DE (the free entry address is on the stack)
+        ; Pop the empty entry address from the stack too
         pop hl
-        jp _zos_vfs_open_save_de_and_exit
-        ; Open a directory with an absolute path of the current disk 
-        ; For example: /mydir1/mydir2
-        ; DE is pointing at the char of index 1 already (after /)
-_zos_vfs_opendir_absolute_disk:
-        ; Disk letter must be put in C. We cannot use HL here.
-        ld a, (_vfs_current_dir)
-        ld c, a
-        jp _zos_vfs_opendir_absolute
-
+        ; Check if an error occured
+        or a
+        jp nz, _zos_vfs_opendir_ret_error
+        ; Else, we have to save the returned context in our array
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        ; Load and return the index of the current entry
+        ld a, (_dev_table_empty_entry)
+        ret
+_zos_vfs_opendir_deallocate_stack_error:
+        ; An error occured, deallocate the stack and return the error
+        FREE_STACK_256()        ; Alters HL only, register A unmodified
+        ; Pop HL (empty entry address) from the stack
+        pop hl
+_zos_vfs_opendir_ret_error:
+        ; Negate the error
+        neg
+        ret
 
         ; Read the next entry from the given opened directory
         ; Parameters:
@@ -1144,7 +1016,7 @@ _zos_get_full_path_absolute_disk:
         ; too. Store the current value of DE in BC as realpath doesn't alter BC.
         ld b, d
         ld c, e
-        pop de  ; Caller's destination buffer 
+        pop de  ; Caller's destination buffer + 2
         ; Calculate the realpath in DE out of the concatenation in HL.
         call zos_realpath
         ; Restore the NULL-byte that was in HL before concatenation
@@ -1152,7 +1024,10 @@ _zos_get_full_path_absolute_disk:
         ld l, c
         ld (hl), 0
         pop bc
-        ; Return value is in A, we cn return now
+        ; Restore caller's original pointer
+        dec de
+        dec de
+        ; Return value is in A, we can return now
         ret
 _zos_get_full_path_strncat_error:
         ld a, ERR_PATH_TOO_LONG
@@ -1254,7 +1129,7 @@ _zos_vfs_find_entry_loop:
 _zos_vfs_find_entry_found:
         ; Save the index in the work buffer
         ld a, c
-        ld (_vfs_work_buffer), a
+        ld (_dev_table_empty_entry), a
         ; Return ERR_SUCCESS
         xor a
         ; Make HL point to the empty entry
@@ -1481,6 +1356,7 @@ _zos_realpath_print_dot:
         ; structure returned by a disk (when opening a file)
 _dev_default_stdout: DEFS 2
 _dev_default_stdin: DEFS 2
+_dev_table_empty_entry: DEFS 1 ; Only used to temporarily store the index of an empty entry
 _dev_table: DEFS CONFIG_KERNEL_MAX_OPENED_DEVICES * 2
 _vfs_current_dir_backup: DEFS CONFIG_KERNEL_PATH_MAX + 1
         ; As the following will also be used as a temporary buffer to calculate the realpath

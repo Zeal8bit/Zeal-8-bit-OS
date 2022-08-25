@@ -61,7 +61,9 @@ zos_fs_rawtable_open:
         cp O_RDONLY
         ld a, ERR_READ_ONLY
         jp nz, _zos_fs_rawtable_open_readonly
-        ; Check if it is a valid name for rawtable FS, in other words, check if it contains /
+        ; Check if it is a valid name for rawtable FS, in other words, check if
+        ; it contains a '/', excluding the first one (all the paths are absolute)
+        inc hl
         ld a, '/'
         push hl
         call strchrnul

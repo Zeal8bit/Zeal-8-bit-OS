@@ -69,6 +69,7 @@ zos_log_stdout_ready:
         pop hl
         ret
 
+        ; Log an error message starting with (E) and in red color if supported.
         PUBLIC zos_log_error
 zos_log_error:
         IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
@@ -76,10 +77,10 @@ zos_log_error:
         ld a, '1'
         ld (_log_esc + 3), a
         ENDIF
-
         ld a, 'E'
         jr zos_log_message
 
+        ; Same as above with prefix (W) and color yellow.
         PUBLIC zos_log_warning
 zos_log_warning:
         IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
@@ -104,7 +105,8 @@ zos_log_info:
 
         ; Log a message in the log buffer or STDOUT
         ; Parameters:
-        ;       A - Letter to put in between the () prefix
+        ;       A - Letter to put in between the () prefix.
+        ;           No prefix if A is 0.
         ;       HL - Message to print
         ; Returns:
         ;       None
