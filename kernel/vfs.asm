@@ -337,7 +337,7 @@ zos_vfs_read_internal:
         ; Note: All drivers' `read` function take a 32-bit offset as a parameter on the
         ;       stack. For non-block drivers (non-filesystem), this parameter
         ;       doesn't make sense. It will always be 0 and must be popped by the driver
-        ; First thing to do it retreive the drivers' read function, to do this,
+        ; First thing to do it retrieve the drivers' read function, to do this,
         ; we need both DE and HL
         push de
         ex de, hl 
@@ -676,8 +676,63 @@ _zos_vfs_seek_isfile:
         ret
 
 
+        ; Create a directory at the specified location.
+        ; If one of the directories in the given path doesn't exist, this will fail.
+        ; For example, if mkdir("A:/D/E/F") is requested where D exists but E doesn't, this syscall
+        ; will fail adn return an error.
+        ; Parameters:
+        ;       DE - Path of the directory to create. Must NOT cross boundaries.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A, HL
         PUBLIC zos_vfs_mkdir
 zos_vfs_mkdir:
+        push de
+        push bc
+        ; Remap the user's buffer if necessary.
+        call zos_sys_remap_de_page_2
+        call zos_vfs_mkdir_internal
+        pop bc
+        pop de
+        ret
+zos_vfs_mkdir_internal:
+        ; Check if the pointer is NULL
+        ld a, d
+        or e
+        jp z, _zos_vfs_invalid_parameter
+        ; Check if the string length is NULL
+        ld a, (de)
+        or a
+        jp z, _zos_vfs_invalid_parameter
+        ; Get the real path out of the given path. Path must be in BC,
+        ; Result will be in DE.
+        ld b, d
+        ld c, e
+        ; Allocate 256 bytes on the stack, make HL point to it
+        ALLOC_STACK_256()
+        ex de, hl
+        call zos_get_full_path
+        ; DE contains the full real path now, A the error code
+        or a
+        jp nz, zos_vfs_mkdir_deallocate_return
+        ; Put the full-path back in HL, as required by the disk layer
+        ex de, hl
+        ; Get the driver letter from the path
+        ld c, (hl)
+        ; Make HL point to the / after X:
+        inc hl
+        inc hl
+        ; Success, we can proceed to call the disk layer, we can't tail-call because
+        ; we still need to deallocate the memory from the stack.
+        ; The filesystem should check if the directory already exists.
+        call zos_disk_mkdir
+        ; Fall-through
+zos_vfs_mkdir_deallocate_return:
+        ; Alters HL only, register A unmodified
+        FREE_STACK_256()
+        ret
+
 
         PUBLIC zos_vfs_chdir
 zos_vfs_chdir:

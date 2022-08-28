@@ -7,16 +7,8 @@
         INCLUDE "disks_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "vfs_h.asm"
-
-        ; Requred external routines
-        EXTERN to_upper
-        EXTERN zos_fs_rawtable_open
-        EXTERN zos_fs_rawtable_stat
-        EXTERN zos_fs_rawtable_read
-        EXTERN zos_fs_rawtable_write
-        EXTERN zos_fs_rawtable_close
-        EXTERN zos_fs_rawtable_opendir
-        EXTERN zos_fs_rawtable_readdir
+        INCLUDE "strutils_h.asm"
+        INCLUDE "fs/rawtable_h.asm"
 
         SECTION KERNEL_TEXT
 
@@ -957,6 +949,39 @@ zos_disk_opendir:
         ret
 
 
+        ; Create a directory on a disk
+        ; Parameters:
+        ;       C - Disk letter (lower/upper are both accepted)
+        ;       HL - Absolute path of the new directory (without X:/)
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC zos_disk_mkdir
+zos_disk_mkdir:
+        push hl
+        ; Get the driver of the given disk letter
+        ld a, c
+        call zos_disks_get_driver_and_fs
+        ; Pop won't modify the flags
+        pop hl
+        ; DE contains the potential driver, A must be a success here
+        or a
+        ret nz
+        ; Put the filesystem number in A
+        ld a, c
+        ; We have a very few filesystems, no need for a lookup table AT THE MOMENT
+        cp FS_RAWTABLE
+        jp z, zos_fs_rawtable_mkdir
+        cp FS_ZEALFS
+        jp z, zos_fs_zealfs_mkdir
+        cp FS_FAT16
+        jp z, zos_fs_fat16_mkdir
+        ; The filesystem has not been found, memory corruption?
+        ld a, ERR_INVALID_FILESYSTEM
+        ret
+
+
         ; Routine checking if the opened dev address passed is an opened directory.
         ; To do so, the first byte will be dereferenced and compared to the "magic" value.
         ; Parameters:
@@ -1092,6 +1117,8 @@ zos_fs_zealfs_opendir:
 zos_fs_fat16_opendir:
 zos_fs_zealfs_readdir:
 zos_fs_fat16_readdir:
+zos_fs_zealfs_mkdir:
+zos_fs_fat16_mkdir:
         ld a, ERR_NOT_IMPLEMENTED
         ret
 

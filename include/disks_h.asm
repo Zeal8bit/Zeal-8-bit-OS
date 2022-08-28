@@ -11,7 +11,7 @@
         ; Maximum number of disks at a time
         DEFC DISKS_MAX_COUNT = 26
 
-        ; Public routines
+        ; Public routines, the signatures can be found in the implementation file
         EXTERN zos_disks_init
         EXTERN zos_disks_get_default
         EXTERN zos_disk_open_file
@@ -27,6 +27,7 @@
         EXTERN zos_disk_allocate_opndir
         EXTERN zos_disk_allocate_opnfile
         EXTERN zos_disk_readdir
+        EXTERN zos_disk_mkdir
 
         ; Structure of an opened file (and directory)
         ; The first field, the magic will also be used to determine

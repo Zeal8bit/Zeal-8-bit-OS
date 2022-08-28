@@ -8,11 +8,11 @@
         INCLUDE "utils_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "log_h.asm"
+        INCLUDE "strutils_h.asm"
 
         ; Forward declaraction of symbols used below
         EXTERN zos_drivers_init
         EXTERN _vfs_work_buffer
-        EXTERN byte_to_ascii
         EXTERN __KERNEL_DRV_VECTORS_head
         EXTERN __KERNEL_DRV_VECTORS_size
 

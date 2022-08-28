@@ -7,8 +7,8 @@
         INCLUDE "log_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "drivers_h.asm"
+        INCLUDE "strutils_h.asm"
 
-        EXTERN strlen
         EXTERN zos_vfs_write
         EXTERN zos_boilerplate
 

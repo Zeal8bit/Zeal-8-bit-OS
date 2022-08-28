@@ -13,6 +13,7 @@
         INCLUDE "drivers_h.asm"
         INCLUDE "disks_h.asm"
         INCLUDE "utils_h.asm"
+        INCLUDE "strutils_h.asm"
 
         ; The rawtable structure is as follow:
         DEFVARS 0 {
@@ -35,7 +36,6 @@
         DEFC JP_INSTR_OPCODE = 0xC3
 
         EXTERN _vfs_work_buffer
-        EXTERN strchrnul
 
         DEFC RAM_DRIVER_ADDR = _vfs_work_buffer 
         DEFC RAM_EXE_CODE = RAM_DRIVER_ADDR + 2 ; Reserve 2 bytes for the address
@@ -242,7 +242,7 @@ _zos_fs_rawtable_open_entry_found:
         ; Put the opened flags inside the highest nibble
         ; Rawtables only accept read-only files
         ld a, O_RDONLY << 4 | FS_RAWTABLE
-        ; RAM_BUFFER + 2 contains the entry data, retreive them
+        ; RAM_BUFFER + 2 contains the entry data, retrieve them
         ld bc, (RAM_DRIVER_ADDR)
         ld hl, (RAM_BUFFER + 2 + RAWTABLE_SIZE_OFFSET)
         ld de, (RAM_BUFFER + 2 + RAWTABLE_SIZE_OFFSET + 2)
@@ -670,6 +670,21 @@ _zos_fs_rawtable_no_more_entries:
         ld a, ERR_NO_MORE_ENTRIES
         ret
 
+
+        ; Create a directory on a disk
+        ; Parameters:
+        ;       HL - Absolute path of the new directory to create, without the
+        ;            disk letter (without X:/), guaranteed not NULL by caller.
+        ;       DE - Driver address, guaranteed not NULL by the caller.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A
+        PUBLIC zos_fs_rawtable_mkdir
+zos_fs_rawtable_mkdir:
+        ; Rawtables are read-only, do not support creating directories
+        ld a, ERR_READ_ONLY
+        ret
 
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
