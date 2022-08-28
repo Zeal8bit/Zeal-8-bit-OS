@@ -14,5 +14,6 @@
         EXTERN zos_fs_rawtable_opendir
         EXTERN zos_fs_rawtable_readdir
         EXTERN zos_fs_rawtable_mkdir
+        EXTERN zos_fs_rawtable_rm
 
         ENDIF ; RAWTABLE_H

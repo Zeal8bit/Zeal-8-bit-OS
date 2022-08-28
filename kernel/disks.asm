@@ -949,7 +949,8 @@ zos_disk_opendir:
         ret
 
 
-        ; Create a directory on a disk
+        ; Create a directory on a disk.
+        ; The filesystem must check if the path already exists (file or dir)
         ; Parameters:
         ;       C - Disk letter (lower/upper are both accepted)
         ;       HL - Absolute path of the new directory (without X:/)
@@ -1096,12 +1097,44 @@ zos_disk_readdir:
         ret
 
 
+        ; Remove a file or a(n empty) directory from a disk
+        ; Parameters:
+        ;       C - Disk letter (lower/upper are both accepted)
+        ;       HL - Absolute path of the file/directory to remove (without X:/)
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC zos_disk_rm
+zos_disk_rm:
+        push hl
+        ; Get the driver of the given disk letter
+        ld a, c
+        call zos_disks_get_driver_and_fs
+        ; Pop won't modify the flags
+        pop hl
+        ; DE contains the potential driver, A must be a success here
+        or a
+        ret nz
+        ; Put the filesystem number in A
+        ld a, c
+        cp FS_RAWTABLE
+        jp z, zos_fs_rawtable_rm
+        cp FS_ZEALFS
+        jp z, zos_fs_zealfs_rm
+        cp FS_FAT16
+        jp z, zos_fs_fat16_rm
+        ; The filesystem has not been found, memory corruption?
+        ld a, ERR_INVALID_FILESYSTEM
+        ret
+
+
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
         ;======================================================================;
 
 
-        ; TODO: Remove the stubs
+        ; TODO: Remove the stubs once other FS implemented
         ; STUBS FOR COMPILING
 zos_fs_zealfs_open:
 zos_fs_fat16_open:
@@ -1119,6 +1152,8 @@ zos_fs_zealfs_readdir:
 zos_fs_fat16_readdir:
 zos_fs_zealfs_mkdir:
 zos_fs_fat16_mkdir:
+zos_fs_zealfs_rm:
+zos_fs_fat16_rm:
         ld a, ERR_NOT_IMPLEMENTED
         ret
 

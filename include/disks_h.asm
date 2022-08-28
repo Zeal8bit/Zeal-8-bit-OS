@@ -28,6 +28,7 @@
         EXTERN zos_disk_allocate_opnfile
         EXTERN zos_disk_readdir
         EXTERN zos_disk_mkdir
+        EXTERN zos_disk_rm
 
         ; Structure of an opened file (and directory)
         ; The first field, the magic will also be used to determine

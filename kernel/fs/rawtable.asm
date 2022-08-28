@@ -686,6 +686,22 @@ zos_fs_rawtable_mkdir:
         ld a, ERR_READ_ONLY
         ret
 
+
+        ; Remove a file or a(n empty) directory on the disk
+        ; Parameters:
+        ;       HL - Absolute path of the file/dir to remove, without the
+        ;            disk letter (without X:/), guaranteed not NULL by caller.
+        ;       DE - Driver address, guaranteed not NULL by the caller.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A
+        PUBLIC zos_fs_rawtable_rm
+zos_fs_rawtable_rm:
+        ; Rawtables are read-only, do not support removing
+        ld a, ERR_READ_ONLY
+        ret
+
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
         ;======================================================================;
