@@ -152,7 +152,7 @@ _rawtable_code_ret:
         ret nz  ; Stack is clean, we can return directly
         ; Data have been copied to RAM_BUFFER, retrieve the entries count
         ld hl, (RAM_BUFFER)
-        ; If there is no file in the disk, return
+        ; If there is no file on the disk, return
         ld a, h
         or l
         jp z, _zos_fs_rawtable_open_invalid_name
@@ -167,10 +167,10 @@ _rawtable_code_ret:
         call _zos_fs_rawtable_fast_strncmp
         ; Pop entries count in case we need to return now
         pop de
-        ; Zero flag is set if the strings are equal
-        jp z, _zos_fs_rawtable_open_entry_found
         ; Set the offset to 2 (skip the entries count)
         ld hl, 0x2
+        ; Zero flag is set if the strings are equal
+        jp z, _zos_fs_rawtable_open_entry_found
 _zos_fs_rawtable_open_loop:
         ; DE contains the number of entries, decrement and check if 0
         dec de
@@ -192,8 +192,11 @@ _zos_fs_rawtable_open_loop:
         ; use `call` later on, we will have to use jp.
         ld de, _rawtable_code_ret2
         push de
-        ; Load other parameters
-        ld de, RAM_BUFFER
+        ; Load other parameters. We use RAM_BUFFER + 2 because this is how the
+        ; first entry was also treated. We don't want to have special cases
+        ; if entry is found (name would be either at RAM_BUFFER or RAM_BUFFER+2
+        ; depending on whether the entry is the first or not)
+        ld de, RAM_BUFFER + 2
         ld bc, RAWTABLE_ENTRY_SIZE
         ; Offset in HL
         push hl
@@ -208,7 +211,7 @@ _rawtable_code_ret2:
         jp nz, _zos_fs_rawtable_open_err_2pop
         ; Entries count and offset not popped yet
         ; Compare filename with current file
-        ld hl, RAM_BUFFER
+        ld hl, RAM_BUFFER + 2
         ; HL - String 1
         ; BC - String 2
         ;  E - Size
@@ -239,10 +242,10 @@ _zos_fs_rawtable_open_entry_found:
         ; Put the opened flags inside the highest nibble
         ; Rawtables only accept read-only files
         ld a, O_RDONLY << 4 | FS_RAWTABLE
-        ; RAM_BUFFER contains the entry data, retreive them
+        ; RAM_BUFFER + 2 contains the entry data, retreive them
         ld bc, (RAM_DRIVER_ADDR)
-        ld hl, (RAM_BUFFER + RAWTABLE_SIZE_OFFSET)
-        ld de, (RAM_BUFFER + RAWTABLE_SIZE_OFFSET + 2)
+        ld hl, (RAM_BUFFER + 2 + RAWTABLE_SIZE_OFFSET)
+        ld de, (RAM_BUFFER + 2 + RAWTABLE_SIZE_OFFSET + 2)
         call zos_disk_allocate_opnfile
         or a
         ; Clean the stack in case we have to return
@@ -287,7 +290,7 @@ zos_fs_rawtable_stat:
         call zos_fs_rawtable_get_and_store_driver_read
         ; Driver's read function is set up, we can read the file header out of the
         ; ROMDISK. We saved the offset of that header in the opened file private/user field
-        ; So we need to read that field to ge tthe offset.
+        ; So we need to read that field to get the offset.
         pop hl
         ld e, (hl)
         inc hl
@@ -315,11 +318,11 @@ _zos_fs_rawtable_stat_return:
         ; the stat structure (DE) which already points to date field (8 bytes)
         ; The structure of ROMDISK date and struct date is the same, we can
         ; thus use a raw copy!
-        ld hl, RAM_BUFFER + rawtable_date_t
+        ld hl, RAM_BUFFER + rawtable_date_t - 2 ; - 2 because of entry count at the beginning...
         ld bc, file_name_t - file_date_t
         ldir
         ; DE points to the name field, make HL points to it too
-        ld hl, RAM_BUFFER + rawtable_name_t
+        ld hl, RAM_BUFFER + rawtable_name_t - 2 ; Same reason as above
         ld bc, file_end_t - file_name_t
         ldir
         ; Success, we can exit safely

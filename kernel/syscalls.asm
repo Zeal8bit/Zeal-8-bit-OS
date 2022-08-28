@@ -188,6 +188,21 @@ _zos_sys_remap_buffer:
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ret
 
+        ; Routine to remap user's page index 1 and 2.
+        ; Parameters:
+        ;       None
+        ; Returns:
+        ;       None
+        ; Alters:
+        ;       A
+        PUBLIC zos_sys_remap_user_pages
+zos_sys_remap_user_pages:
+        ld a, (_zos_user_page_1)
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
+        ld a, (_zos_user_page_2)
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
+        ret
+
         ; Routine to map a buffer pointed by DE into any page except the page
         ; of index 1. This is handy for the drivers that need to map memory
         ; but don't know which page can be used.

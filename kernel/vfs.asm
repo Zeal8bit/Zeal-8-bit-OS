@@ -12,6 +12,7 @@
 
         EXTERN zos_sys_remap_bc_page_2
         EXTERN zos_sys_remap_de_page_2
+        EXTERN zos_sys_remap_user_pages
         EXTERN zos_driver_find_by_name
         EXTERN zos_log_stdout_ready
         EXTERN strncat
@@ -535,6 +536,40 @@ _zos_vfs_pop_ret:
         ret
 
 
+        ; Returns the stats of a file.
+        ; Same as the function above, but with a file path instead of an opened dev.
+        ; Parameters:
+        ;       BC - Path to the file
+        ;       DE - File info stucture, the memory pointed must be big
+        ;            enough to store the file information (>= STAT_STRUCT_SIZE)
+        ; Returns:
+        ;       A - 0 on success, error else
+        ; Alters:
+        ;       TBD
+        PUBLIC zos_vfs_stat
+zos_vfs_stat:
+        ; Open the file in BC, alters HL only. Set flags to O_RDONLY.
+        ; Even if in practice we don't need any flag.
+        ld h, O_RDONLY
+        call zos_vfs_open
+        ; Return value in A, ret if error
+        or a
+        ret m
+        ; File dev in H, save it on the stack
+        ld h, a
+        push hl
+        ; Open may have moved MMU pages around (if BC was in the last virt page)
+        ; So we must restore the second and third page first
+        call zos_sys_remap_user_pages
+        call zos_vfs_dstat
+        pop hl
+        ; No matter what the return value is, we have to save it to return it
+        push af
+        ; Close the opened dev in H
+        call zos_vfs_close
+        pop af
+        ret
+
         ; Performs an IO request to an opened driver.
         ; The behavior of this syscall is driver-dependent.
         ; Parameters:
@@ -889,31 +924,6 @@ zos_vfs_dup:
         pop hl
         ; Both "new" and "old" devs can be used now
         ; Return success, A is already 0.
-        ret
-
-
-        ; Returns the stats of a file.
-        ; Same as the function above, but with a file path instead of an opened dev.
-        ; Parameters:
-        ;       BC - Path to the file
-        ;       DE - File info stucture, the memory pointed must be big
-        ;            enough to store the file information (>= STAT_STRUCT_SIZE)
-        ; Returns:
-        ;       A - 0 on success, error else
-        ; Alters:
-        ;       TBD
-        PUBLIC zos_vfs_stat
-zos_vfs_stat:
-        push de
-        push bc
-        call zos_sys_remap_de_page_2
-        call _zos_vfs_stat_internal
-        pop bc
-        pop de
-        ret
-_zos_vfs_stat_internal:
-
-        ld a, ERR_NOT_IMPLEMENTED
         ret
 
         ;======================================================================;
