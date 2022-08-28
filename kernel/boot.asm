@@ -54,7 +54,7 @@ zos_entry:
         ld (hl), 0
         ldir
 
-        ; Kernel is aware of Drivers BSS section
+        ; Kernel is aware of Drivers BSS section, it must not be smaller than 2 bytes
         ld hl, __DRIVER_BSS_head
         ld de, __DRIVER_BSS_head + 1
         ld bc, __DRIVER_BSS_size - 1

@@ -743,6 +743,7 @@ zos_disk_addr_add_bcde:
         ret
 
         ; Close an opened file or directory.
+        ; The caller must check that the given entry is a valid opened entry.
         ; Parameters:
         ;       HL - Address of the opened file/directory. Guaranteed by the caller to be a
         ;            non-free opened file or directory.
@@ -754,7 +755,7 @@ zos_disk_addr_add_bcde:
 zos_disk_close:
         ; Check if it's a directory
         ld a, (hl)
-        cp DISKS_OPN_DIR_MAGIC_USED
+        sub DISKS_OPN_DIR_MAGIC_USED
         jp z, _zos_disk_close_dir
         ; Load the filesystem from the opened file address
         push hl
@@ -797,7 +798,8 @@ _zos_disk_close_epilogue:
         pop hl
         or a
         ret nz
-        ; Clean the entry
+        ; Clean the entry. A is already 0 if we reached here, so we can
+        ; return directly.
 _zos_disk_close_dir:
         ld (hl), DISKS_OPN_FILE_MAGIC_FREE
         ret

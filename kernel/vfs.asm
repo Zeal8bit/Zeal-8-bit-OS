@@ -9,6 +9,7 @@
         INCLUDE "disks_h.asm"
         INCLUDE "drivers_h.asm"
         INCLUDE "utils_h.asm"
+        INCLUDE "strutils_h.asm"
 
         EXTERN zos_sys_remap_bc_page_2
         EXTERN zos_sys_remap_de_page_2
@@ -692,8 +693,78 @@ zos_vfs_mkdir:
         jp zos_call_disk_with_realpath
 
 
+        ; Change the current working directory path.
+        ; Parameters:
+        ;       DE - Path to the new working directory
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A, HL
         PUBLIC zos_vfs_chdir
 zos_vfs_chdir:
+        push de
+        push bc
+        ; Remap the user's buffer if necessary.
+        call zos_sys_remap_de_page_2
+        call _zos_vfs_chdir_internal
+        pop bc
+        pop de
+        ret
+_zos_vfs_chdir_internal:
+        ; Check if the pointer is NULL
+        ld a, d
+        or e
+        jp z, _zos_vfs_invalid_parameter
+        ; Check if the string length is NULL
+        ld a, (de)
+        or a
+        jp z, _zos_vfs_invalid_parameter
+        ; Get the real path out of the given path. Path must be in BC,
+        ; Result will be in DE.
+        ld b, d
+        ld c, e
+        ; Allocate 256 bytes on the stack, make HL point to it
+        ALLOC_STACK_256()
+        ex de, hl
+        call zos_get_full_path
+        ; DE contains the full real path now, A the error code
+        or a
+        jp nz, zos_vfs_chdir_deallocate_return
+        ; We have to check whether the directory exists or not, so let's open it
+        ;       C - Disk letter
+        ;       HL - Absolute path to the file (without X:/)
+        ex de, hl
+        ; Disk letter in C
+        ld c, (hl)
+        ; Save HL (not saved by opendir) and make it point to the / after X:
+        push hl
+        inc hl
+        inc hl
+        call zos_disk_opendir
+        or a
+        jp nz, zos_vfs_chdir_pop_deallocate_return
+        ; Success, which means that the direcotry exists, we can close it directly
+        call zos_disk_close
+        ; Check for error again (unlikely)
+        or a
+        jp nz, zos_vfs_chdir_pop_deallocate_return
+        ; Pop the original path and copy it to the current dir path
+        pop hl
+        ld de, _vfs_current_dir
+        ; If we reached this point, the lengths have been checked, no need to check them
+        ; again. Before copying, make the drive letter (first letter) upper case.
+        ld a, (hl)
+        call to_upper
+        ld (hl), a
+        call strcpy
+        ; HL was unmodified, it still points to the allocated buffer on the stack
+        jr zos_vfs_chdir_deallocate_return
+        ; Fall-through
+zos_vfs_chdir_pop_deallocate_return:
+        pop hl
+zos_vfs_chdir_deallocate_return:
+        ; Alters HL only, register A unmodified
+        FREE_STACK_256()
         ret
 
         ; Get the current working directory
@@ -1453,11 +1524,12 @@ _zos_realpath_print_dot:
 _dev_default_stdout: DEFS 2
 _dev_default_stdin: DEFS 2
 _dev_table_empty_entry: DEFS 1 ; Only used to temporarily store the index of an empty entry
+        ; Each entry takes 2 bytes as these are memory addresses
 _dev_table: DEFS CONFIG_KERNEL_MAX_OPENED_DEVICES * 2
 _vfs_current_dir_backup: DEFS CONFIG_KERNEL_PATH_MAX + 1
         ; As the following will also be used as a temporary buffer to calculate the realpath
-        ; of file/directories, it must be able to handle 2 paths concatenated.
-        ; +1 for the potential NULL character added by the string library.
+        ; of file/directories (in zos_get_full_path), it must be able to handle 2 paths
+        ; concatenated +1 for the potential NULL character added by the string library.
 _vfs_current_dir: DEFS CONFIG_KERNEL_PATH_MAX * 2 + 1   
         ; Work buffer usable by any (virtual) file system. It shall only be used by one
         ; FS implementation at a time, thus, it shall be used as a temporary buffer in
