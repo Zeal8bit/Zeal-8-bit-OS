@@ -3,6 +3,7 @@ SHELL := /bin/bash
 CC=z88dk-z80asm
 DISASSEMBLER=z88dk-dis
 PYTHON=python3
+export PATH := $(realpath packer)/:$(PATH)
 # Menuconfig-related env variables
 export KCONFIG_CONFIG = os.conf
 export MENUCONFIG_STYLE = aquatic
