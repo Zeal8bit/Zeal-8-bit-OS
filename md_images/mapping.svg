@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="210mm"
+   height="40mm"
+   viewBox="0 0 210 40"
+   version="1.1"
+   id="svg3824"
+   inkscape:version="0.92.5 (2060ec1f9f, 2020-04-08)"
+   sodipodi:docname="drawing.svg">
+  <defs
+     id="defs3818">
+    <pattern
+       inkscape:collect="always"
+       xlink:href="#Checkerboard-335"
+       id="pattern3744"
+       patternTransform="matrix(2.6458333,0,0,2.6458333,8.6227788,185.9725)" />
+    <pattern
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       patternUnits="userSpaceOnUse"
+       width="2"
+       height="2"
+       patternTransform="translate(0,0) scale(10,10)"
+       id="Checkerboard-335"
+       inkscape:stockid="Checkerboard">
+      <rect
+         style="fill:#e1d5e7;stroke:none;opacity:1"
+         x="0"
+         y="0"
+         width="1"
+         height="1"
+         id="rect3686" />
+      <rect
+         style="fill:#e1d5e7;stroke:none;opacity:1"
+         x="1"
+         y="1"
+         width="1"
+         height="1"
+         id="rect3688" />
+    </pattern>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.98994949"
+     inkscape:cx="385.95249"
+     inkscape:cy="305.32515"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1848"
+     inkscape:window-height="1017"
+     inkscape:window-x="72"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1"
+     inkscape:snap-bbox="true"
+     inkscape:bbox-paths="true"
+     inkscape:bbox-nodes="true"
+     inkscape:snap-bbox-edge-midpoints="true"
+     inkscape:snap-bbox-midpoints="true"
+     inkscape:snap-intersection-paths="true"
+     inkscape:snap-smooth-nodes="true"
+     inkscape:snap-midpoints="true"
+     height="296mm" />
+  <metadata
+     id="metadata3821">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-257)">
+    <rect
+       style="opacity:1;fill:#ffe6cc;fill-opacity:1;fill-rule:nonzero;stroke:#d79b00;stroke-width:0.27939999;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:normal"
+       id="rect3579"
+       width="42.310379"
+       height="26.101923"
+       x="19.646961"
+       y="266.8031" />
+    <rect
+       style="opacity:1;fill:#e1d5e7;fill-opacity:1;fill-rule:nonzero;stroke:#9673a6;stroke-width:0.27939999;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:normal"
+       id="rect3579-3"
+       width="42.310379"
+       height="26.101923"
+       x="61.957325"
+       y="266.8031" />
+    <rect
+       style="opacity:1;fill:#e1d5e7;fill-opacity:1;fill-rule:nonzero;stroke:#9673a6;stroke-width:0.27939999;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:normal"
+       id="rect3579-6"
+       width="42.310379"
+       height="26.101923"
+       x="104.2677"
+       y="266.8031" />
+    <rect
+       style="opacity:1;fill:#ffe6cc;fill-opacity:1;fill-rule:nonzero;stroke:#d79b00;stroke-width:0.27939999;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:normal"
+       id="rect3579-7"
+       width="42.310379"
+       height="26.101923"
+       x="146.57808"
+       y="266.8031" />
+    <rect
+       y="266.8031"
+       x="146.57808"
+       height="26.101923"
+       width="42.310379"
+       id="rect3579-7-5"
+       style="opacity:1;fill:url(#pattern3744);fill-opacity:1;fill-rule:nonzero;stroke:#af94bc;stroke-width:0.27939999;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;paint-order:normal" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.23333311px;line-height:1;font-family:Calibri;-inkscape-font-specification:Calibri;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="40.801117"
+       y="279.05411"
+       id="text823"><tspan
+         sodipodi:role="line"
+         id="tspan821"
+         x="40.801117"
+         y="279.05411"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332">Page 0</tspan><tspan
+         sodipodi:role="line"
+         x="40.801117"
+         y="283.28745"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332"
+         id="tspan825">OS code</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.23333311px;line-height:1;font-family:Calibri;-inkscape-font-specification:Calibri;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="83.036034"
+       y="278.68619"
+       id="text823-3"><tspan
+         sodipodi:role="line"
+         id="tspan821-6"
+         x="83.036034"
+         y="278.68619"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332">Page 1</tspan><tspan
+         sodipodi:role="line"
+         x="83.036034"
+         y="282.91953"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332"
+         id="tspan825-7">Program RAM</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.91583323px;line-height:1;font-family:Calibri;-inkscape-font-specification:Calibri;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="125.33089"
+       y="276.55917"
+       id="text823-5"><tspan
+         sodipodi:role="line"
+         id="tspan821-3"
+         x="125.33089"
+         y="276.55917"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332">Page 2</tspan><tspan
+         sodipodi:role="line"
+         x="125.33089"
+         y="280.47501"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332"
+         id="tspan825-5">Program RAM</tspan><tspan
+         sodipodi:role="line"
+         x="125.33089"
+         y="284.39084"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332"
+         id="tspan868">Remapped prog. param.*</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.23333311px;line-height:1;font-family:Calibri;-inkscape-font-specification:Calibri;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="167.73326"
+       y="276.60052"
+       id="text823-6"><tspan
+         sodipodi:role="line"
+         x="167.73326"
+         y="276.60052"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332"
+         id="tspan825-9">Page 3</tspan><tspan
+         sodipodi:role="line"
+         x="167.73326"
+         y="280.83386"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332"
+         id="tspan1588">OS RAM</tspan><tspan
+         sodipodi:role="line"
+         x="167.73326"
+         y="285.0672"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;text-align:center;text-anchor:middle;stroke-width:0.26458332"
+         id="tspan1590">Program RAM</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:5.64444447px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="11.978713"
+       y="265.03043"
+       id="text1594"><tspan
+         sodipodi:role="line"
+         id="tspan1592"
+         x="11.978713"
+         y="265.03043"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri;stroke-width:0.26458332">0x0000</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:5.64444447px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="51.450317"
+       y="264.99597"
+       id="text1598"><tspan
+         sodipodi:role="line"
+         id="tspan1596"
+         x="51.450317"
+         y="264.99597"
+         style="stroke-width:0.26458332">0x4000</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:5.64444447px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="94.0401"
+       y="264.99597"
+       id="text1602"><tspan
+         sodipodi:role="line"
+         id="tspan1600"
+         x="94.0401"
+         y="264.99597"
+         style="stroke-width:0.26458332">0x8000</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:5.64444447px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="136.1317"
+       y="264.99597"
+       id="text1606"><tspan
+         sodipodi:role="line"
+         id="tspan1604"
+         x="136.1317"
+         y="264.99597"
+         style="stroke-width:0.26458332">0xC000</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:5.64444447px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="179.49284"
+       y="264.99597"
+       id="text1610"><tspan
+         sodipodi:role="line"
+         id="tspan1608"
+         x="179.49284"
+         y="264.99597"
+         style="stroke-width:0.26458332">0xFFFF</tspan></text>
+  </g>
+</svg>
