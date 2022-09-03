@@ -50,8 +50,8 @@
     DEFC IO_I2C_SDA_IN_PIN  = 2
     DEFC IO_UART_RX_PIN     = 3
     DEFC IO_UART_TX_PIN     = 4
-    DEFC IO_HBLANK_PIN      = 6 ; Hardware BUG on the FPGA board
-    DEFC IO_VBLANK_PIN      = 5 ; Hardware BUG on the FPGA board
+    DEFC IO_HBLANK_PIN      = 5
+    DEFC IO_VBLANK_PIN      = 6
     DEFC IO_KEYBOARD_PIN    = 7
 
     ; PIO system port pins direction

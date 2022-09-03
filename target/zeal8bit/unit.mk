@@ -12,7 +12,7 @@ PRECMD := (cd $(PWD)/romdisk ; ./create.sh)
 	# After selecting the rigth binary, we have to truncate it to a size that will let us
 	# easily concatenate the ROMDISK after it.
 	# Of course, the final step is to concatenate the ROMDISK to the final binary after that.
-POSTCMD := echo "RAM used by kernel: $$(du -bs $(BINDIR)/*KERNEL_BSS*.bin | cut -f1) bytes" && \
+POSTCMD := @echo "RAM used by kernel: $$(du -bs $(BINDIR)/*KERNEL_BSS*.bin | cut -f1) bytes" && \
 	   rm $(BINDIR)/*KERNEL_BSS*.bin && mv $(BINDIR)/*RST_VECTORS*.bin $(FULLBIN) && \
 	   echo "OS size: $$(du -bs $(FULLBIN) | cut -f1) bytes" && \
 	   truncate -s $$(($(CONFIG_ROMDISK_ADDRESS))) $(FULLBIN) && \

@@ -7,11 +7,11 @@
         INCLUDE "video_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "mmu_h.asm"
+        INCLUDE "strutils_h.asm"
 
         EXTERN zos_sys_reserve_page_1
         EXTERN zos_sys_restore_pages
         EXTERN zos_vfs_set_stdout
-        EXTERN is_digit
 
         DEFC ESC_CODE = 0x1b
 
@@ -24,11 +24,7 @@ video_init:
         ; This value will be updated accordingly.
         ld hl, 0
         ld (scroll_at_pos), hl
-
-        ; Reset other values
-        ld hl, 0
-        ld (cursor_pos), hl
-        ld (cursor_line), hl
+        ; Other values will be reset to 0 as they are in the BSS
 
         ld a, TEXT_MODE_640
         out (IO_VIDEO_SET_MODE), a
@@ -102,7 +98,7 @@ video_ioctl:
         ;              [SP+2] - Lower 16-bit of offset
         ; Returns:
         ;       A  - ERR_SUCCESS if success, error code else
-        ;       BC - Number of bytes written.
+        ;       BC - Number of bytes written
         ; Alters:
         ;       This function can alter any register.
 video_write:
@@ -124,7 +120,9 @@ video_write:
         ; FIXME: check if we are in text mode or in graphics mode
         ; At the moment always map the same 16KB containing the char and colors
         MMU_MAP_PHYS_ADDR(MMU_PAGE_1, IO_VIDEO_PHYS_ADDR_TEXT)
+        push bc
         call print_buffer
+        pop bc
         ; Restore the virtual page 1
         pop hl
         call zos_sys_restore_pages
@@ -133,7 +131,10 @@ video_write:
         ret
 
         ; Read not supported yet.
+        ; Pop the 32-bit value on the stack to avoid crashes.
 video_read:
+        pop hl
+        pop hl
 
         ; Close an opened dev number.
         ; Parameter:
