@@ -12,6 +12,7 @@
                 ERR_NOT_IMPLEMENTED,
                 ERR_NOT_SUPPORTED,
                 ERR_NO_SUCH_ENTRY,
+                ERR_INVALID_SYSCALL,
                 ERR_INVALID_PARAMETER,
                 ERR_INVALID_VIRT_PAGE,
                 ERR_INVALID_PHYS_ADDRESS,

@@ -7,6 +7,7 @@
         INCLUDE "time_h.asm"
         INCLUDE "mmu_h.asm"
         INCLUDE "utils_h.asm"
+        INCLUDE "syscalls_h.asm"
 
         EXTERN zos_loader_exit
         EXTERN zos_loader_exec
@@ -89,6 +90,9 @@ zos_sys_perform_syscall:
         ld a, l
         cp SYSCALL_MAP_NUMBER
         jp z, SYSCALL_MAP_ROUTINE
+        ; Check if the syscall is even correct
+        cp SYSCALL_COUNT
+        jp nc, _zos_sys_invalid_syscall
         ; The syscall to execute is not MAP, continue the normal process.
         ; Map the kernel RAM to the kernel RAM to the second page (and not third), as such
         ; We will have access to both the user's stack and the kernel stack
@@ -158,7 +162,10 @@ zos_sys_perform_syscall:
         ld a, h
         pop hl
         ret
-
+_zos_sys_invalid_syscall:
+        ld a, ERR_INVALID_SYSCALL
+        pop hl
+        ret
 
         ; Routine to remap a buffer from page 3 to page 2.
         ; This is handy if the user buffer is in the last page, but the kernel
@@ -318,4 +325,4 @@ zos_syscalls_table:
         ; from here. We will call the function directly.
 syscall_map:
         DEFW SYSCALL_MAP_ROUTINE
-
+zos_syscalls_table_end:

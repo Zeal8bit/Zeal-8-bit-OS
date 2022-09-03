@@ -1,6 +1,6 @@
 # Set the binaries
 SHELL := /bin/bash
-CC=z80asm
+CC=z88dk-z80asm
 DISASSEMBLER=z88dk-dis
 PYTHON=python3
 # Menuconfig-related env variables
@@ -80,11 +80,10 @@ LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 .PHONY: check menuconfig $(SUBDIRS) version
 
 all: version precmd $(KCONFIG_CONFIG) $(LINKERFILE_OBJ) $(OBJS)
-	$(CC) -o$(BINDIR)/$(BIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
-	@#$(PYTHON) merge_bin.py $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN)
+	$(CC) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
+	@echo "OS binary: $(FULLBIN)"
 	@echo "Executing post commands..."
 	$(POSTCMD)
-
 
     # Generate a version file that will be used as a boilerplate
     # when the system starts

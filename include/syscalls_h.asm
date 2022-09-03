@@ -5,11 +5,6 @@
         IFNDEF SYSCALLS_H
         DEFINE SYSCALLS_H
 
-        ; Syscall instruction
-        DEFM SYSCALL _
-            rst zos_syscall
-        ENDM
-
         ; Syscall table
         ; Syscall name  =  Syscall number
         DEFC SYSCALL_READ       = 0
@@ -33,5 +28,6 @@
         DEFC SYSCALL_SETTIME    = 18
         DEFC SYSCALL_GETTIME    = 19
         DEFC SYSCALL_MAP        = 20
+        DEFC SYSCALL_COUNT      = 21
 
         ENDIF
