@@ -17,6 +17,7 @@
         ; Routine to parse the options given in the command line
         EXTERN get_options
         EXTERN strcpy
+        EXTERN error_print
 
         ; A static buffer that can be used across the commands implementation
         EXTERN init_static_buffer
@@ -201,22 +202,50 @@ _ls_concat_not_found:
         ret
 
 _ls_stat_error:
-        S_WRITE3(DEV_STDOUT, str_stat, str_stat_end - str_stat)
+        ld de, str_stat
+        ld bc, str_stat_end - str_stat
+        call error_print
         ld a, 1
         ret
+str_stat: DEFM "stat error: "
+str_stat_end:
+
 _ls_invalid_param:
-        S_WRITE3(DEV_STDOUT, str_invalid, str_invalid_end - str_invalid)
+        ld de, str_invalid
+        ld bc, str_invalid_end - str_invalid
+        call error_print
         ld a, 1
         ret
+str_invalid: DEFM "invalid parameter: "
+str_invalid_end:
+
 _ls_too_many_param:
-        S_WRITE3(DEV_STDOUT, str_params, str_params_end - str_params)
+        ld de, str_params
+        ld bc, str_params_end - str_params
+        call error_print
         ld a, 1
         ret
+str_params: DEFM "too many parameters: "
+str_params_end:
 
 open_error:
-readdir_error:
+        neg
+        ld de, str_open_err
+        ld bc, str_open_err_end - str_open_err
+        call error_print
+        ld a, 1
         ret
+str_open_err: DEFM "open error: "
+str_open_err_end:
 
+readdir_error:
+        ld de, str_rddir_err
+        ld bc, str_rddir_err_end - str_rddir_err
+        call error_print
+        ld a, 1
+        ret
+str_rddir_err: DEFM "readdir error: "
+str_rddir_err_end:
 
     ; TODO: Move the following to another file/lib
 
@@ -400,10 +429,3 @@ newline: DEFM "\n"      ; This isn't a proper string, it'll be used with WRITE
 dir_entry_struct: DEFS DISKS_DIR_ENTRY_SIZE + 1
 valid_params: DEFM "l1", 0
 given_params: DEFS 1
-        ; Error messages
-str_params: DEFM "ls: too many parameters\n"
-str_params_end:
-str_invalid: DEFM "ls: invalid parameter\n"
-str_invalid_end:
-str_stat: DEFM "ls: stat error\n"
-str_stat_end:
