@@ -461,9 +461,9 @@ zos_vfs_close:
         ld (_dev_table_empty_entry), a
         push de
         call zof_vfs_get_entry
-        pop de
+        ; Keep the dev entry address, do not alter DE
         or a
-        jp nz, _zos_vfs_pop_ret
+        jp nz, _zos_vfs_popdehl_ret
         ; Check if the opened dev is a file/dir or a driver
         DISKS_IS_OPN_FILEDIR(hl)
         jr z, _zos_vfs_close_isfile
@@ -477,18 +477,23 @@ zos_vfs_close:
         ; with the dev number as a parameter
         ld a, (_dev_table_empty_entry) 
         CALL_HL()
-        ; Restore DE and HL before returning
         pop bc
+_zos_vfs_close_clean_entry:
+        ; Clean the entry in _dev_table to 0, the top of the stack contains
+        ; the address + 1.
+        pop hl
+        ld (hl), 0
+        dec hl
+        ld (hl), 0
+        ; Restore DE and HL before returning
+_zos_vfs_popdehl_ret:
         pop de
         pop hl
         ret
 _zos_vfs_close_isfile:
         push de
         call zos_disk_close
-_zos_vfs_popdehl_ret:
-        pop de
-        pop hl
-        ret
+        jp _zos_vfs_close_clean_entry
 
         ; Return the stats of an opened file.
         ; The returned structure is defined in `vfs_h.asm` file.
@@ -553,9 +558,9 @@ zos_vfs_stat:
         ; Even if in practice we don't need any flag.
         ld h, O_RDONLY
         call zos_vfs_open
-        ; Return value in A, ret if error
+        ; Return value in A, negate A and return if error
         or a
-        ret m
+        jp m, _zos_vfs_neg_ret
         ; File dev in H, save it on the stack
         ld h, a
         push hl
@@ -884,6 +889,7 @@ _zos_vfs_opendir_deallocate_stack_error:
         ; Pop HL (empty entry address) from the stack
         pop hl
 _zos_vfs_opendir_ret_error:
+_zos_vfs_neg_ret:
         ; Negate the error
         neg
         ret
@@ -1310,6 +1316,8 @@ _zos_vfs_find_entry_found:
         ;       H - Index of the opened dev to retrieve
         ; Returns:
         ;       HL - Opened dev address
+        ;       DE - Address of the dev in the table, + 1, so:
+        ;            _dev_table + H * 2 + 1
         ;       A - ERR_SUCCESS if success, error else
         ; Alters:
         ;       A, DE, HL
