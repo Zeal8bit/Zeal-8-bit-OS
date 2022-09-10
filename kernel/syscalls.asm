@@ -1,7 +1,7 @@
 ; SPDX-FileCopyrightText: 2022 Zeal 8-bit Computer <contact@zeal8bit.com>
 ;
 ; SPDX-License-Identifier: Apache-2.0
-
+        INCLUDE "osconfig.asm"
         INCLUDE "errors_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "time_h.asm"
@@ -14,6 +14,8 @@
 
         DEFC SYSCALL_MAP_NUMBER = (syscall_map - zos_syscalls_table) / 2
         DEFC SYSCALL_MAP_ROUTINE = zos_sys_map
+        DEFC SYSCALL_EXEC_NUMBER = (syscall_exec - zos_syscalls_table) / 2
+        DEFC SYSCALL_EXIT_NUMBER = (syscall_exit - zos_syscalls_table) / 2
 
         SECTION SYSCALL_ROUTINES
 
@@ -124,7 +126,7 @@ zos_sys_perform_syscall:
         ; to the user's stack, not the system's.
         ld (_zos_user_sp), sp
         ; Load the system stack
-        ld sp, (_zos_kernel_sp)
+        ld sp, CONFIG_KERNEL_STACK_ADDR
         ; Now we can prepare the jp SYSCALL instruction. Use the syscall tables to get the routine we have
         ; to jump to.
         push hl
@@ -283,7 +285,6 @@ zos_sys_restore_pages:
 
 
         SECTION KERNEL_BSS
-        PUBLIC _zos_kernel_sp
 _zos_user_sp: DEFS 2
 _zos_user_a:  DEFS 1
 _zos_user_page_1: DEFS 1
@@ -291,8 +292,6 @@ _zos_user_page_2: DEFS 1
 _zos_user_page_3: DEFS 1
         ; The following flag marks whether a syscall is in progress.
 _zos_syscall_ongoing: DEFS 1
-
-_zos_kernel_sp: DEFS 2
 _zos_sys_jump: DEFS 3   ; Store jp nnnn instruction (3 bytes)
 
         SECTION SYSCALL_TABLE
@@ -314,7 +313,9 @@ zos_syscalls_table:
         DEFW zos_vfs_readdir
         DEFW zos_vfs_rm
         DEFW zos_vfs_mount
+syscall_exit:
         DEFW zos_loader_exit
+syscall_exec:
         DEFW zos_loader_exec
         DEFW zos_vfs_dup
         DEFW zos_time_msleep

@@ -68,6 +68,7 @@
 
         ; Public routines
         EXTERN zos_vfs_init
+        EXTERN zos_vfs_clean
         EXTERN zos_vfs_read
         EXTERN zos_vfs_write
         EXTERN zos_vfs_open

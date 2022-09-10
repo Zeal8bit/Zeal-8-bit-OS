@@ -9,10 +9,11 @@
         INCLUDE "vfs_h.asm"
         INCLUDE "log_h.asm"
 
-        EXTERN _zos_kernel_sp
         EXTERN zos_vfs_open_internal
         EXTERN zos_vfs_read_internal
         EXTERN zos_vfs_dstat_internal
+        EXTERN zos_sys_remap_bc_page_2
+        EXTERN _zos_default_init
 
         DEFC TWO_PAGES_SIZE_UPPER_BYTE = (MMU_VIRT_PAGES_SIZE >> 8) * 2
 
@@ -24,8 +25,6 @@
         ; This routine never returns as it executes the laoded file
         PUBLIC zos_load_file
 zos_load_file:
-        ; Store current file name
-        ld (_cur_file_name), hl
         ; Put the file path in BC
         ld b, h
         ld c, l
@@ -119,9 +118,11 @@ zos_load_file:
         or c
         jp nz, _zos_load_failed ; size must be 0 now!
         ; Success, we can now execute the program
-        ; Save the kernel stack and set the user's stack pointer
-        ld (_zos_kernel_sp), sp
-        ld sp, CONFIG_KERNEL_STACK_ADDR ; Save address as the kernel
+        ; Stack is clean, it's useless to save it, it's CONFIG_KERNEL_STACK_ADDR
+        ; Set the user stack value. Should be at the end of the binary?
+        ; Should be at the end of the virtual page?
+        ; At the moment, set it to the same as the kernel stack virtual address.
+        ld sp, CONFIG_KERNEL_STACK_ADDR
         ; ============================================================================== ;
         ; KERNEL STACK CANNOT BE ACCESSED ANYMORE FROM NOW ON, JUST JUMP TO THE USER CODE!
         ; ============================================================================== ;
@@ -151,47 +152,60 @@ _zos_load_one_call:
         ; Close the dev, no need to check the return value
         ld h, d
         call zos_vfs_close
-        ; Save the kernel stack and set the user's stack pointer
-        ld (_zos_kernel_sp), sp
-        ld sp, CONFIG_KERNEL_STACK_ADDR ; Save address as the kernel
+        ; Stack is clean, it's useless to save it, it's CONFIG_KERNEL_STACK_ADDR
+        ; Set the user stack value. Should be at the end of the binary?
+        ; Should be at the end of the virtual page?
+        ; At the moment, set it to the same as the kernel stack virtual address.
+        ld sp, CONFIG_KERNEL_STACK_ADDR
         ; ============================================================================== ;
         ; KERNEL STACK CANNOT BE ACCESSED ANYMORE FROM NOW ON, JUST JUMP TO THE USER CODE!
         ; ============================================================================== ;
         MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_3, MMU_USER_PHYS_START_PAGE + 2)
         ; Execute the init program in RAM
         jp CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
-
 _zos_load_failed_with_pop:
         pop hl
 _zos_load_failed:
-        ; Save A for code error?
-        ld hl, _load_error_1
-        call zos_log_error
-        xor a
-        ld hl, (_cur_file_name)
-        call zos_log_message
-        xor a
-        ld hl, _load_error_2
-        call zos_log_message
-_loop:  halt
-        jp _loop
+        ld a, ERR_FAILURE
+        ret
 
-        ; TODO: Syscall exec
+        ; Load and execute a program from a file name given as a parameter.
+        ; The program will recover the current program.
+        ; Parameters:
+        ;       BC - File to load and execute
+        ;       (B - Save the current program in RAM?)
+        ; Returns:
+        ;       A - Nothing on success, the new program is executed.
+        ;           ERR_FAILURE on failure.
+        ; Alters:
+        ;       HL
         PUBLIC zos_loader_exec
 zos_loader_exec:
-        ld a, ERR_NOT_IMPLEMENTED
+        push bc
+        call zos_sys_remap_bc_page_2
+        call zos_loader_exec_internal
+        pop bc
         ret
+zos_loader_exec_internal:
+        ; DE is reachable for sure here, put the filename in HL.
+        ; In case of a success, the stack will be discarded as the SP value
+        ; will be overwritten and the memory pages reused. This behavior will
+        ; change when saving current program context will be supported.
+        ld h, b
+        ld l, c
+        jp zos_load_file
 
-        ; TODO: Syscall exit
+        ; Exit the current process and load back the init.bin file
+        ; Parameters:
+        ;       C - Returned code (unused yet)
+        ; Returns:
+        ;       None
         PUBLIC zos_loader_exit
 zos_loader_exit:
-        ld a, ERR_NOT_IMPLEMENTED
-        ret
-
-
-_load_error_1: DEFM "Could not load ", 0
-_load_error_2: DEFM " initialization file\n", 0
+        call zos_vfs_clean
+        ; Load the init file name
+        ld hl, _zos_default_init
+        jp zos_load_file
 
         SECTION KERNEL_BSS
 _file_stats: DEFS STAT_STRUCT_SIZE
-_cur_file_name: DEFS 2

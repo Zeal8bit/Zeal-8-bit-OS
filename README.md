@@ -172,8 +172,6 @@ The only supported target at the moment is *Zeal 8-bit computer*, the port is no
 # TO DO
 
 There are still some work to do in the project. Some features needs to be development on the kernel side, some things needs to be documented in the project, here is a non-exhaustive list:
-* `exec` syscall, to load and exec a binary file.
-* `exit` syscall, to exit from a running program.
 * Generate header files usable by user programs for: syscalls, file entries, directories entries, opening flags, etc..
 * Document clearly what each syscall does
 * List the loaded drivers from a user program.
@@ -501,7 +499,7 @@ In order to port Zeal 8-bit OS to another machine, make sure you have an MMU fir
 * Disk module implemented
 * Driver module implemented
 * Date/Time module implemented
-* Loader module implemented (`exec`/`exit` not implemented yet)
+* Loader module implemented
 * Log module partially implemented
 * VFS module implemented
 * Syscall module implemented

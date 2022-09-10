@@ -31,6 +31,8 @@ zos_vfs_init:
         ld (hl), ':'
         inc hl
         ld (hl), '/'
+        inc hl
+        ld (hl), 0
         ret
 
         ; Routine saving the current working directory. It will have no effect if a backup
@@ -61,14 +63,8 @@ zos_vfs_backup_dir:
         ;       A, BC, DE, HL
         PUBLIC zos_vfs_clean
 zos_vfs_clean:
-        ; Copy back the "current" dir
-        ld hl, _vfs_current_dir_backup
-        ld de, _vfs_current_dir
-        ld bc, CONFIG_KERNEL_PATH_MAX
-        ldir
-        ; Clean the backup
-        xor a
-        ld (_vfs_current_dir_backup), a
+        ; Set the current dir to the default location
+        call zos_vfs_init
         ; Close all the opened devs, even stdout and stdin
         ld b, CONFIG_KERNEL_MAX_OPENED_DEVICES
 _zos_vfs_clean_close:
@@ -97,8 +93,8 @@ zos_vfs_restore_std:
         ld (_dev_table + 2), hl
         ret
 
-        ; Routine to set the default stdout of the system
-        ; This is where the logs will go by defaults
+        ; Routine to set the default stdout of the system.
+        ; This is where the logs will go by defaults.
         ; Parameters:
         ;       HL - Pointer to the driver. Must be in Kernel BSS or TEXT.
         ; Returns:
@@ -112,20 +108,21 @@ zos_vfs_set_stdout:
         or l
         jp z, _zos_vfs_invalid_parameter
         ld (_dev_default_stdout), hl
+        ; Should it call driver's open function?
         ; If entry STANDARD_OUTPUT is null, fill it now
         push hl
-        ld hl, (_dev_table + STANDARD_OUTPUT)
+        ld hl, (_dev_table + STANDARD_OUTPUT * 2)
         ld a, h
         or l
         pop hl
         jr nz, _zos_vfs_set_stdout_no_set
-        ld (_dev_table + STANDARD_OUTPUT), hl
+        ld (_dev_table + STANDARD_OUTPUT * 2), hl
 _zos_vfs_set_stdout_no_set:
         call zos_log_stdout_ready
         xor a   ; Optimization for A = ERR_SUCCESS
         ret        
 
-        ; Routine to set the default stdin of the system
+        ; Routine to set the default stdin of the system.
         ; Parameters:
         ;       HL - Pointer to the driver. Must be in Kernel BSS or TEXT.
         ; Returns:
@@ -139,7 +136,16 @@ zos_vfs_set_stdin:
         or l
         jp z, _zos_vfs_invalid_parameter
         ld (_dev_default_stdin), hl
-        xor a   ; Optimization for A = ERR_SUCCESS
+        ; If entry STANDARD_INPUT is null, fill it now
+        push hl
+        ld hl, (_dev_table + STANDARD_INPUT * 2)
+        ld a, h
+        or l
+        pop hl
+        ld a, ERR_SUCCESS
+        ret nz
+        ld (_dev_table + STANDARD_INPUT * 2), hl
+        ; Should it call driver's open function?
         ret
 
 _zos_vfs_invalid_parameter_popdehl:

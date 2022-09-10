@@ -95,14 +95,30 @@ _zos_boot_time_ok:
         ld hl, zos_date_warning
         call zos_log_warning
 _zos_boot_date_ok:
-
         ; Load the init file from the default disk drive
         ld hl, zos_kernel_ready
         xor a
         call zos_log_message
         ld hl, _zos_default_init
-        jp zos_load_file
+        call zos_load_file
+        ; If we return from zos_load_file, an error occured
+        ld hl, _load_error_1
+        call zos_log_error
+        xor a
+        ld hl, _zos_default_init
+        call zos_log_message
+        xor a
+        ld hl, _load_error_2
+        call zos_log_message
+        ; Loop until the board is rebooted
+reboot: halt
+        jp reboot
 
+_load_error_1: DEFM "Could not load ", 0
+_load_error_2: DEFM " initialization file\n", 0
+
+
+        PUBLIC _zos_default_init
 _zos_default_init:
         CONFIG_KERNEL_INIT_EXECUTABLE
         DEFM 0  ; NULL-byte after the string
