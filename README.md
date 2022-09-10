@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="md_images/zealos.png" alt="ZealOS logo" />
+    <img src="md_images/zeal8bitos.png" alt="Zeal 8-bit OS logo" />
 </p>
 <p align="center">
     <a href="https://opensource.org/licenses/Apache-2.0">
@@ -16,7 +16,7 @@
   - [Overview](#overview)
 - [Getting started](#getting-started)
   - [Requirements](#requirements)
-  - [Configuring ZealOS](#configuring-zealos)
+  - [Configuring Zeal 8-bit OS](#configuring-zeal-8-bit-os)
   - [Building](#building)
   - [Flashing](#flashing)
 - [Features overview](#features-overview)
@@ -48,7 +48,7 @@
 
 ## What?
 
-ZealOS is an operating system written entirely in Z80 assembly for Z80 computers. It has been designed around simplicity and portability. It is inspired by Linux and CP/M. It has the concept of drivers and disks, while being ROM-able.
+Zeal 8-bit OS is an operating system written entirely in Z80 assembly for Z80 computers. It has been designed around simplicity and portability. It is inspired by Linux and CP/M. It has the concept of drivers and disks, while being ROM-able.
 
 ## Why?
 
@@ -64,7 +64,7 @@ The goal is to have a small and concise ABI that lets us write software that can
 
 While browsing the implementation details or this documentation, you will notice that some aspects are similar to Linux kernel, such as the syscall names or the way opened files and drivers are handled. Indeed, it was a great source of inspiration, but as it is a 32-bit only system, written in C, only the APIs/interfaces have been inspiring.
 
-If you are familiar with Linux ABI/interface/system programming, then ZealOS will sound familiar!
+If you are familiar with Linux ABI/interface/system programming, then Zeal 8-bit OS will sound familiar!
 
 ## Overview
 
@@ -101,7 +101,7 @@ pip3 install --ignore-installed --user kconfiglib
 
 For installing Z88DK, please [check out their Github project](https://github.com/z88dk/z88dk).
 
-## Configuring ZealOS
+## Configuring Zeal 8-bit OS
 
 After installing the dependencies listed above and cloning this repository, the first thing to do is to configure the OS. To do so, simply execute:
 ```
@@ -191,7 +191,7 @@ There are still some work to do in the project. Some features needs to be develo
 
 And of course **fixing bugs!**
 
-As ZealOS is still in beta version, you will encounter bugs, errors, problems, please feel free to open an issue, with a snippet of code to help reproducing the issue.
+As Zeal 8-bit OS is still in beta version, you will encounter bugs, errors, problems, please feel free to open an issue, with a snippet of code to help reproducing the issue.
 
 # Implementation details
 
@@ -199,11 +199,11 @@ In the sections below, the word "program" will also refer to "users programs", w
 
 ## Memory Mapping
 
-ZealOS can separate kernel RAM and user's program thanks to virtual pages. Indeed, as it is currently implemented, the kernel is aware of 4 virtual pages of 16KB.
+Zeal 8-bit OS can separate kernel RAM and user's program thanks to virtual pages. Indeed, as it is currently implemented, the kernel is aware of 4 virtual pages of 16KB.
 
 The first page, page 0, shall not be switched as it contains the kernel code. This means that the OS binary is limited to 16KB, it must never exceed this size. When a user's program is being execute, any `syscall` will result in jumping in the first bank where the OS code resides. So if this page is switched for another purpose, no syscall, no interrupt nor communication with the kernel must happen, else, undefined behavior will occur.  
 
-The second page, page 1, is where user programs are copied to and executed from. Thus, all the programs for ZealOS shall be linked from address `0x4000` (16KB). When loading a program, the second and third page are also mapped to usable RAM from the user program. Thus, a user program can have a maximum size of 48KB.
+The second page, page 1, is where user programs are copied to and executed from. Thus, all the programs for Zeal 8-bit OS shall be linked from address `0x4000` (16KB). When loading a program, the second and third page are also mapped to usable RAM from the user program. Thus, a user program can have a maximum size of 48KB.
 
 The fourth page, page 3, is used to store the OS data for both the kernel and the drivers. When loading a user program, this page is switched to RAM, so that it's usable by the program, when a syscall occurs, it's switched back to the kernel RAM. Upon loading a user program, the SP (Stack Pointer) is set to `0xFFFF`. However, this may change in a near future. 
 
@@ -421,7 +421,7 @@ flowchart TD;
 
 ## Disks
 
-ZealOS supports up to 26 disks at once. The disks are denoted by a letter, from A to Z. It's the disk's driver responsibility to decide where to mount the disk in the system. 
+Zeal 8-bit OS supports up to 26 disks at once. The disks are denoted by a letter, from A to Z. It's the disk's driver responsibility to decide where to mount the disk in the system. 
 
 The first drive, `A`, is special as it is the one where the system will look for preferences or configuration.
 
@@ -435,9 +435,9 @@ In an application, a `path` may be:
 
 Even though the OS is completely ROM-able and doesn't need any file system or disk to boot, as soon as it will try to load the initial program, called `init.bin` by default, it will check for the default disk and request that file. Thus, even the most basic storage needs a file system, or something similar.
 
-* The first "file system" that is supported in ZealOS is called "raw table". As it name states, it represents the succession of files, not directories, in a storage device, in no particular order. The file name size limit is the same as the kernel's: 16 characters, including the optional `.` and extension. If we want to compare it to C code, it would be an array of structure defining each file, following by the files content in the same order. A romdisk packer source code is available in the `packer/` at the root of this repo. Check [its README](packer/README.md) for more info about it.
+* The first "file system" that is supported in Zeal 8-bit OS is called "raw table". As it name states, it represents the succession of files, not directories, in a storage device, in no particular order. The file name size limit is the same as the kernel's: 16 characters, including the optional `.` and extension. If we want to compare it to C code, it would be an array of structure defining each file, following by the files content in the same order. A romdisk packer source code is available in the `packer/` at the root of this repo. Check [its README](packer/README.md) for more info about it.
 
-* The second file system that would be nice to have on ZealOS is FAT16. Very famous, already supported by almost all desktop operating systems, usable on CompactFlash and even SD cards, this is a must have. I has **not** been implemented yet, but it's planned. FAT16 is not perfect though as it is not adapted for small size memories. This is why we need another file system.
+* The second file system that would be nice to have on Zeal 8-bit OS is FAT16. Very famous, already supported by almost all desktop operating systems, usable on CompactFlash and even SD cards, this is a must have. I has **not** been implemented yet, but it's planned. FAT16 is not perfect though as it is not adapted for small size memories. This is why we need another file system.
 
 * The third file system to be added in a near future is (temporarily?) named ZealFS. Its main purpose is to be embedded in very small memories, from 8KB up to 64KB. It should be readable and writable and also support directories. 
 
@@ -445,7 +445,7 @@ Even though the OS is completely ROM-able and doesn't need any file system or di
 
 ## Relation with the kernel
 
-The ZealOS is based around two main components: a kernel and a target code.
+The Zeal 8-bit OS is based around two main components: a kernel and a target code.
 The kernel alone does nothing. The target needs to implement the drivers, some MMU macros used inside the kernel and a linker script. The linker script is fairly simple, it lists the sections in the order they must be linked in the final binary by `z80asm` assembler.
 
 The kernel currently use the following sections, which must be included in any linker script:
@@ -477,7 +477,7 @@ What still needs to be implemented, in no particular order:
 
 ## Porting to another machine
 
-In order to port ZealOS to another machine, make sure you have an MMU first which divides the Z80's 64KB address space into 4 pages of 16KB. That's the main requirement, if that's the case, you can proceed.
+In order to port Zeal 8-bit OS to another machine, make sure you have an MMU first which divides the Z80's 64KB address space into 4 pages of 16KB. That's the main requirement, if that's the case, you can proceed.
 
 * Open the `Kconfig` file at the root of this repo, add an entry to the `config TARGET` and `config COMPILATION_TARGET` options. Take example on the ones that are already present.
 * Create a new directory in `target/` for your target, the name **must** be the same as the one specified in the new `config TARGET` option.
@@ -496,7 +496,7 @@ In order to port ZealOS to another machine, make sure you have an MMU first whic
 
 **v0.1:**
 
-* ZealOS becomes public
+* Zeal 8-bit OS becomes public
 * OS configurable through `menuconfig`
 * Disk module implemented
 * Driver module implemented

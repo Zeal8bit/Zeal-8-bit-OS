@@ -73,7 +73,7 @@ zos_sys_perform_syscall:
         ; as it is required to restore the page, so save HL (on the user stack) and
         ; use HL to store A.
         ; NOTE: it would have been possible to use alternate register to save the 
-        ;       user's RAM page. However, ZealOS is interrupt agnostic in the sense
+        ;       user's RAM page. However, the kernel is interrupt agnostic in the sense
         ;       that it doesn't need interrupt to work. Moreover, using it would
         ;       require instructions "di" and "ei", This would give something like:
         ;       di

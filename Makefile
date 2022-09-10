@@ -89,7 +89,7 @@ all: version precmd $(KCONFIG_CONFIG) $(LINKERFILE_OBJ) $(OBJS)
     # Generate a version file that will be used as a boilerplate
     # when the system starts
 version:
-	@echo ZealOS `git describe --tags` > version.txt
+	@echo Zeal 8-bit OS `git describe --tags` > version.txt
 	@echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt
 
 precmd:

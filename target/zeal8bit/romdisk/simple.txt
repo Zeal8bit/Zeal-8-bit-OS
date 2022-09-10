@@ -1,4 +1,4 @@
 Hello, this is a simple text file!
-If you can read this from ZealOS, then your less command works pretty well.
+If you can read this from Zeal 8-bit OS, then your less command works pretty well.
 Let's try with a longer line:
 -+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
