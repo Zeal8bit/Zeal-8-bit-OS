@@ -81,9 +81,9 @@ LINKERFILE_PATH=target/$(TARGET)/$(LINKERFILE)
 LINKERFILE_OBJ=$(patsubst %.asm,%.o,$(LINKERFILE_PATH))
 LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
-.PHONY: check menuconfig $(SUBDIRS) version
+.PHONY: check menuconfig $(SUBDIRS) version packer
 
-all: $(KCONFIG_CONFIG) version precmd $(LINKERFILE_OBJ) $(OBJS)
+all:$(KCONFIG_CONFIG) version packer precmd $(LINKERFILE_OBJ) $(OBJS)
 	$(CC) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
 	@echo "OS binary: $(FULLBIN)"
 	@echo "Executing post commands..."
@@ -94,6 +94,10 @@ all: $(KCONFIG_CONFIG) version precmd $(LINKERFILE_OBJ) $(OBJS)
 version:
 	@echo Zeal 8-bit OS `git describe --tags` > version.txt
 	@echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt
+
+packer:
+	@echo "Building packer"
+	@cd packer && make
 
 precmd:
 	@echo "Executing pre commands..."

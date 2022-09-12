@@ -3,7 +3,7 @@ BIN=init.bin
 SRCS=init.asm parse.asm ls.asm less.asm opt.asm mkdir.asm cd.asm rm.asm errors.asm
 IMG=disk.img
 BUILDIR=build
-FILES_IN_IMG=init.asm $(BUILDIR)/$(BIN) simple.txt hello.bin
+FILES_IN_IMG=init.asm $(BUILDIR)/$(BIN) simple.txt
 
 phony: all clean
 
