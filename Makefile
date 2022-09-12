@@ -65,8 +65,11 @@ define IMPORT_subunitmk =
     $4 := $$(TMP4)
 endef
 
+# If the target is not defined, no os.conf file was created.
+# In that case, do not try to evaluate the build depenendies.
+ifdef CONFIG_TARGET
 $(eval $(call IMPORT_subunitmk,ASMSRCS,INCLUDEDIRS,PRECMD,POSTCMD))
-#$(info "ASMSRCS = $(ASMSRCS), INCLUDES = "$(INCLUDEDIRS), PRECMD = $(PRECMD), POSTCMD = $(POSTCMD)")
+endif
 
 # Generate the .o files out of the .c files
 OBJS = $(patsubst %.asm,%.o,$(ASMSRCS))
@@ -80,7 +83,7 @@ LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
 .PHONY: check menuconfig $(SUBDIRS) version
 
-all: version precmd $(KCONFIG_CONFIG) $(LINKERFILE_OBJ) $(OBJS)
+all: $(KCONFIG_CONFIG) version precmd $(LINKERFILE_OBJ) $(OBJS)
 	$(CC) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
 	@echo "OS binary: $(FULLBIN)"
 	@echo "Executing post commands..."
