@@ -291,7 +291,26 @@ save_command_in_history:
         pop hl
         ret
 
+        ; "exec" command main function
+        ; Parameters:
+        ;       HL - ARGV
+        ;       BC - ARGC
+        ; Returns:
+        ;       A - 0 on success
 exec_main:
+        ; Make sure there are exactly two parameters (ignore argc/v for the moment)
+        ld a, c
+        cp 2
+        ret nz
+        ; Dereference filename and execute it
+        inc hl
+        inc hl
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        ; Set ARGV to 0
+        ld de, 0
+        EXEC()
         ret
 help_main:
         ret
