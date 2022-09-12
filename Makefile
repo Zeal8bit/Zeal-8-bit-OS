@@ -147,4 +147,4 @@ fdump:
 	$(DISASSEMBLER) -x $(BINDIR)/os.map $(BINDIR)/$(BIN) > $(BINDIR)/os.dump
 
 clean:
-	rm -rf $(OSCONFIG_ASM) *.bin *.o *.map *.sym $(BINDIR) 
+	rm -rf $(OSCONFIG_ASM) $(BINDIR) $(KCONFIG_CONFIG) version.txt

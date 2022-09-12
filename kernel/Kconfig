@@ -67,7 +67,7 @@ menu "Kernel configuration"
 
         config KERNEL_LOG_SUPPORT_ANSI_COLOR
                 bool "Mark whether Kernel logger can use ANSI escape sequences for printing colors"
-                default n
+                default y
                 help
                         Kernel logger, by default, prints logs without any color. However, if this option
                         is enable, it will be able to print error messages in red, warning messages in yellow
