@@ -1,9 +1,9 @@
 CC=z88dk-z80asm
 BIN=init.bin
-SRCS=init.asm parse.asm ls.asm less.asm opt.asm mkdir.asm cd.asm rm.asm errors.asm
+SRCS=init.asm parse.asm ls.asm less.asm opt.asm mkdir.asm cd.asm rm.asm errors.asm uart.asm strutils.asm
 IMG=disk.img
 BUILDIR=build
-FILES_IN_IMG=init.asm $(BUILDIR)/$(BIN) simple.txt
+FILES_IN_IMG=$(BUILDIR)/$(BIN) simple.txt
 
 phony: all clean
 
@@ -17,4 +17,4 @@ all: clean
 	pack $(IMG) $(FILES_IN_IMG)
 
 clean:
-	rm -rf build/
+	rm -rf build/ $(IMG)

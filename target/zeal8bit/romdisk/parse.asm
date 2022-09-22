@@ -12,11 +12,18 @@
         DEFC MAX_COMMAND_NAME   = (SIZE_COMMAND_ENTRY - ENTRYPOINT_SIZE)
         DEFC MAX_COMMAND_ARGV   = 16  ; Let's fix that we will have at most 50 parameters
 
+        EXTERN strlen
+        EXTERN strltrim
+        EXTERN memsep
+        EXTERN strcmp
+
         EXTERN cd_main
         EXTERN ls_main
         EXTERN less_main
         EXTERN mkdir_main
         EXTERN rm_main
+        EXTERN uartsnd_main
+        EXTERN uartrcv_main
 
         ; Parse and execute the command line passed as a parameter.
         ; Parameters:
@@ -318,101 +325,8 @@ pwd_main:
         ret
 
 
-
-    ; Look for the delimiter A in the string pointed by HL
-    ; Once it finds it, the token is replace by \0.
-    ; Parameters:
-    ;       HL - Address of the string
-    ;       BC - Size of the string
-    ;       A - Delimiter
-    ; Returns:
-    ;       HL - Original string address
-    ;       DE - Address of the next string (address of the token found +1)
-    ;       BC - Length of the remaining string
-    ;       A - 0 if the delimiter was found, non-null value else
-    ; Alters:
-    ;       DE, BC, A
-        PUBLIC memsep
-memsep:
-        ld de, hl
-        cpir
-        ; Regardless whether BC is 0 is not, we have to check the last character
-        ; and replace it. This is due to the fact that if the separator is the
-        ; last character of the string, BC will still be 0, even though we've
-        ; found it.
-        dec hl
-        sub (hl)
-        jr nz, _memsep_not_set
-        ld (hl), a
-        _memsep_not_set:
-        inc hl
-        ex de, hl
-        ret
-
-        ; Trim leading space character from a string pointed by HL
-        ; Parameters:
-        ;   HL - NULL-terminated string to trim leading spaces from
-        ;   BC - Length of the string
-        ; Returns:
-        ;   HL - Address of the non-space character from the string
-        ;   BC - Length of the remaining string
-        ; Alters:
-        ;   A
-        PUBLIC strltrim
-strltrim:
-        dec hl
-        inc bc
-_strltrim_loop:
-        inc hl
-        dec bc
-        ; Return if BC is 0 now
-        ld a, b
-        or c
-        ret z
-        ld a, ' '
-        cp (hl)
-        jp z, _strltrim_loop
-        ret
-
-        ; Compare two NULL-terminated strings pointed by HL and DE.
-        ; If they are identical, A will be 0
-        ; If DE is greater than HL, A will be positive
-        ; If HL is greater than DE, A will be negative
-        ;
-        ; Alters:
-        ;       A
-        PUBLIC strcmp
-strcmp:
-        push hl
-        push de
-        dec hl
-        dec de
-_strcmp_compare:
-        inc hl
-        inc de
-        ld a, (de)
-        sub (hl)
-        jr nz, _strcmp_end
-        ; Check if both strings have reached the end
-        ; If this is the case, or (hl) will reset in zero flag to be set
-        ; In that case, no need to continue, we can return, with flag Z set
-        or (hl) 
-        jr nz, _strcmp_compare
-_strcmp_end:
-        pop de
-        pop hl
-        ret
-
-
-
         SECTION DATA
 system_commands_begin:
-    IF ENABLE_EDITOR
-        EXTERN editor_main
-        ; Command editor
-        DEFS MAX_COMMAND_NAME, "editor"
-        DEFW editor_main
-    ENDIF
         DEFS MAX_COMMAND_NAME, "cd"
         DEFW cd_main
         DEFS MAX_COMMAND_NAME, "exec"
@@ -429,6 +343,10 @@ system_commands_begin:
         DEFW pwd_main
         DEFS MAX_COMMAND_NAME, "rm"
         DEFW rm_main
+        DEFS MAX_COMMAND_NAME, "uartrcv"
+        DEFW uartrcv_main
+        DEFS MAX_COMMAND_NAME, "uartsnd"
+        DEFW uartsnd_main
         ; Commands related to I2C
 ;        DEFS MAX_COMMAND_NAME, "i2cdetect"
 ;        DEFW i2cdetect_main
@@ -436,20 +354,9 @@ system_commands_begin:
 ;        DEFW i2cget_main
 ;        DEFS MAX_COMMAND_NAME, "i2cset"
 ;        DEFW i2cset_main
-        ; Command inio
-;        DEFS MAX_COMMAND_NAME, "inio"
-;        DEFW inio_main
-        ; Command outio
-;        DEFS MAX_COMMAND_NAME, "outio"
-;        DEFW outio_main
         ; Command reset
         ;DEFS MAX_COMMAND_NAME, "reset"
         ;DEFW reset_main
-        ; Commands related to UART
-        ;DEFS MAX_COMMAND_NAME, "uartrcv"
-        ;DEFW uartrcv_main
-        ;DEFS MAX_COMMAND_NAME, "uartsnd"
-        ;DEFW uartsnd_main
 system_commands_count: DEFB (system_commands_count - system_commands_begin) / SIZE_COMMAND_ENTRY
         ; Arguments related
 command_argv:   DEFS MAX_COMMAND_ARGV * 2

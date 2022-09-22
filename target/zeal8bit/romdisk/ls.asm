@@ -201,6 +201,7 @@ _ls_concat_not_found:
         inc c
         ret
 
+        ; TODO: Put these generic error routine in a common place
 _ls_stat_error:
         ld de, str_stat
         ld bc, str_stat_end - str_stat
@@ -228,6 +229,7 @@ _ls_too_many_param:
 str_params: DEFM "too many parameters: "
 str_params_end:
 
+        PUBLIC open_error
 open_error:
         neg
         ld de, str_open_err
@@ -247,7 +249,7 @@ readdir_error:
 str_rddir_err: DEFM "readdir error: "
 str_rddir_err_end:
 
-    ; TODO: Move the following to another file/lib
+        ; TODO: Move the following to another file/lib
 
         ; Convert a date (DATE_STRUCT) to ASCII.
         ; The format will be as followed:
