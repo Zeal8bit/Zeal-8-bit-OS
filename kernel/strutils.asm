@@ -230,28 +230,9 @@ _strlen_loop:
     inc hl
     inc bc
     jr _strlen_loop
-    cpir
 _strlen_end:
     pop hl
     ret
-
-    IF 0
-strlen:
-    push hl
-    ld a, 0xff
-    ld b, a
-    ld c, a
-    inc a
-    cpir
-    dec a
-    sub b
-    ld b, a
-    ld a, 0xff
-    sbc a, c
-    ld c, a 
-    pop hl
-    ret
-    ENDIF
 
     ; Function copying src string into dest, including the terminating null byte
     ; Parameters:

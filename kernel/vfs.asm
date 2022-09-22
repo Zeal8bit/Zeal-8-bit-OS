@@ -272,8 +272,10 @@ _zos_vfs_open_driver:
         ld l, c
         ld b, d
         call zos_driver_find_by_name
-        ; Check that it was a success
+        ; If the driver exists, A is 0, else A is positive
         or a
+        ; Set the correct return value for A (instead of Failure), it won't modify the flags
+        ld a, ERR_NO_SUCH_ENTRY
         jp nz, _zos_vfs_open_pop_ret_error
         ; Success, DE contains the driver address, HL contains the name and top of stack contains
         ; the address of the empty dev entry.
@@ -614,7 +616,7 @@ zos_vfs_ioctl:
         ex de, hl
         GET_DRIVER_IOCTL()
         ; HL points to the IOCTL routine, prepare the parameters.
-        ; C has not been modified, B conains the dev number
+        ; C has not been modified, B contains the dev number
         pop de
         push de
         CALL_HL()
