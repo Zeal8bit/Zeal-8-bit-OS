@@ -6,6 +6,7 @@
         INCLUDE "drivers_h.asm"
         INCLUDE "pio_h.asm"
         INCLUDE "uart_h.asm"
+        INCLUDE "interrupt_h.asm"
 
         ; Default value for other pins than UART ones
         ; This is used to output a value on the UART without sending garbage
@@ -44,7 +45,7 @@ uart_ioctl:
         ; Check that the command number is correct
         ld a, c
         cp UART_SET_BAUDRATE
-        jr nz, uart_invalid_param
+        jr nz, uart_ioctl_not_supported
         ; Command is correct, check that the parameter is correct
         ld a, e
         cp UART_BAUDRATE_57600
@@ -55,8 +56,8 @@ uart_ioctl:
         jr z, uart_ioctl_valid
         cp UART_BAUDRATE_9600
         jr z, uart_ioctl_valid
-uart_invalid_param:
-        ld a, ERR_INVALID_PARAMETER
+uart_ioctl_not_supported:
+        ld a, ERR_NOT_SUPPORTED
         ret
 uart_ioctl_valid:
         ld (_uart_baudrate), a
@@ -122,7 +123,12 @@ uart_send_bytes:
 _uart_send_next_byte:
         ld a, (hl)
         push bc
+        ; Enter a critical section (disable interrupts) only when sending a byte.
+        ; We must not block the interrupts for too long.
+        ; TODO: Add a configuration for this?
+        ENTER_CRITICAL()
         call uart_send_byte
+        EXIT_CRITICAL()
         pop bc
         inc hl
         dec bc
@@ -213,6 +219,10 @@ uart_receive_bytes:
         ld a, b
         or c
         ret z
+        ; TODO: Implement a configurable timeout is ms, or a flag for blocking/non-blocking mode,
+        ; or an any-key-pressed-aborts-transfer action.
+        ; At the moment, block until we receive everything.
+        ENTER_CRITICAL()
         ; Length is not 0, we can continue
 _uart_receive_next_byte:
         push bc
@@ -225,6 +235,7 @@ _uart_receive_next_byte:
         or c
         jp nz, _uart_receive_next_byte
         ; Finished receiving, restore DE and return
+        EXIT_CRITICAL()
         ret
 
         ; Receive a byte on the UART with a given baudrate.
@@ -352,7 +363,7 @@ wait_tstates_next_bit_87_tstates:
         ret
 
 
-        SECTION KERNEL_BSS
+        SECTION DRIVER_BSS
 _uart_baudrate: DEFS 1
 
         SECTION KERNEL_DRV_VECTORS

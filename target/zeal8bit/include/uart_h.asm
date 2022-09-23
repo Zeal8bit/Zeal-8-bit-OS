@@ -7,7 +7,10 @@
 
         ; UART commands
         DEFGROUP {
-            UART_SET_BAUDRATE = 0
+            UART_SET_BAUDRATE = 0,
+            UART_SET_TIMEOUT,
+            UART_SET_BLOCKING,
+            UART_CMD_LAST
         }
 
         ; Baudrates for receiving bytes from the UART
