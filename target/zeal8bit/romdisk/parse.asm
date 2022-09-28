@@ -18,6 +18,7 @@
         EXTERN strcmp
 
         EXTERN cd_main
+        EXTERN date_main
         EXTERN ls_main
         EXTERN less_main
         EXTERN mkdir_main
@@ -329,6 +330,8 @@ pwd_main:
 system_commands_begin:
         DEFS MAX_COMMAND_NAME, "cd"
         DEFW cd_main
+        DEFS MAX_COMMAND_NAME, "date"
+        DEFW date_main
         DEFS MAX_COMMAND_NAME, "exec"
         DEFW exec_main
         DEFS MAX_COMMAND_NAME, "help"

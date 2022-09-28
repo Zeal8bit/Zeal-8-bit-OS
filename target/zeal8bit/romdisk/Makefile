@@ -1,6 +1,6 @@
 CC=z88dk-z80asm
 BIN=init.bin
-SRCS=init.asm parse.asm ls.asm less.asm opt.asm mkdir.asm cd.asm rm.asm errors.asm uart.asm strutils.asm
+SRCS=init.asm parse.asm ls.asm less.asm opt.asm mkdir.asm cd.asm rm.asm errors.asm uart.asm strutils.asm date.asm
 IMG=disk.img
 BUILDIR=build
 FILES_IN_IMG=$(BUILDIR)/$(BIN) simple.txt

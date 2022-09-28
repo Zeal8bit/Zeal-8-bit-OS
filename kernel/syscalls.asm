@@ -12,11 +12,6 @@
         EXTERN zos_loader_exit
         EXTERN zos_loader_exec
 
-        DEFC SYSCALL_MAP_NUMBER = (syscall_map - zos_syscalls_table) / 2
-        DEFC SYSCALL_MAP_ROUTINE = zos_sys_map
-        DEFC SYSCALL_EXEC_NUMBER = (syscall_exec - zos_syscalls_table) / 2
-        DEFC SYSCALL_EXIT_NUMBER = (syscall_exit - zos_syscalls_table) / 2
-
         SECTION SYSCALL_ROUTINES
 
         ; Initializer called at system startup, BSS is cleaned when called.
@@ -321,6 +316,8 @@ syscall_exec:
         DEFW zos_time_msleep
         DEFW zos_time_settime
         DEFW zos_time_gettime
+        DEFW zos_date_setdate
+        DEFW zos_date_getdate
         ; Keep a label on map syscall as it will be treated differently
         ; from other syscalls. In practice, we will not load the address
         ; from here. We will call the function directly.

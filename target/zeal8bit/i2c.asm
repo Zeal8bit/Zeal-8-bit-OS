@@ -9,17 +9,26 @@
         INCLUDE "interrupt_h.asm"
 
         EXTERN zos_sys_remap_de_page_2
+        EXTERN zos_date_init
+        EXTERN _vfs_work_buffer
 
         ; Mask used to get the value from SDA input pin
         DEFC SDA_INPUT_MASK = 1 << IO_I2C_SDA_IN_PIN
+
+        ; Address for the I2C RTC device
+        DEFC I2C_RTC_ADDRESS = 0x68
 
         ; Default value for other pins than I2C ones. This is used to output a
         ; value on the I2C without sending garbage on the other lines (mainly UART)
         DEFC PINS_DEFAULT_STATE = IO_PIO_SYSTEM_VAL & ~(1 << IO_I2C_SDA_OUT_PIN | 1 << IO_I2C_SCL_OUT_PIN)
 
         SECTION KERNEL_DRV_TEXT
-        ; PIO has been initialized before-hand, no need to perform anything here
+        ; PIO has been initialized before-hand
 i2c_init:
+        ; Initialize the getdate routine, which will communicate with the I2C RTC
+        ld hl, 0        ; No setdate routine at the moment
+        ld de, i2c_getdate
+        call zos_date_init
 i2c_open:
 i2c_deinit:
         ; Return ERR_SUCCESS
@@ -97,6 +106,13 @@ _i2c_ioctl_write_read:
         inc hl
         ld h, (hl)
         ld l, a
+        ex de, hl
+        ; Make sure both DE and HL are in the same MMU page, check the highest 2 bits
+        ld a, d
+        xor h
+        ; If both are in the same page, two bits of A are now 00
+        and 0xc0
+        jp nz, i2c_invalid_param
         ; Perform a write-read operation, the parameters are: 
         ;   A - 7-bit device address
         ;   HL - Write buffer (bytes to write)
@@ -108,6 +124,96 @@ _i2c_ioctl_write_read:
         ;       1: No device responded, ERR_FAILURE
         ld a, (_i2c_dev_addr)
         jp i2c_write_read_device 
+
+
+        ; ----- Private routines -----;
+        ; Get the current date
+        ; Parameters:
+        ;       DE - Address to a date structure to fill. Guarenteed not NULL and mapped.
+i2c_getdate:
+        ; Save the user's buffer first
+        push de
+        ; The work buffer is bigger than the date structure, let's use it.
+        ld hl, _vfs_work_buffer
+        ld (hl), 0
+        ld de, _vfs_work_buffer + 1
+        ; Perform a write followed by a read on the bus
+        ; Parameters:
+        ;   A - 7-bit device address
+        ;   HL - Write buffer (bytes to write)
+        ;   DE - Read buffer (bytes read from the bus)
+        ;   B - Size of the write buffer
+        ;   C - Size of the read buffer
+        ld a, I2C_RTC_ADDRESS
+        ld b, 1 ; Write 1 byte, the register 0
+        ld c, 8 ; Read 8 bytes
+        call i2c_write_read_device
+        ; Pop the user buffer in HL
+        pop hl
+        ; Check if an error occurred
+        or a
+        ret nz
+        ; We have to fill HL with data in DE, the first date field is year, hardcode 20xx first
+        ld (hl), 0x20
+        inc hl
+        ; DE contains the register read from the RTC, they are in reverse order (seconds, minutes, etc...)
+        ld de, _vfs_work_buffer + 1 + 6
+        ; We cannot use LDI or LDD, because HL must be incremented while DE must be decremented
+        ld b, 6
+_getdate_loop:
+        ld a, (de)
+        ld (hl), a
+        dec de
+        inc hl
+        djnz _getdate_loop
+        ; We need to adjust the seconds to remove the upper bit (CH enable)
+        ld a, (de)
+        and 0x7f
+        ld (hl), a
+        ; We also need to adjust the hours
+        dec hl
+        dec hl
+        ld a, (hl)
+        ; Adjust only for PM/AM mode, the register is as is:
+        ; Bits: 7     6       5       4      3 2 1 0
+        ;       0   24/12   AM/PM   10Hour |  Hours
+        bit 6, a
+        jr nz, _getdate_adjust_hours
+        ; No need to adjust, we can return success
+        xor a
+        ret
+_getdate_adjust_hours:
+        ; Backup A, after removing the bit 6, in B
+        and 0x3f
+        ld b, a
+        ; Add 0x12 to the current time if PM is set, two exceptions though:
+        ;  * 12am which becomes 00
+        ;  * 12pm which becomes 12
+        ; Thus, invert the AM/PM bit for them
+        and 0x1f
+        cp 0x12
+        ; Restore A before jumping (or not)
+        ld a, b
+        jr nz, _getdate_no_12
+        ; Invert AM/PM bit
+        xor 0x20
+_getdate_no_12:
+        ; Only add 0x12 if PM (1)
+        bit 5, a
+        jr z, _getdate_no_adjust
+        and 0x1f        ; Only keep the hours
+        add 0x12        ; Add 12 in hex (BCD)
+        daa
+        ; Check if result is 24
+        cp 0x24
+        jr nz, _getdate_no_adjust
+        ; Reset A else
+        xor a
+_getdate_no_adjust:
+        ld (hl), a
+        ; Return success
+        xor a
+        ret
 
         ; Read bytes from the I2C.
         ; Parameters:

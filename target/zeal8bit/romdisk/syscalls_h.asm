@@ -188,7 +188,17 @@
                 ld l, 20 
                 SYSCALL
         ENDM
+
+        MACRO  SETDATE  _
+                ld l, 21
+                SYSCALL
+        ENDM
         
+
+        MACRO  GETDATE  _
+                ld l, 22
+                SYSCALL
+        ENDM
 
         MACRO  MAP  _
                 ld l, 23 

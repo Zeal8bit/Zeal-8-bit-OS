@@ -118,6 +118,31 @@ _strcmp_end:
         ret
 
 
+
+    ; Function copying src string into dest, including the terminating null byte
+        ; Parameters:
+        ;       HL - src string
+        ;       DE - dst string
+        ; Alters
+        ;       A
+        PUBLIC strcpy
+strcpy:
+        push hl
+        push bc
+        push de
+        ld bc, 0xffff
+_strcpy_loop:
+        ld a, (hl)
+        ; Copy byte into de, even if it's null-byte
+        ldi
+        ; Test null-byte here
+        or a
+        jp nz, _strcpy_loop
+        pop de
+        pop bc
+        pop hl
+        ret
+
         ; Parse string into a 16-bit integer. Hexadecimal string can start with
         ; 0x or $, decimal number start with any
         ; valid digit
@@ -287,4 +312,150 @@ _parse_hex_dec_digit:
         ret
 _parse_not_hex_digit:
         scf
+        ret
+
+
+        ; Convert a 32-bit value to ASCII (hex)
+        ; Parameters:
+        ;       HL - Pointer to a 32-bit value, little-endian
+        ;       DE - String destination. It must have at least 8 free bytes to write the ASCII result.
+        ; Returns:
+        ;       HL - HL + 4
+        ;       DE - DE + 8
+        ; Alters:
+        ;       A, DE
+        PUBLIC dword_to_ascii
+dword_to_ascii:
+        push bc
+        ld c, (hl)      ; Lowest byte
+        inc hl
+        ld b, (hl)
+        inc hl
+        push bc
+        ld c, (hl)
+        inc hl
+        ld a, (hl)      ; Highest byte
+        inc hl
+        ; HL must be returned like this
+        ex (sp), hl     ; HL contains lowest byte value now
+        push hl
+        ; Use HL as the destination, DE will be used as return value of byte_to_ascii
+        ex de, hl
+        call _dword_to_ascii_convert_store
+        ld a, c
+        call _dword_to_ascii_convert_store
+        pop bc
+        ld a, b        
+        call _dword_to_ascii_convert_store
+        ld a, c
+        call _dword_to_ascii_convert_store
+        ; Put back the destination (HL) inside DE
+        ex de, hl
+        pop hl
+        pop bc
+        ret
+_dword_to_ascii_convert_store:
+        call byte_to_ascii
+        ld (hl), d
+        inc hl
+        ld (hl), e
+        inc hl
+        ret
+
+        ; Convert an 8-bit value to ASCII (hex)
+        ; Parameters:
+        ;       A - Value to convert
+        ; Returns:
+        ;       D - First character
+        ;       E - Second character 
+        ; Alters:
+        ;       A
+        PUBLIC byte_to_ascii
+byte_to_ascii:
+        ld e, a
+        rlca
+        rlca
+        rlca
+        rlca
+        and 0xf
+        call _byte_to_ascii_nibble
+        ld d, a
+        ld a, e
+        and 0xf
+        call _byte_to_ascii_nibble
+        ld e, a
+        ret
+_byte_to_ascii_nibble:
+        ; If the byte is between 0 and 9 included, add '0'
+        sub 10
+        jp nc, _byte_to_ascii_af
+        ; Byte is between 0 and 9
+        add '0' + 10
+        ret
+_byte_to_ascii_af:
+        ; Byte is between A and F
+        add 'A'
+        ret
+
+        ; Convert a date (DATE_STRUCT) to ASCII.
+        ; The format will be as followed:
+        ; YYYY-MM-DD HH:MM:SS
+        ; Parameters:
+        ;       HL - Pointer to the date structure, of size DATE_STRUCT_SIZE
+        ;       DE - String destination. It must have at least 19 bytes free
+        ; Returns:
+        ;       HL - HL + DATE_STRUCT_SIZE
+        ;       DE - DE + 19
+        PUBLIC date_to_ascii
+date_to_ascii:
+        push bc
+        ld b, h
+        ld c, l
+        ; HL will be used as a destination
+        ex de, hl
+        ; Read the year top digits first
+        ld a, (bc)
+        call _date_to_ascii_digits
+        ld a, (bc)
+        call _date_to_ascii_digits
+        ld (hl), '-'
+        inc hl
+        ; BC points to the month now
+        ld a, (bc)
+        call _date_to_ascii_digits
+        ld (hl), '-'
+        inc hl
+        ; BC points to the day now
+        ld a, (bc)
+        call _date_to_ascii_digits
+        ld (hl), ' '
+        inc hl
+        ; Skip the day name
+        inc bc
+        ; Hours
+        ld a, (bc)
+        call _date_to_ascii_digits
+        ld (hl), ':'
+        inc hl
+        ; Minutes
+        ld a, (bc)
+        call _date_to_ascii_digits
+        ld (hl), ':'
+        inc hl
+        ; Seconds
+        ld a, (bc)
+        call _date_to_ascii_digits
+        ; Restore HL, DE and BC
+        ex de, hl
+        ld h, b
+        ld l, c
+        pop bc
+        ret
+_date_to_ascii_digits:
+        call byte_to_ascii
+        ld (hl), d
+        inc hl
+        ld (hl), e
+        inc hl
+        inc bc
         ret

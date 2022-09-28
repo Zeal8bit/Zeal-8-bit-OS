@@ -224,7 +224,7 @@ _zos_date_check_bc_call_hl:
 
         ; Routine to get system date (usually used when an RTC is available)
         ; Parameters:
-        ;       BC - Address to a date structure to fill, as defined in the
+        ;       DE - Address to a date structure to fill, as defined in the
         ;            time_h.asm header file. Must not be NULL.
         ; Returns:
         ;       A - ERR_SUCCESS on success,
