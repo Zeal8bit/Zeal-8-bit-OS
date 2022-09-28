@@ -203,13 +203,15 @@ uart_send_byte_next_bit:
         ld c, 0
         ; Output the bit
         out (IO_PIO_SYSTEM_DATA), a
+        ; Output some delay after the stop bit too
+        call wait_104_d_87_tstates
         ret
 
         ; Receive a sequences of bytes on the UART.
         ; Parameters:
         ;   HL - Pointer to the sequence of bytes
         ;   BC - Size of the sequence
-        ;   D - Baudrate (0: 57600, 1: 38400, 2: 19200, 3: 9600)
+        ;   D - Baudrate (0: 57600, 1: 38400, 4: 19200, 10: 9600, ..., from uart_h.asm)
         ; Returns:
         ;   A - ERR_SUCCESS
         ; Alters:
@@ -234,7 +236,7 @@ _uart_receive_next_byte:
         ld a, b
         or c
         jp nz, _uart_receive_next_byte
-        ; Finished receiving, restore DE and return
+        ; Finished receiving, return
         EXIT_CRITICAL()
         ret
 
