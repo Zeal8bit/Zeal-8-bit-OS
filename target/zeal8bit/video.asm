@@ -7,6 +7,7 @@
         INCLUDE "video_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "mmu_h.asm"
+        INCLUDE "time_h.asm"
         INCLUDE "strutils_h.asm"
 
         EXTERN zos_sys_reserve_page_1
@@ -39,13 +40,23 @@ video_init:
 
         ld a, DEFAULT_CHARS_COLOR_INV
         ld (invert_color), a
-        ; FIXME: Once the real FPGA (and the simulator) support 24-bit physical
-        ;        addresses, remove this unecessary memory mapper.
-        ;ld a, MAP_VRAM
-        ;out (IO_MAP_VIDEO_MEMORY), a
+        
         ; Set it at the default stodut
         ld hl, this_struct
         call zos_vfs_set_stdout
+
+        ; Register the timer-related routines
+        IF VIDEO_USE_VBLANK_MSLEEP
+        ld bc, video_msleep
+        ELSE
+        ld bc, 0
+        ENDIF
+        ld hl, video_set_vblank
+        ld de, video_get_vblank
+
+        ; Tail-call to zos_time_init
+        jp zos_time_init
+
         ; Print a message on the video output
         ;MMU_MAP_PHYS_ADDR(MMU_PAGE_1, IO_VIDEO_PHYS_ADDR_TEXT)
 video_deinit:
@@ -65,10 +76,6 @@ video_deinit:
         ; Alters:
         ;       A, BC, DE, HL (any of them can be altered, caller-saved)
 video_open:
-        ; FIXME: Once the real FPGA (and the simulator) support 24-bit physical
-        ;        addresses, remove this unecessary memory mapper.
-        ; ld a, MAP_VRAM
-        ; out (IO_MAP_VIDEO_MEMORY), a
         ; Restore the color to default. In the future, we'll also have to restore
         ; the default color palette and charset.
         ld a, DEFAULT_CHARS_COLOR
@@ -288,9 +295,112 @@ video_print_buffer_from_cursor:
         ldir
         ret
 
+        ; Routine called everytime a V-blank interrupt occurs
+        ; Must not alter A
+        PUBLIC video_vblank_isr
+video_vblank_isr:
+        ; Add 16(ms) to the counter
+        ld hl, (vblank_count)
+        ld de, 16
+        add hl, de
+        ld (vblank_count), hl
+        ret
+
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
         ;======================================================================;
+
+        ; Routines to get the vblank count (can be used as a timer)
+        ; Parameters:
+        ;       None
+        ; Returns:
+        ;       DE - time_millis_t data type
+        ;       A - ERR_SUCCESS
+        ; Alters:
+        ;       None
+video_get_vblank:
+        ld de, (vblank_count)
+        xor a
+        ret
+
+        ; Routines to set the vblank count (can be used as a timer)
+        ; Parameters:
+        ;       DE - time_millis_t data type
+        ; Returns:
+        ;       A - ERR_SUCCESS
+        ; Alters:
+        ;       None
+video_set_vblank:
+        ld (vblank_count), de
+        xor a
+        ret
+
+        ; Do not use vblank counter for msleep at the moment, it is less accurate than
+        ; the default OS function which counts cycles.
+        IF VIDEO_USE_VBLANK_MSLEEP
+        ; Routine to sleep at least DE milliseconds
+        ; Parameters:
+        ;       DE - 16-bit duration
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       Can alter any
+video_msleep:
+        ; Make sure the parameter is no 0
+        ld a, d
+        or e
+        ret z
+        ; Before dividing by 16, keep E in C in order to check the remainder.
+        ; Indeed, if we were asked to wait 60ms, we have to wait 4*16 = 64, and
+        ; not 3*16 = 48
+        ld a, e
+        and 0xf
+        ld b, a
+        ; Divide DE by 16
+        ld a, e
+_video_msleep_no_carry:
+        srl d
+        rra
+        srl d
+        rra
+        srl d
+        rra
+        srl d
+        rra
+        ld e, a
+        ; If the remainder is not 0, increment DE by one
+        ld a, b
+        or a
+        jp nz, _video_msleep_inc
+        ; If the result is 0 (< 16ms), increment by 1
+        or e
+        or d
+        jr nz, _video_msleep_start
+_video_msleep_inc:
+        inc de
+_video_msleep_start:
+        ; TODO: Make sure the VBlank interrupt are still enabled?
+        ; Each VBlank ticks counts as 16ms, except the first one, so make sure we ignore it
+        ; wait for a change on the tick count.
+        ld hl, vblank_count
+        ; No need to check the most-significant byte
+        ld a, (hl)
+_video_msleep_ignore:
+        halt
+        cp (hl)
+        ; We can take our time here, use jr
+        jr z, _video_msleep_ignore
+        ; A change occured, clean the count and wait for DE ticks
+        ld hl, 0
+        ld (vblank_count), hl
+_video_msleep_wait:
+        xor a
+        ld hl, (vblank_count)
+        sbc hl, de
+        jp c, _video_msleep_wait
+        ; Success, A is already 0.
+        ret
+        ENDIF
 
         ; Parameters:
         ;       HL - Screen cursor position to perform the modulo on.
@@ -679,6 +789,7 @@ set_chars_color:
         ret
 
         SECTION DRIVER_BSS
+vblank_count:   DEFS 2
 scroll_at_pos:  DEFS 2  ; Absolute position where a scroll is required
 cursor_pos:     DEFS 2  ; 2 bytes for cursor position on the screen
 cursor_line:    DEFS 1  ; 1 byte for cursor position on current line

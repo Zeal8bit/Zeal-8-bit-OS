@@ -115,7 +115,7 @@ _zos_waste_time:
         ; Routine to manually set/reset the time counter, in milliseconds.
         ; Parameters:
         ;       H - Id of the clock (for future use, unused for now)
-        ;       DE - time_millis_t data type. At the moment, BC contains
+        ;       DE - time_millis_t data type. At the moment, DE contains
         ;            the value directly. In the future, it is possible that
         ;            this value becomes a pointer to a bigger structure.
         ; Returns:
@@ -123,7 +123,7 @@ _zos_waste_time:
         ;           ERR_NOT_IMPLEMENTED if target doesn't implement this feature
         ;           error code else
         ; Alters:
-        ;       A
+        ;       A, HL
         PUBLIC zos_time_settime
 zos_time_settime:
         ld hl, (_zos_time_driver_settime)
@@ -150,10 +150,10 @@ zos_time_settime:
         ;       A - ERR_SUCCESS on success,
         ;           ERR_NOT_IMPLEMENTED if target doesn't implement this feature
         ;           error code else
-        ;       DE - time_millis_t data type. At the moment, BC contains
-        ;            the value directly.
+        ;       DE - time_millis_t data type. At the moment, DE contains
+        ;            the value directly. (not a pointer)
         ; Alters:
-        ;       A
+        ;       A, HL
         PUBLIC zos_time_gettime
 zos_time_gettime:
         ld hl, (_zos_time_driver_gettime)

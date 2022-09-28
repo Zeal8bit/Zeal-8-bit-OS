@@ -7,6 +7,7 @@
         INCLUDE "pio_h.asm"
         INCLUDE "interrupt_h.asm"
 
+        EXTERN video_vblank_isr
         EXTERN keyboard_interrupt_handler
 
         SECTION KERNEL_DRV_TEXT
@@ -51,14 +52,16 @@ interrupt_default_handler:
 interrupt_pio_handler:
         ex af, af'
         exx
-
         ; Check which pin triggered the interrupt, multiple pins can trigger
         ; this interrupt, so all pins shall be checked.
         in a, (IO_PIO_SYSTEM_DATA)
+        ; Check if a V-blank interrupt occurred
+        bit IO_VBLANK_PIN, a
+        ; All the bits are active-low!
+        call z, video_vblank_isr
 
-        ; Only check the keyboard at the moment.
-        call keyboard_interrupt_handler
-
+        bit IO_KEYBOARD_PIN, a
+        call z, keyboard_interrupt_handler
         exx
         ex af, af'
         ei

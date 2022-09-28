@@ -123,8 +123,7 @@ _zos_default_init:
         CONFIG_KERNEL_INIT_EXECUTABLE
         DEFM 0  ; NULL-byte after the string
 
-        ; Define the boilerplate to print as soon as 
-        ; a logging function is available
+        ; Define the boilerplate to print as soon as a logging function is available
         PUBLIC zos_boilerplate
 zos_boilerplate:
         INCBIN "version.txt"
