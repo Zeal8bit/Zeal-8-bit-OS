@@ -10,7 +10,6 @@
 #include <sys/stat.h>
 #include <stdint.h>
 #include <fcntl.h>
-#include <endian.h>
 #include <unistd.h>
 #include <libgen.h>
 #include <string.h>
@@ -60,7 +59,28 @@ static void copyToOut(int out, int in) {
     }
 }
 
-/* Only compatible with little-endian CPU at the moment */
+/**
+ * Convert any uint32_t value to a little endian value.
+ * On little-endian CPUs, the value isn't changed, on big-endian CPUs,
+ * nibbles are re-organised.
+ */
+static uint32_t toLittleEndian(uint32_t value) {
+  /* Check if little-endian CPU */
+  uint32_t tmp = 0x42000056;
+  const uint8_t* ptr = (uint8_t*) &tmp;
+  if (*ptr == 0x56) {
+    /* Little-endian, do not change anything */
+    return value;
+  }
+  /* Big-endian CPU */
+  return
+    ((value >> 0) & 0xff)  << 24 |
+    ((value >> 8) & 0xff)  << 16 |
+    ((value >> 16) & 0xff) << 8  |
+    ((value >> 24) & 0xff) << 0;
+}
+
+/* Ccompatible with both little-endian and big-endian CPUs */
 int main(int argc, char* argv[]) {
     struct stat statbuf = { 0 };
 
@@ -90,13 +110,13 @@ int main(int argc, char* argv[]) {
         CHECK_ERR(stat(filename, &statbuf));
         /* Copy the filename (basename) and truncate it to fit inside 16 byte */
         strncpy(entry.name, basename(filename), sizeof(entry.name));
-        entry.size = (uint32_t) statbuf.st_size;
-        entry.offset = offset;
+        entry.size = toLittleEndian((uint32_t) statbuf.st_size);
+        entry.offset = toLittleEndian(offset);
         time_t lastmod = statbuf.st_mtime;
         struct tm* timest = localtime(&lastmod);
         /* Got the time, populate it in the structure */
-        entry.year[0] = toBCD((1900 + timest->tm_year) / 100);   /* 20 first */
-        entry.year[1] = toBCD(timest->tm_year);         /* 22 then */
+        entry.year[0] = toBCD((1900 + timest->tm_year) / 100);   /* hundreds first */
+        entry.year[1] = toBCD(timest->tm_year);
         entry.month = toBCD(timest->tm_mon + 1);
         entry.day = toBCD(timest->tm_mday);
         entry.date = toBCD(timest->tm_wday);
