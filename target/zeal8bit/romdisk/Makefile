@@ -5,7 +5,7 @@ IMG=disk.img
 BUILDIR=build
 FILES_IN_IMG=$(BUILDIR)/$(BIN) simple.txt
 
-phony: all clean
+.PHONY: all clean
 
 all: clean 
 	@mkdir -p $(BUILDIR)
