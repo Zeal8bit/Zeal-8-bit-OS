@@ -133,7 +133,7 @@ Indicating that the final binary has been created. This binary includes the kern
 
 ## Flashing
 
-The binary can be directly flashed to a ROM, to a NOR flash NOR flash, or any other storage the target computer is using. It can also be used to boot an emulator.
+The binary can be directly flashed to a ROM, to a NOR flash, or any other storage the target computer is using. It can also be used to boot an emulator.
 
 For example, to flash it on an W27C020 (256KB) EEPROM, you can use a TL866xx programmer with `minipro` (https://gitlab.com/DavidGriffith/minipro/) and the following command:
 
