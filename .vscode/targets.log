@@ -1,0 +1,513 @@
+make all --print-data-base --no-builtin-variables --no-builtin-rules --question
+Configuration file os.conf could not be found. Please run make menuconfig first
+# GNU Make 4.2.1
+# Built for x86_64-pc-linux-gnu
+# Copyright (C) 1988-2016 Free Software Foundation, Inc.
+# License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+# This is free software: you are free to change and redistribute it.
+# There is NO WARRANTY, to the extent permitted by law.
+
+# Make data base, printed on Thu Nov  3 17:03:15 2022
+
+# Variables
+
+# 'override' directive
+GNUMAKEFLAGS := 
+# automatic
+<D = $(patsubst %/,%,$(dir $<))
+# automatic
+?F = $(notdir $?)
+# environment
+DESKTOP_SESSION = ubuntu
+# default
+.SHELLFLAGS := -c
+# environment
+XDG_SESSION_CLASS = user
+# environment
+SNAP_COMMON = /var/snap/code/common
+# environment
+XDG_SESSION_TYPE = x11
+# makefile (from 'Makefile', line 31)
+TARGET = $(shell echo $(CONFIG_TARGET))
+# environment
+NVM_INC = /home/kevin/.nvm/versions/node/v15.12.0/include/node
+# automatic
+?D = $(patsubst %/,%,$(dir $?))
+# environment
+IM_CONFIG_PHASE = 1
+# automatic
+@D = $(patsubst %/,%,$(dir $@))
+# environment
+XAUTHORITY = /run/user/1000/gdm/Xauthority
+# environment
+GDMSESSION = ubuntu
+# environment
+XMODIFIERS = @im=ibus
+# makefile
+CURDIR := /home/kevin/Dev/minecraft/Zeal-8-bit-OS
+# makefile (from 'Makefile', line 2)
+SHELL := /bin/bash
+# environment
+SNAP_DATA = /var/snap/code/112
+# environment
+VSCODE_NLS_CONFIG = {"locale":"en-us","availableLanguages":{},"_languagePackSupport":true}
+# environment
+JOURNAL_STREAM = 8:59976
+# environment
+XDG_CONFIG_DIRS = /etc/xdg/xdg-ubuntu:/etc/xdg
+# environment
+SNAP_INSTANCE_NAME = code
+# environment
+SNAP_ARCH = amd64
+# makefile (from 'Makefile', line 20)
+MKFILE := unit.mk 
+# makefile (from 'Makefile', line 1)
+MAKEFILE_LIST :=  Makefile
+# automatic
+@F = $(notdir $@)
+# environment
+GIO_LAUNCHED_DESKTOP_FILE = /var/lib/snapd/desktop/applications/code_code.desktop
+# environment
+USERNAME = kevin
+# environment
+MANDATORY_PATH = /usr/share/gconf/ubuntu.mandatory.path
+# environment
+XDG_DATA_DIRS = /usr/share/ubuntu:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop
+# environment
+DBUS_SESSION_BUS_ADDRESS = unix:path=/run/user/1000/bus
+# makefile (from 'Makefile', line 19)
+LINKERFILE := linker.asm
+# environment
+_ = /snap/code/112/usr/share/code/code
+# makefile (from 'Makefile', line 77)
+OBJS = $(patsubst %.asm,%.o,$(ASMSRCS))
+# environment
+MANAGERPID = 2094
+# environment
+LESSOPEN = | /usr/bin/lesspipe %s
+# environment
+VSCODE_CWD = /home/kevin
+# makefile (from 'Makefile', line 21)
+ASMFLAGS := -Iinclude/
+# environment
+GSETTINGS_SCHEMA_DIR = /snap/code/112/usr/share/glib-2.0/schemas
+# default
+MAKE_HOST := x86_64-pc-linux-gnu
+# makefile (from 'Makefile', line 8)
+PATH := /home/kevin/Dev/minecraft/Zeal-8-bit-OS/packer/:/home/kevin/.local/bin:/home/kevin/bin:/home/kevin/.nvm/versions/node/v15.12.0/bin:/home/kevin/.cargo/bin:/home/kevin/.local/bin:/home/kevin/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/opt/go/bin:/opt/android-studio/bin:/opt/go/bin:/opt/android-studio/bin
+# makefile (from 'Makefile', line 57)
+define IMPORT_subunitmk
+    SUBMKFILE = $$(wildcard */$$(MKFILE))
+    TMP1 :=
+    TMP2 :=
+    TMP3 :=
+    TMP4 :=
+    $$(foreach file,$$(SUBMKFILE),$$(eval $$(call IMPORT_unitmk,$$(file),TMP1,TMP2,TMP3,TMP4)))
+    $1 := $$(TMP1)
+    $2 := $$(TMP2)
+    $3 := $$(TMP3)
+    $4 := $$(TMP4)
+endef
+# environment
+GPG_AGENT_INFO = /run/user/1000/gnupg/S.gpg-agent:0:1
+# environment
+SESSION_MANAGER = local/leopard:@/tmp/.ICE-unix/2355,unix/leopard:/tmp/.ICE-unix/2355
+# environment
+XDG_RUNTIME_DIR = /run/user/1000
+# environment
+GDK_PIXBUF_MODULE_FILE = /home/kevin/snap/code/common/.cache/gdk-pixbuf-loaders.cache
+# environment
+SNAP = /snap/code/112
+# makefile (from 'Makefile', line 84)
+LINKERFILE_BUILT = $(BINDIR)/$(LINKERFILE_OBJ)
+# environment
+NVM_BIN = /home/kevin/.nvm/versions/node/v15.12.0/bin
+# environment
+SNAP_VERSION = 8fa188b2
+# environment
+XDG_MENU_PREFIX = gnome-
+# makefile (from 'Makefile', line 6)
+DISASSEMBLER = $(shell which z88dk-dis z88dk.z88dk-dis | head -1)
+# environment
+ELECTRON_RUN_AS_NODE = 1
+# environment
+INVOCATION_ID = ae9c118d47d643b386ee0076e54bb61d
+# environment
+GDK_PIXBUF_MODULEDIR = /snap/code/112/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders
+# default
+.FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
+# environment
+LS_COLORS = 
+# environment
+XDG_SESSION_DESKTOP = ubuntu
+# environment
+SSH_AUTH_SOCK = /run/user/1000/keyring/ssh
+# environment
+GIO_LAUNCHED_DESKTOP_FILE_PID = 247857
+# makefile (from 'Makefile', line 40)
+define IMPORT_unitmk
+    SRCS :=
+    INCLUDES :=
+    PWD := $$(dir $1)
+    include $1
+    CURRENTDIR := $$(shell basename $$(dir $1))/
+    $2 := $$($2) $$(addprefix $$(CURRENTDIR),$$(SRCS))
+    $3 := $$($3) $$(addprefix $$(CURRENTDIR),$$(INCLUDES))
+    $4 := $$($4) $$(PRECMD)
+    $5 := $$($5) $$(POSTCMD)
+endef
+# automatic
+%F = $(notdir $%)
+# environment
+DISPLAY = :0
+# makefile (from 'Makefile', line 10)
+KCONFIG_CONFIG = os.conf
+# environment
+SNAP_INSTANCE_KEY = 
+# environment
+PWD = /home/kevin/Dev/minecraft/Zeal-8-bit-OS
+# default
+.LOADED := 
+# environment
+SSH_AGENT_PID = 2300
+# makefile (from 'Makefile', line 82)
+LINKERFILE_PATH = target/$(TARGET)/$(LINKERFILE)
+# environment
+ORIGINAL_XDG_CURRENT_DESKTOP = ubuntu:GNOME
+# environment
+GTK_MODULES = gail:atk-bridge
+# makefile (from 'Makefile', line 7)
+PYTHON = python3
+# environment
+VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
+# environment
+HOME = /home/kevin
+# environment
+LESSCLOSE = /usr/bin/lesspipe %s %s
+# environment
+VSCODE_CLI = 1
+# makefile (from 'Makefile', line 83)
+LINKERFILE_OBJ = $(patsubst %.asm,%.o,$(LINKERFILE_PATH))
+# environment
+VSCODE_CODE_CACHE_PATH = /home/kevin/.config/Code/CachedData/8fa188b2b301d36553cbc9ce1b0a146ccb93351f
+# environment
+LOGNAME = kevin
+# environment
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = true
+# environment
+SNAP_LIBRARY_PATH = /var/lib/snapd/lib/gl:/var/lib/snapd/lib/gl32:/var/lib/snapd/void
+# environment
+SNAP_CONTEXT = FLeKWHT7ofs_5DStrHw6jc2bdKBYro_J3fcTMfPozGWtX6ljhbzr
+# environment
+NVM_CD_FLAGS = 
+# makefile (from 'Makefile', line 22)
+INCLUDEDIRS := 
+# environment
+ELECTRON_NO_ATTACH_CONSOLE = 1
+# environment
+SNAP_USER_COMMON = /home/kevin/snap/code/common
+# environment
+VSCODE_HANDLES_UNCAUGHT_ERRORS = true
+# environment
+GNOME_DESKTOP_SESSION_ID = this-is-deprecated
+# automatic
+^D = $(patsubst %/,%,$(dir $^))
+# environment
+MAKELEVEL := 0
+# environment
+SNAP_REAL_HOME = /home/kevin
+# makefile (from 'Makefile', line 16)
+FULLBIN = $(BINDIR)/$(BIN)
+# default
+MAKE = $(MAKE_COMMAND)
+# default
+MAKECMDGOALS := all
+# environment
+QT_IM_MODULE = ibus
+# environment
+SNAP_USER_DATA = /home/kevin/snap/code/112
+# environment
+SHLVL = 0
+# makefile (from 'Makefile', line 15)
+BINDIR = build
+# makefile (from 'Makefile', line 3)
+CC = z88dk-z80asm
+# environment
+GNOME_SHELL_SESSION_MODE = ubuntu
+# default
+MAKE_VERSION := 4.2.1
+# environment
+USER = kevin
+# environment
+SNAP_REVISION = 112
+# makefile
+.DEFAULT_GOAL := all
+# environment
+XDG_CURRENT_DESKTOP = Unity
+# automatic
+%D = $(patsubst %/,%,$(dir $%))
+# makefile (from 'Makefile', line 17)
+MAPFILE = os.map
+# default
+MAKE_COMMAND := make
+# makefile (from 'Makefile', line 23)
+PRECMD := 
+# default
+.VARIABLES := 
+# automatic
+*F = $(notdir $*)
+# environment
+LANGUAGE = en_PH:en
+# environment
+VSCODE_IPC_HOOK = /run/user/1000/vscode-830a5e2f-1.73.0-main.sock
+# environment
+BAMF_DESKTOP_FILE_HINT = /var/lib/snapd/desktop/applications/code_code.desktop
+# makefile
+MAKEFLAGS = pqrR
+# makefile (from 'Makefile', line 79)
+BUILTOBJS = $(addprefix $(BINDIR)/,$(OBJS))
+# environment
+MFLAGS = -pqrR
+# automatic
+*D = $(patsubst %/,%,$(dir $*))
+# environment
+NVM_DIR = /home/kevin/.nvm
+# automatic
++D = $(patsubst %/,%,$(dir $+))
+# environment
+GDK_BACKEND = x11
+# automatic
++F = $(notdir $+)
+# environment
+QT_ACCESSIBILITY = 1
+# environment
+DEFAULTS_PATH = /usr/share/gconf/ubuntu.default.path
+# 'override' directive
+.SHELLSTATUS := 0
+# default
+MAKEFILES := 
+# environment
+SNAP_COOKIE = FLeKWHT7ofs_5DStrHw6jc2bdKBYro_J3fcTMfPozGWtX6ljhbzr
+# automatic
+<F = $(notdir $<)
+# makefile (from 'Makefile', line 24)
+POSTCMD := 
+# environment
+SNAP_NAME = code
+# makefile (from 'Makefile', line 14)
+BIN = os.bin
+# environment
+LC_ALL = C
+# environment
+GJS_DEBUG_TOPICS = JS ERROR;JS LOG
+# automatic
+^F = $(notdir $^)
+# default
+SUFFIXES := 
+# makefile (from 'Makefile', line 129)
+CONVERT_config_asm =     cat $1 | grep "^CONFIG_" | sed 's/=y/=1/g' | sed 's/=n/=0/g' | sed 's/\(.*\)=\(".*"\)/MACRO \1\n    DEFM \2\nENDM/g' | sed 's/^CONFIG/DEFC CONFIG/g' > $2
+# environment
+SNAP_REEXEC = 
+# environment
+CHROME_DESKTOP = code-url-handler.desktop
+# environment
+WINDOWPATH = 2
+# default
+.INCLUDE_DIRS = /usr/include /usr/local/include /usr/include
+# environment
+GJS_DEBUG_OUTPUT = stderr
+ 
+make: *** No rule to make target 'os.conf', needed by 'all'.  Stop.
+
+# default
+.RECIPEPREFIX := 
+# environment
+LANG = C
+# environment
+VSCODE_PID = 247905
+# makefile (from 'Makefile', line 12)
+OSCONFIG_ASM = include/osconfig.asm
+# makefile (from 'Makefile', line 11)
+MENUCONFIG_STYLE = aquatic
+# variable set hash-table stats:
+# Load=147/1024=14%, Rehash=0, Collisions=22/193=11%
+
+# Pattern-specific Variable Values
+
+# No pattern-specific variable values.
+
+# Directories
+
+# . (device 56, inode 7023206): 14 files, no impossibilities.
+
+# 14 files, no impossibilities in 1 directories.
+
+# Implicit Rules
+
+%.o: %.asm
+#  recipe to execute (from 'Makefile', line 113):
+	$(CC) $(ASMFLAGS) $(addprefix -I,$(INCLUDEDIRS)) -O$(BINDIR) $<
+
+# 1 implicit rules, 0 (0.0%) terminal.
+
+# Files
+
+all: os.conf version packer precmd target//linker.o
+#  Command line target.
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 89):
+	$(CC) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
+	@echo "OS binary: $(FULLBIN)"
+	@echo "Executing post commands..."
+	$(POSTCMD)
+
+.PHONY: check menuconfig version packer
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+prepare_dirs:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 143):
+	@mkdir -p $(BINDIR)
+
+os.conf:
+#  Implicit rule search has not been done.
+#  Implicit/static pattern stem: ''
+#  File does not exist.
+#  File has been updated.
+#  Failed to be updated.
+# automatic
+# @ := os.conf
+# automatic
+# % := 
+# automatic
+# * := 
+# automatic
+# + := 
+# automatic
+# | := 
+# automatic
+# < := 
+# automatic
+# ^ := 
+# automatic
+# ? := 
+# variable set hash-table stats:
+# Load=8/32=25%, Rehash=0, Collisions=1/13=8%
+#  recipe to execute (from 'Makefile', line 110):
+	@test -e $@ || { echo "Configuration file $@ could not be found. Please run make menuconfig first"; exit 1; }
+
+# Not a target:
+.SUFFIXES:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+Makefile:
+#  Implicit rule search has been done.
+#  Last modified 2022-11-03 16:52:45.753901806
+#  File has been updated.
+#  Successfully updated.
+
+dump:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 146):
+	$(DISASSEMBLER) -x $(BINDIR)/os.map $(BINDIR)/$(BIN) | less
+
+# Not a target:
+target//linker.o:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+version:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 97):
+	@echo Zeal 8-bit OS `git describe --tags` > version.txt
+	@echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt
+
+precmd:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 105):
+	@echo "Executing pre commands..."
+	@$(PRECMD)
+
+# Not a target:
+.DEFAULT:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+clean:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 152):
+	rm -rf $(OSCONFIG_ASM) $(BINDIR) $(KCONFIG_CONFIG) version.txt
+
+packer:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 101):
+	@echo "Building packer"
+	@cd packer && make
+
+menuconfig:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 138):
+	$(PYTHON) $(shell $(PYTHON) -m site --user-base)/bin/menuconfig
+	@echo "Converting $(KCONFIG_CONFIG) to $(OSCONFIG_ASM) ..."
+	@$(call CONVERT_config_asm,$(KCONFIG_CONFIG), $(OSCONFIG_ASM))
+
+check:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 116):
+	@python3 --version > /dev/null || (echo "Cannot find python3 binary, please install it and retry")
+	@pip3 --version > /dev/null || (echo "Cannot find pip3 binary, please install it and retry" && exit 1)
+	@pip3 list | grep kconfiglib3 > /dev/null || (echo -e "Cannot find kconfiglib python package, please install it with:\npip3 install kconfiglib" && exit 1)
+
+fdump:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  recipe to execute (from 'Makefile', line 149):
+	$(DISASSEMBLER) -x $(BINDIR)/os.map $(BINDIR)/$(BIN) > $(BINDIR)/os.dump
+
+# files hash-table stats:
+# Load=16/1024=2%, Rehash=0, Collisions=0/45=0%
+# VPATH Search Paths
+
+# No 'vpath' search paths.
+
+# No general ('VPATH' variable) search path.
+
+# strcache buffers: 1 (0) / strings = 32 / storage = 262 B / avg = 8 B
+# current buf: size = 8162 B / used = 262 B / count = 32 / avg = 8 B
+
+# strcache performance: lookups = 61 / hit rate = 47%
+# hash-table stats:
+# Load=32/8192=0%, Rehash=0, Collisions=1/61=2%
+# Finished Make data base on Thu Nov  3 17:03:15 2022
+
+ 

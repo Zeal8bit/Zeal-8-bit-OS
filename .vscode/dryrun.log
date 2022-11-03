@@ -1,0 +1,13 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/kevin/Dev/minecraft/Zeal-8-bit-OS'
+Configuration file os.conf could not be found. Please run make menuconfig first
+echo Zeal 8-bit OS `git describe --tags` > version.txt
+echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt
+echo "Building packer"
+cd packer && make
+echo "Executing pre commands..."
+make: Leaving directory '/home/kevin/Dev/minecraft/Zeal-8-bit-OS'
+ 
+make: *** No rule to make target 'os.conf', needed by 'all'.
+make: *** No rule to make target 'target//linker.o', needed by 'all'.
+
