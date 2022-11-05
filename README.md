@@ -285,8 +285,8 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 18 | msleep | u16 duration | | |
 19 | settime | u8 id | u16 time | |
 20 | gettime | u8 id | u16 time | |
-21 | setdate | u16 time | |
-22 | getdate | u16 time | |
+21 | setdate | u16 date | |
+22 | getdate | u16 date | |
 23 | map | u16 dst | u24 src | |
 
 Please check the [section below](#syscall-parameters) for more information about each of these call and their parameters.
@@ -316,6 +316,7 @@ In order to perform a syscall, the operation number must be stored in register `
 | u16 argv              | `DE`         |
 | u16 duration          | `DE`         |
 | u16 time              | `DE`         |
+| u16 date              | `DE`         |
 | u24 src               | `HBC`        |
 | u32 offset            | `BCDE`       |
 

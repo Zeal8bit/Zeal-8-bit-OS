@@ -22,7 +22,7 @@
 
         ; Whences for seek routine
         DEFGROUP {
-                SEEK_SET,
+                SEEK_SET = 0,
                 SEEK_CUR,
                 SEEK_END,       ; Last valid entry
         }

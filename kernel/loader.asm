@@ -170,7 +170,7 @@ _zos_load_failed:
         ret
 
         ; Load and execute a program from a file name given as a parameter.
-        ; The program will recover the current program.
+        ; The program will cover the current program.
         ; Parameters:
         ;       BC - File to load and execute
         ;       (B - Save the current program in RAM?)
