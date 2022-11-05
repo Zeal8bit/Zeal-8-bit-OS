@@ -30,7 +30,7 @@ zos_sys_init:
         ;       DE - Destination address in virtual memory.
         ;            This will be rounded down to the target closest page bound.
         ;            For example, passing 0x5000 here, would in fact trigger a
-        ;            remap of the page startingat 0x4000.
+        ;            remap of the page starting at 0x4000.
         ;       HBC - Upper 24-bits of the physical address to map.
         ;             For example, to map 0x10_0000, HBL must be equal to 0x1000.
         ; Returns:
@@ -176,10 +176,6 @@ _zos_sys_invalid_syscall:
         PUBLIC zos_sys_remap_de_page_2
 zos_sys_remap_bc_page_2:
         ld a, b
-        jr _zos_sys_remap_buffer
-zos_sys_remap_de_page_2:
-        ld a, d
-_zos_sys_remap_buffer:
         ; In practice the pages are (at least) aligned on 8-bit, no need for
         ; the lowest byte.
         MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(A, A)
@@ -187,7 +183,18 @@ _zos_sys_remap_buffer:
         ret nz
         ; TODO: Have an API for this (BC - PAGE_SIZE)
         res 6, b        ; BC - 16KB
+        jr zos_sys_remap_page_2
+zos_sys_remap_de_page_2:
+        ld a, d
+        ; In practice the pages are (at least) aligned on 8-bit, no need for
+        ; the lowest byte.
+        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(A, A)
+        cp 3
+        ret nz
+        ; TODO: Have an API for this (DE - PAGE_SIZE)
+        res 6, d        ; DE - 16KB
         ; Map user's page 3 into page 2
+zos_sys_remap_page_2:
         ld a, (_zos_user_page_3)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ret
