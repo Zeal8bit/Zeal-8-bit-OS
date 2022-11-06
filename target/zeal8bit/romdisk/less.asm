@@ -45,7 +45,7 @@ less_main:
         ld h, O_RDONLY
         OPEN()
         or a
-        ; In this case, A is negative if an error occured
+        ; In this case, A is negative if an error occurred
         jp m, open_error
         ; Else, open succeed, we can start reading the file
         ld h, a

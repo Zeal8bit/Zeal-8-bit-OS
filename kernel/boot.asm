@@ -101,7 +101,7 @@ _zos_boot_date_ok:
         call zos_log_message
         ld hl, _zos_default_init
         call zos_load_file
-        ; If we return from zos_load_file, an error occured
+        ; If we return from zos_load_file, an error occurred
         ld hl, _load_error_1
         call zos_log_error
         xor a

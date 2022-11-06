@@ -272,7 +272,7 @@ _zos_sys_reserve_page_remap_1:
         ;       A 
         PUBLIC zos_sys_restore_pages
 zos_sys_restore_pages:
-        ; If context is NULL, no changes occured
+        ; If context is NULL, no changes occurred
         ld a, h
         or l
         ret z

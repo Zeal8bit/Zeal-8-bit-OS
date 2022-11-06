@@ -17,7 +17,7 @@
         EXTERN zos_vfs_set_stdin
 
         SECTION KERNEL_DRV_TEXT
-        ; Initialize the keyboard driver. This is called only once, at bootup.
+        ; Initialize the keyboard driver. This is called only once, at boot up.
 keyboard_init:
         ; Initialize the software FIFO
         ld hl, kb_fifo
@@ -276,7 +276,7 @@ _keyboard_ctrl_newline:
         ld b, a
         ld a, (kb_buffer_size)
         sub b
-        ; If not 0, move the curor to the end of the line
+        ; If not 0, move the cursor to the end of the line
         call nz, video_move_cursor_near
         ; Add new line character to the end of the buffer
         ld hl, kb_internal_buffer
@@ -572,7 +572,7 @@ extended_scan:
         ;       A, HL
         PUBLIC keyboard_interrupt_handler
 keyboard_interrupt_handler:
-        ; In the keyboard itnerrupt handler, we will retrieve the key that has just been
+        ; In the keyboard interrupt handler, we will retrieve the key that has just been
         ; pressed and put it in our FIFO
         in a, (KB_IO_ADDRESS)
 keyboard_enqueue:

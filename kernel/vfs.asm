@@ -74,7 +74,7 @@ _zos_vfs_clean_close:
         call zos_vfs_close
         ld b, h
         djnz _zos_vfs_clean_close
-        ; Fall-throught
+        ; Fall-through
 
         ; Populate the stdin and stdout in the opened dev table.
         ; Call their respective open function again.
@@ -160,7 +160,7 @@ _zos_vfs_invalid_parameter:
         ; Routines used to interact with the drivers
 
         ; Open the given file or driver
-        ; Drivers name shall not exceed 4 characters and must be preceeded by VFS_DRIVER_INDICATOR (#)
+        ; Drivers name shall not exceed 4 characters and must be preceded by VFS_DRIVER_INDICATOR (#)
         ; (5 characters in total)
         ; Names not starting with # will be considered as files.
         ; Parameters:
@@ -214,7 +214,7 @@ zos_vfs_open_internal:
         ; No matter what the return value is, BC won't be used from now on
         ; Use it to restore the flags (in B)
         pop bc
-        ; Check if an error occured
+        ; Check if an error occurred
         or a
         jp nz, _zos_vfs_open_deallocate_stack_error
         ; Retrieve the current disk from the path and save it C (B has the flags already)
@@ -237,7 +237,7 @@ zos_vfs_open_internal:
         FREE_STACK_256()
         ; Pop the empty entry address from the stack too
         pop hl
-        ; Check if an error occured
+        ; Check if an error occurred
         or a
         jp nz, _zos_vfs_open_ret_error
 _zos_vfs_open_save_entry:
@@ -249,7 +249,7 @@ _zos_vfs_open_save_entry:
         ld a, (_dev_table_empty_entry)
         ret
 _zos_vfs_open_deallocate_stack_error:
-        ; An error occured, deallocate the stack and return the error
+        ; An error occurred, de-allocate the stack and return the error
         FREE_STACK_256()        ; Alters HL only, register A unmodified
         ; Pop HL (empty entry address) from the stack
 _zos_vfs_open_pop_ret_error:
@@ -508,7 +508,7 @@ _zos_vfs_close_isfile:
         ; Each field of the structure is name file_*_t.
         ; Parameters:
         ;       H - Dev number
-        ;       DE - File info stucture, this memory pointed must be big
+        ;       DE - File info structure, this memory pointed must be big
         ;            enough to store the file information
         ; Returns:
         ;       A - 0 on success, error else
@@ -554,7 +554,7 @@ _zos_vfs_pop_ret:
         ; Same as the function above, but with a file path instead of an opened dev.
         ; Parameters:
         ;       BC - Path to the file
-        ;       DE - File info stucture, the memory pointed must be big
+        ;       DE - File info structure, the memory pointed must be big
         ;            enough to store the file information (>= STAT_STRUCT_SIZE)
         ; Returns:
         ;       A - 0 on success, error else
@@ -604,7 +604,7 @@ zos_vfs_ioctl:
         ; Get the entry address in HL
         push de
         call zof_vfs_get_entry
-        ; Return directly if an error occured
+        ; Return directly if an error occurred
         or a
         jp nz, _zos_vfs_ioctl_pop_ret
         ; If the entry is a opened file/directory, return an error too
@@ -682,7 +682,7 @@ zos_vfs_seek:
         pop hl
         ret
 _zos_vfs_seek_isfile:
-        ; DE is not preserved accross the call, no need to save it
+        ; DE is not preserved across the call, no need to save it
         ; again after popping it.
         pop de
         call zos_disk_seek
@@ -858,7 +858,7 @@ zos_vfs_opendir_internal:
         ; HL contains the destination address, put it in DE instead
         ex de, hl
         call zos_get_full_path
-        ; Check if an error occured
+        ; Check if an error occurred
         or a
         jp nz, _zos_vfs_opendir_deallocate_stack_error
         ; Retrieve the current disk from the path and save it C
@@ -881,7 +881,7 @@ zos_vfs_opendir_internal:
         FREE_STACK_256()
         ; Pop the empty entry address from the stack too
         pop hl
-        ; Check if an error occured
+        ; Check if an error occurred
         or a
         jp nz, _zos_vfs_opendir_ret_error
         ; Else, we have to save the returned context in our array
@@ -892,7 +892,7 @@ zos_vfs_opendir_internal:
         ld a, (_dev_table_empty_entry)
         ret
 _zos_vfs_opendir_deallocate_stack_error:
-        ; An error occured, deallocate the stack and return the error
+        ; An error occurred, deallocate the stack and return the error
         FREE_STACK_256()        ; Alters HL only, register A unmodified
         ; Pop HL (empty entry address) from the stack
         pop hl
@@ -909,7 +909,7 @@ _zos_vfs_neg_ret:
         ;            It must be at least the size of an opendir entry size.
         ; Returns:
         ;       A  - ERR_SUCCESS on success,
-        ;            ERR_NO_MORE_ENTRIES if all the entries have been browsed alreadr,
+        ;            ERR_NO_MORE_ENTRIES if all the entries have been browsed already,
         ;            error value else
         ; Alters:
         ;       A
@@ -962,7 +962,7 @@ zos_vfs_rm:
         ;       D - ASCII letter to assign to the disk (upper or lower)
         ;       E - File system, taken from `vfs_h.asm`
         ; Returns:
-        ;       A - ERR_SUCCESS on succes, error code else
+        ;       A - ERR_SUCCESS on success, error code else
         PUBLIC zos_vfs_mount
 zos_vfs_mount:
         push hl
@@ -1111,7 +1111,7 @@ zos_vfs_mkdir_deallocate_return:
         ;            size CONFIG_KERNEL_PATH_MAX.
         ;            (must not be NULL)
         ; Returns:
-        ;       A - ERR_SUCCESS on succes, error code else (string length 0)
+        ;       A - ERR_SUCCESS on success, error code else (string length 0)
         ; Alters:
         ;       A, HL
 zos_get_full_path:

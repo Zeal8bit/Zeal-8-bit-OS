@@ -70,7 +70,7 @@ parse_exec_cmd:
         jp z, _process_command_not_found
         ; Prepare the argv (HL) and argc (BC)
         call prepare_argv_argc
-        or a    ; A is not null if an error occured
+        or a    ; A is not null if an error occurred
         jr nz, _process_command_argument_error
         ; Clean the stack
         inc sp
@@ -98,7 +98,7 @@ _process_command_argument_error:
 
         ; Look for the command passed in HL in the command list and return
         ; the entry point of it.
-        ; Paramters:
+        ; Parameters:
         ;       HL - Address of the command (string)
         ; Returns:
         ;       A - 0 if the command was not found, positive value else
@@ -184,7 +184,7 @@ _get_command_entry_point_not_found:
         ;       HL - Address of the beginning of the string (name of the command itself)
         ;       DE - Address of the first parameter
         ;       BC - (Unused) Length of the whole string
-        ; Retruns:
+        ; Returns:
         ;       HL - Address of command_argv (**argv)
         ;       BC - Number of entries in command_argv (argc)
         ; Alters:

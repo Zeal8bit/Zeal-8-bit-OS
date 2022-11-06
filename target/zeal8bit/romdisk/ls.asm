@@ -59,7 +59,7 @@ _ls_no_option:
         ld de, cur_path
         OPENDIR()
         or a
-        ; In this case, A is negative if an error occured
+        ; In this case, A is negative if an error occurred
         jp m, open_error
         ; Read the directory until there is no more entries
         ld h, a
@@ -163,7 +163,7 @@ newline_ret:
         ; no need to add one.
         ld a, (given_params)
         or a
-        ; Set A to 0 (succcess) without modifying the flags
+        ; Set A to 0 (success) without modifying the flags
         ret nz
         S_WRITE3(DEV_STDOUT, newline, 1)
         xor a

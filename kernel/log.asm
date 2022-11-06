@@ -38,13 +38,13 @@ _log_dummy_prefix_end:
         ; Routine called as soon as stdout is set in the VFS
         ; In our case, we will print the system boilerplate
         ; if this is the first time the stdout is set.
-        ; In other words, print the boielrplate if we are booting.
+        ; In other words, print the boilerplate if we are booting.
         ; Parameters:
         ;       HL - STDOUT driver 
         PUBLIC zos_log_stdout_ready
 zos_log_stdout_ready:
         ; We are going to optimize this a bit. Instead of calling vfs function
-        ; to write to the stdout, we will directly comunicate with the driver.
+        ; to write to the stdout, we will directly communicate with the driver.
         push hl
         push de
         ex de, hl
@@ -186,7 +186,7 @@ _zos_log_call_write:
         push hl
         ; Load the function address
         ld hl, (_log_write_fun)
-        ; Check if the funciton is 0!
+        ; Check if the function is 0!
         ld a, h
         or l
         ret z

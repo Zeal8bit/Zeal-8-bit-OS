@@ -22,7 +22,7 @@
         ; Load binary file which is pointed by HL
         ; Parameters:
         ;       HL - Absolute path to the file
-        ; This routine never returns as it executes the laoded file
+        ; This routine never returns as it executes the loaded file
         PUBLIC zos_load_file
 zos_load_file:
         ; Put the file path in BC
@@ -43,7 +43,7 @@ zos_load_file:
         ; H still contains dev number, DE contains the status structure address.
         ; Put the structure address in HL instead and so the dev number will be in D
         ex de, hl 
-        ; Check if an error occured while getting the info
+        ; Check if an error occurred while getting the info
         or a
         jp nz, _zos_load_failed
         ; Check the size field, if size field is not the first attribute, modify the code below

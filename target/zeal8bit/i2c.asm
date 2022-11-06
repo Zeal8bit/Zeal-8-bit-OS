@@ -129,7 +129,7 @@ _i2c_ioctl_write_read:
         ; ----- Private routines -----;
         ; Get the current date
         ; Parameters:
-        ;       DE - Address to a date structure to fill. Guarenteed not NULL and mapped.
+        ;       DE - Address to a date structure to fill. Guaranteed not NULL and mapped.
 i2c_getdate:
         ; Save the user's buffer first
         push de
@@ -552,7 +552,7 @@ _i2c_read_device_byte:
         jr z, _i2c_read_device_perform_nack
         ld a, 1
 _i2c_read_device_perform_nack:
-        ; BC are both preserved accros this function call
+        ; BC are both preserved across this function call
         call i2c_receive_byte
         ld (hl), a
         inc hl
@@ -606,7 +606,7 @@ i2c_write_read_device:
 _i2c_write_read_write_device_byte:
         ld a, (hl)
         inc hl
-        ; BC are both preserved accros this function call
+        ; BC are both preserved across this function call
         call i2c_send_byte
         ; If not zero, NACK was received, abort
         jp nz, _i2c_write_read_device_address_nack
@@ -646,7 +646,7 @@ _i2c_write_read_read_device_byte:
         jr z, _i2c_write_read_device_perform_nack
         ld a, 1
 _i2c_write_read_device_perform_nack:
-        ; BC are both preserved accros this function call
+        ; BC are both preserved across this function call
         call i2c_receive_byte
         ld (hl), a
         inc hl

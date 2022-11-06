@@ -5,7 +5,7 @@
         IFNDEF DISKS_H
         DEFINE DISKS_H
 
-        ; Default disk letter on bootup
+        ; Default disk letter on boot up
         DEFC DISK_DEFAULT_LETTER = 'A'
 
         ; Maximum number of disks at a time

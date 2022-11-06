@@ -46,7 +46,7 @@
                 ld sp, hl
         ENDM
 
-        ; Convert a litteral 16-bit value into string
+        ; Convert a literal 16-bit value into string
         MACRO STR lit
                 STRHEX((lit >> 12) & 0xf)
                 STRHEX((lit >> 8) & 0xf)

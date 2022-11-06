@@ -18,7 +18,7 @@
 uart_init:
         ld a, UART_BAUDRATE_DEFAULT
         ld (_uart_baudrate), a
-        ; Currently, the driver doesn't need to do anything special for open, close or deinit
+        ; Currently, the driver doesn't need to do anything special for open, close or de-init
 uart_open:
 uart_close:
 uart_deinit:
@@ -255,7 +255,7 @@ uart_receive_byte:
         ld b, a
         ; RX pin must be high (=1), before receiving
         ; the start bit, check this state.
-        ; If the line is not high, then a transfer is ocurring
+        ; If the line is not high, then a transfer is occurring
         ; or a problem is happening on the line
 uart_receive_wait_for_idle_anybaud:
         in a, (IO_PIO_SYSTEM_DATA)

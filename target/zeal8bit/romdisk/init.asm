@@ -47,7 +47,7 @@ next_command:
         ld a, b
         or c
         jp z, next_command
-        ; Chekc that BC is not 1 and remove the final \n
+        ; Check that BC is not 1 and remove the final \n
         dec bc
         ld a, b
         or c
@@ -114,7 +114,7 @@ get_current_dir:
         ret
 
         ; Get the length of the current path and append PROMPT_CHAR to it
-        ; Paramters:
+        ; Parameters:
         ;       DE - String to get the length of
         ; Returns:
         ;       BC - Size of the string in DE, after appending PROMPT_CHAR

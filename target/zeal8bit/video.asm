@@ -18,7 +18,7 @@
 
         SECTION KERNEL_DRV_TEXT
         ; Initialize the video driver.
-        ; This is called only once, at bootup
+        ; This is called only once, at boot up
 video_init:
         ; We will need to scroll the screen when cursor_pos reaches
         ; 0 (IO_VIDEO_MAX_CHAR + 1 rolled).
@@ -41,7 +41,7 @@ video_init:
         ld a, DEFAULT_CHARS_COLOR_INV
         ld (invert_color), a
         
-        ; Set it at the default stodut
+        ; Set it at the default stdout
         ld hl, this_struct
         call zos_vfs_set_stdout
 
@@ -63,7 +63,7 @@ video_deinit:
         ld a, ERR_SUCCESS
         ret
 
-        ; Open function, called everytime a file is opened on this driver
+        ; Open function, called every time a file is opened on this driver
         ; Note: This function should not attempt to check whether the file exists or not,
         ;       the filesystem will do it. Instead, it should perform any preparation
         ;       (if needed) as multiple reads will occur.
@@ -95,7 +95,7 @@ video_ioctl:
         ld a, ERR_NOT_IMPLEMENTED
         ret
 
-        ; Write function, called everytime user application needs to output chars
+        ; Write function, called every time user application needs to output chars
         ; or pixels to the video chip.
         ; Parameters:
         ;       DE - Source buffer. Guaranteed to not cross page boundary.
@@ -173,7 +173,7 @@ video_seek:
         ; Map the video RAM in the second page.
         ; This is used by other drivers that want to show text or manipulate
         ; the text cursor several times, knowing that no read/write on user
-        ; buffer will occur. It will let us perform a single map/unmap accross
+        ; buffer will occur. It will let us perform a single map/unmap across
         ; the whole process.
         ; Parameters:
         ;       None
@@ -390,7 +390,7 @@ _video_msleep_ignore:
         cp (hl)
         ; We can take our time here, use jr
         jr z, _video_msleep_ignore
-        ; A change occured, clean the count and wait for DE ticks
+        ; A change occurred, clean the count and wait for DE ticks
         ld hl, 0
         ld (vblank_count), hl
 _video_msleep_wait:
@@ -490,7 +490,7 @@ print_buffer:
         ;       DE - Address of the ASCII char (A)
         ;       BC - Size of the string pointed by DE
         ; Returns:
-        ;       DE - New address of the string (if esc seqeuences)
+        ;       DE - New address of the string (if esc sequences)
         ;       BC - New size of the string pointed by DE (if esc sequences)
         ; Alters:
         ;       A, BC, HL
@@ -627,7 +627,7 @@ _parse_char_escape_seq:
         jr z, _parse_char_escape_seq_three
         cp '0'
         jr z, _parse_char_escape_seq_zero
-        ; Unsupported behaviour
+        ; Unsupported behavior
         ret
 _parse_char_escape_seq_three:
         inc de
@@ -670,7 +670,7 @@ _colors_mapping: DEFB 0x0c, 0x0a, 0x0e, 0x00
 
         ; Scroll the screen vertically by 1 line if necessary,
         ; If the scroll index reaches the number of lines,
-        ; it will be reseted to 0
+        ; it will be reset to 0
         ; Parameters:
         ;       HL - New cursor_pos value 
         ; Returns:

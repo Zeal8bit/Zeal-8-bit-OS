@@ -148,7 +148,7 @@ _zos_disks_invalid_param:
         ret
 
         ; Returns the driver of the disk letter passed in A.
-        ; Prameters:
+        ; Parameters:
         ;       A - Letter of the disk to get the driver of
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
@@ -471,7 +471,7 @@ _zos_disk_write_fat16:
         call zos_fs_fat16_write
 _zos_disk_write_epilogue:
         pop hl
-        ; Check if an error occured, stack is clean, we can ret at any time
+        ; Check if an error occurred, stack is clean, we can ret at any time
         or a
         ret nz
         ; Write was a success, we have the number of bytes written in BC
@@ -587,7 +587,7 @@ _zos_disk_seek_set:
         jp nz, _zos_disk_seek_set_offset_min_##reg
         ENDR
         ; If we reach this point (no jump), then both are equal,
-        ; which can also be interpreterd as "given offset is the minimum".
+        ; which can also be interpreted as "given offset is the minimum".
         ; Thus, we can set the given offset inside the file's offset and
         ; return it directly. Make HL point to the offset field.
 _zos_disk_seek_set_offset_min_e:
@@ -834,7 +834,7 @@ _zos_disks_allocate_loop:
         jr z, _zos_disks_allocate_found
         add hl, de      ; Go to the next structure
         djnz _zos_disks_allocate_loop
-        ; Could not find any emptry entry, send an error
+        ; Could not find any empty entry, send an error
         pop af
         pop bc
         pop hl
@@ -1069,8 +1069,8 @@ _zos_disks_allocatedir_found:
         ; Read the next entry from the opened directory.
         ; Parameters:
         ;       HL - Opened directory entry (allocated by zos_disk_allocate_opndir previously)
-        ;            Guarenteed to be an opened dir by the caller.
-        ;       DE - User buffer to fill. Guarenteed to be at least DISKS_DIR_ENTRY_SIZE big,
+        ;            Guaranteed to be an opened dir by the caller.
+        ;       DE - User buffer to fill. Guaranteed to be at least DISKS_DIR_ENTRY_SIZE big,
         ;            not crossing boundaries, and already mapped to an accessible address.
         ; Returns:
         ;       A - ERR_SUCCESS on success,
@@ -1180,7 +1180,7 @@ zos_disk_add_offset_bc:
         ; no need to continue, we can return directly
         ld a, 0 ; DO NOT use xor a here as we don't want to alter the flags
         ret nc
-        ; There is a carry, propage it. We can use inc (hl) but it doesn't set the
+        ; There is a carry, propagate it. We can use inc (hl) but it doesn't set the
         ; carry flag, it sets the zero flag. In fact, if we have an overflow (carry),
         ; the result will be 0 because we only added 1 (increment)
         inc hl

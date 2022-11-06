@@ -35,7 +35,7 @@ romdisk_deinit:
         ld a, ERR_SUCCESS
         ret
 
-        ; Open function, called everytime a file is opened on this driver
+        ; Open function, called every time a file is opened on this driver
         ; Note: This function should not attempt to check whether the file exists or not,
         ;       the filesystem will do it. Instead, it should perform any preparation
         ;       (if needed) as multiple reads will occur.
@@ -52,7 +52,7 @@ romdisk_close:
         ld a, ERR_SUCCESS
         ret
 
-        ; Read function, called everytime the filesystem needs data from the rom disk.
+        ; Read function, called every time the filesystem needs data from the rom disk.
         ; Parameters:
         ;       DE - Destination buffer.
         ;       BC - Size to read in bytes. Guaranteed to be equal to or smaller than 16KB.
@@ -80,7 +80,7 @@ romdisk_read:
         jp z, _romdisk_read_to_page2
         dec a
         ; In the case where the destination buffer is in the last page,
-        ; we assume this call has been perofrmed by the kernel, and so,
+        ; we assume this call has been performed by the kernel, and so,
         ; the page is valid.
         jp z, _romdisk_read_to_page2
         ; Don't accept page 0 though, as this is the place this code is executed from.
@@ -136,7 +136,7 @@ _romdisk_read_to_page1:
         ; In other words, (HL + BC) must still point to the same page, else we would need 2 ldir 
         call _romdisk_copy_if_cross_boundary
         jr z, _romdisk_copy_no_remap
-        ; A cross-boundary copy is occuring, we have to remap the flash/rom to the next page
+        ; A cross-boundary copy is occurring, we have to remap the flash/rom to the next page
         MMU_GET_PAGE_NUMBER(MMU_PAGE_2)
         inc a
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
@@ -175,10 +175,10 @@ _romdisk_read_to_page2:
         or MMU_PAGE1_VIRT_ADDR >> 8
         ld h, a
         push bc
-        ; Same as above, chekc the comment.
+        ; Same as above, check the comment.
         call _romdisk_copy_if_cross_boundary
         jr z, _romdisk_copy_no_remap_1
-        ; A cross-boundary copy is occuring, we have to remap the flash/rom to the next page
+        ; A cross-boundary copy is occurring, we have to remap the flash/rom to the next page
         MMU_GET_PAGE_NUMBER(MMU_PAGE_1)
         inc a
         MMU_SET_PAGE_NUMBER(MMU_PAGE_1)

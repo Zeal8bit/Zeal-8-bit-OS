@@ -2,7 +2,7 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
-        ; Source file for rgrouping the interrupt vectors
+        ; Source file for grouping the interrupt vectors
         ; It must be aligned on 256 in the linker script
         INCLUDE "interrupt_h.asm"
 
