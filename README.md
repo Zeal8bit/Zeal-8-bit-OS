@@ -6,6 +6,7 @@
         <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Licence" />
     </a>
     <p align="center">A simple and portable Operating System for Z80-based computers, written entirely in Z80 assembly.</p>
+    <p align="center"><a href="https://www.youtube.com/watch?v=5jTcWRN8IbA">Click here to have a look at the video presentation of the project on Youtube</a></p>
 </p>
 
 ## Table of Contents 
@@ -172,8 +173,8 @@ The only supported target at the moment is *Zeal 8-bit computer*, the port is no
 # TO DO
 
 There are still some work to do in the project. Some features needs to be development on the kernel side, some things needs to be documented in the project, here is a non-exhaustive list:
-* Generate header files usable by user programs for: syscalls, file entries, directories entries, opening flags, etc..
-* Document clearly what each syscall does
+* <s>Generate header files usable by user programs for: syscalls, file entries, directories entries, opening flags, etc..</s> **Done, header files are available in `kernel_headers` directory.**
+* <s>Document clearly what each syscall does</s> **Done, check ASM header file.**
 * List the loaded drivers from a user program.
 * List the available disks from a user program.
 * Refactor the kernel code to have a proper memory module, with better names for the required macros.
@@ -463,8 +464,8 @@ As said previously, *Zeal 8-bit Computer* support is still partial but enough to
 That script will compile the `init.bin` program and embed it inside a romdisk that will be concatenated to the compiled OS binary. The final binary can be directly flashed to the NOR Flash.
 
 What still needs to be implemented, in no particular order:
-* UART driver
-* I2C driver
+* <s>UART driver</s> **Done**
+* I2C driver (**partially done**)
   * EEPROM driver (needs ZealFS)
   * RTC driver
 * GPIO user interface/API
