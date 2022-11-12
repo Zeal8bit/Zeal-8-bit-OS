@@ -2,11 +2,11 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
-        INCLUDE "syscalls_h.asm"
+        INCLUDE "zos_sys.asm"
 
         ; Designate the order of the sections before starting the code
         ; We can name the sections whatever we want, but it has to match
-        ; accross all the files
+        ; across all the files
 
         ; ---------------- START ----------------;
         SECTION TEXT
@@ -93,7 +93,7 @@ err_loop:
         jr $
 
         ; Get the current directory from the kernel, retrieve its size,
-        ; append the PROMT_CHAR and save the new length in curdir_len
+        ; append the PROMPT_CHAR and save the new length in curdir_len
         ; Parameters:
         ;       None
         ; Returns:
@@ -144,7 +144,7 @@ _promptlen_loop_end:
 
         ; Group all the variables used in the program
         SECTION DATA
-curdir: DEFS CONFIG_KERNEL_PATH_MAX + 1
+curdir: DEFS PATH_MAX + 1
 curdir_len: DEFS 2
 bigbuffer: DEFS 81
 bigbuffer_end:

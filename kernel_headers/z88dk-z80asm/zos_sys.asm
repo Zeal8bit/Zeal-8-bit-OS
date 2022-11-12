@@ -2,6 +2,8 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
+    INCLUDE "zos_err.asm"
+
     IFNDEF ZOS_SYS_HEADER
     DEFINE ZOS_SYS_HEADER
 

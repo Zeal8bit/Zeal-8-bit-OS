@@ -2,8 +2,7 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
-        INCLUDE "syscalls_h.asm"
-        INCLUDE "errors_h.asm"
+        INCLUDE "zos_sys.asm"
 
         SECTION TEXT
 
@@ -28,7 +27,7 @@
         DEFC INIT_BUFFER_SIZE = init_static_buffer_end - init_static_buffer
 
         DEFC STATIC_STAT_BUFFER = init_static_buffer
-        DEFC STATIC_STRING_BUFFER = init_static_buffer + STAT_STRUCT_SIZE
+        DEFC STATIC_STRING_BUFFER = init_static_buffer + ZOS_STAT_SIZE
 
         ; "ls" command main function
         ; Parameters:
@@ -125,7 +124,7 @@ _ls_detailed:
         pop hl
         call strcpy
         ; Now convert the size into a hex value
-        ld de, STATIC_STRING_BUFFER + MAX_FILE_NAME + 2 ; give some space after filename
+        ld de, STATIC_STRING_BUFFER + FILENAME_LEN_MAX + 2 ; give some space after filename
         ld hl, STATIC_STAT_BUFFER
         ; FIXME: Print decimal value?
         ld a, '$'       ; Hex value only at the moment
@@ -257,6 +256,6 @@ str_rddir_err_end:
 cur_path: DEFM ".", 0   ; This is a string, it needs to be NULL-terminated
 newline: DEFM "\n"      ; This isn't a proper string, it'll be used with WRITE
      ; Given it one more byte to add a '\n' or '\0'
-dir_entry_struct: DEFS DISKS_DIR_ENTRY_SIZE + 1
+dir_entry_struct: DEFS ZOS_DIR_ENTRY_SIZE + 1
 valid_params: DEFM "l1", 0
 given_params: DEFS 1

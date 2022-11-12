@@ -2,7 +2,7 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
-        INCLUDE "syscalls_h.asm"
+        INCLUDE "zos_sys.asm"
 
         SECTION TEXT
 
@@ -366,7 +366,7 @@ command_argv:   DEFS MAX_COMMAND_ARGV * 2
 command_argc:   DEFS 1
         ; History related
 command_prev_size: DEFS 1
-command_prev: DEFS CONFIG_KERNEL_PATH_MAX + 1
+command_prev: DEFS PATH_MAX + 1
         ; Errors
 err_msg_not_found: DEFM ": command not found\n"
 err_msg_not_found_end:

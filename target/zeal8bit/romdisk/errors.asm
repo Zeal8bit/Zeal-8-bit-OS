@@ -2,8 +2,7 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
-    INCLUDE "syscalls_h.asm"
-    INCLUDE "errors_h.asm"
+    INCLUDE "zos_sys.asm"
 
     SECTION TEXT
 
