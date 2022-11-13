@@ -127,11 +127,13 @@ check:
 #    DEFM "test", 0
 # ENDM
 define CONVERT_config_asm =
+    echo -e "IFNDEF OSCONFIG_H\nDEFINE OSCONFIG_H\n" > $2 && \
     cat $1 | \
     grep "^CONFIG_" | \
     sed 's/=y/=1/g' | sed 's/=n/=0/g' | \
     sed 's/\(.*\)=\(".*"\)/MACRO \1\n    DEFM \2\nENDM/g' | \
-    sed 's/^CONFIG/DEFC CONFIG/g' > $2
+    sed 's/^CONFIG/DEFC CONFIG/g' >> $2 && \
+    echo -e "\nENDIF" >> $2
 endef
 
 menuconfig:
