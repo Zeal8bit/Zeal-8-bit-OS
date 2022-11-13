@@ -8,6 +8,7 @@
         INCLUDE "utils_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "log_h.asm"
+        INCLUDE "target_h.asm"
 
         EXTERN zos_vfs_open_internal
         EXTERN zos_vfs_read_internal
@@ -203,6 +204,9 @@ zos_loader_exec_internal:
         PUBLIC zos_loader_exit
 zos_loader_exit:
         call zos_vfs_clean
+        IF CONFIG_KERNEL_EXIT_HOOK
+        call target_exit
+        ENDIF
         ; Load the init file name
         ld hl, _zos_default_init
         jp zos_load_file

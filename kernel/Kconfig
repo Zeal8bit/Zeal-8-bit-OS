@@ -17,6 +17,14 @@ menu "Kernel configuration"
                         after initializing the MMU (if any) and setting up the stack.
                         This routine must be defined in the target code.
 
+        config KERNEL_EXIT_HOOK
+            bool "Hook routine at program exit"
+            default n
+            help
+                        When enabled, the kernel will call the routine named `target_exit` right
+                        after exiting a user program.
+                        This routine must be defined in the target code.
+
         config KERNEL_MAX_LOADED_DRIVERS
                 int "Maximum number of loaded drivers"
                 default 16

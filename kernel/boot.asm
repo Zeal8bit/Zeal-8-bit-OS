@@ -43,10 +43,6 @@ zos_entry:
         call target_coldboot
         ENDIF
 
-        IF CONFIG_EXIT_HOOK 
-        call target_exit
-        ENDIF
-
         ; Kernel RAM BSS shall be wiped now
         ld hl, __KERNEL_BSS_head
         ld de, __KERNEL_BSS_head + 1
