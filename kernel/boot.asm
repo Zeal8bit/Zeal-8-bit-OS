@@ -10,14 +10,14 @@
         INCLUDE "log_h.asm"
         INCLUDE "vfs_h.asm"
 
-        ; Forward declaraction of symbols used below
+        ; Forward declaration of symbols used below
         EXTERN zos_drivers_init
         EXTERN zos_vfs_init
         EXTERN zos_sys_init
         EXTERN zos_vfs_restore_std
         EXTERN zos_disks_init
         EXTERN zos_disks_get_default
-        EXTERN zos_load_file
+        EXTERN zos_load_init_file
         EXTERN __KERNEL_BSS_head
         EXTERN __KERNEL_BSS_size
         EXTERN __DRIVER_BSS_head
@@ -32,7 +32,7 @@ zos_entry:
         MMU_INIT()
 
         ; Map the kernel RAM to the last virtual page
-        MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_3, MMU_KERNEL_PHYS_PAGE)
+        MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
 
         ; Set up the stack pointer
         ld sp, CONFIG_KERNEL_STACK_ADDR
@@ -96,7 +96,7 @@ _zos_boot_date_ok:
         xor a
         call zos_log_message
         ld hl, _zos_default_init
-        call zos_load_file
+        call zos_load_init_file
         ; If we return from zos_load_file, an error occurred
         ld hl, _load_error_1
         call zos_log_error

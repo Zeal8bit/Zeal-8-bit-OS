@@ -29,6 +29,7 @@
                 ERR_BAD_MODE,
                 ERR_CANNOT_REGISTER_MORE,
                 ERR_NO_MORE_ENTRIES,
+                ERR_NO_MORE_MEMORY,
                 ; This error code is a special value that can only be used
                 ; by the drivers. It can be returned by the driver's init
                 ; routine in order to tell the kernel to NOT register the

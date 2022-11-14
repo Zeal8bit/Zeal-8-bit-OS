@@ -28,5 +28,6 @@ typedef enum {
     ERR_BAD_MODE,
     ERR_CANNOT_REGISTER_MORE,
     ERR_NO_MORE_ENTRIES,
+    ERR_NO_MORE_MEMORY,
 } zos_err_t;
 

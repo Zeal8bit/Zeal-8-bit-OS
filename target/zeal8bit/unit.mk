@@ -1,10 +1,15 @@
 INCLUDES := ./ ./include
 # Load the video driver first, in order to get an output early on
-SRCS := video.asm pio.asm uart.asm i2c.asm keyboard.asm romdisk.asm interrupt_vect.asm
+SRCS := video.asm pio.asm uart.asm i2c.asm keyboard.asm romdisk.asm interrupt_vect.asm mmu.asm
 
 	# Command to be executed before compiling the whole OS.
-	# In our case, compile the programs taht will be part of ROMDISK and create it.
-PRECMD := (cd $(PWD)/romdisk ; make)
+	# In our case, compile the programs that will be part of ROMDISK and create it.
+	# After creation, get its size, thanks to `stat` command, and store it in a generated header file
+	# named `romdisk_info_h.asm`
+PRECMD := (cd $(PWD)/romdisk && make) && \
+          SIZE=$$(stat -c %s $(PWD)/romdisk/disk.img) && \
+          (echo -e "IFNDEF ROMDISK_H\nDEFINE ROMDISK_H\nDEFC ROMDISK_SIZE=$$SIZE\nENDIF" > $(PWD)/include/romdisk_info_h.asm) && \
+		  unset SIZE
 
 	# After compiling the whole OS, we need to remove the unecessary binaries:
 	# In our case, it's the binary containing BSS addresses, so we only have to keep

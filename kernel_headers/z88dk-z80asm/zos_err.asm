@@ -29,6 +29,7 @@
         ERR_BAD_MODE,
         ERR_CANNOT_REGISTER_MORE,
         ERR_NO_MORE_ENTRIES,
+        ERR_NO_MORE_MEMORY,
     }
 
     ENDIF ; ZOS_ERR_HEADER

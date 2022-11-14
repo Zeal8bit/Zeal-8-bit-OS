@@ -98,7 +98,7 @@ zos_sys_perform_syscall:
         MMU_GET_PAGE_NUMBER(MMU_PAGE_2)
         ld l, a
         ; Map the kernel RAM to the second page now.
-        MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_2, MMU_KERNEL_PHYS_PAGE)
+        MMU_MAP_KERNEL_RAM(MMU_PAGE_2)
         ; Both the kernel RAM and the user's RAM (stack) are available. HOWEVER, any kernel RAM operation
         ; needs to be accompagnied by an offset, as it not mapped where it should be (page 3).
         ld a, h
@@ -116,7 +116,7 @@ zos_sys_perform_syscall:
         ; Retrieve the original HL, but keep it on the stack. Map the kernel RAM in the last virtual page.
         pop hl
         push hl
-        MMU_MAP_VIRT_FROM_PHYS(MMU_PAGE_3, MMU_KERNEL_PHYS_PAGE)
+        MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
         ; We still cannot use the stack. The stack pointer register corresponds
         ; to the user's stack, not the system's.
         ld (_zos_user_sp), sp

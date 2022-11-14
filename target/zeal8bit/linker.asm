@@ -27,3 +27,7 @@
         ORG 0xC000
         SECTION DRIVER_BSS
         SECTION DRIVER_BSS_ALIGN16
+        ; MMU is initialized before the kernel erases the BSS, thus we cannot
+        ; store MMU data inside the BSS, create a new section that won't be erased
+        ; by the kernel.
+        SECTION NOINIT_DATA

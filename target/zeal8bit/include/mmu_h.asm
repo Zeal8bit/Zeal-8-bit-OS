@@ -2,14 +2,26 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
+    INCLUDE "romdisk_info_h.asm"
+    INCLUDE "osconfig.asm"
+
     IFNDEF MMU_H
     DEFINE MMU_H
 
-    ; RAM physical address
-    DEFC MMU_RAM_PHYS_ADDR = 0x80000 ; 512KB
-
     ; Virtual page size is 16KB (so we have 4 pages)
     DEFC MMU_VIRT_PAGES_SIZE = 0x4000
+
+    ; Size of the RAM in bytes
+    DEFC MMU_RAM_SIZE = 512 * 1024
+
+    ; RAM physical address
+    DEFC MMU_RAM_PHYS_ADDR = 0x80000 ; 512KB
+    ; Index of the first RAM page
+    DEFC MMU_RAM_PHYS_START_IDX = MMU_RAM_PHYS_ADDR / MMU_VIRT_PAGES_SIZE
+    ; Number of 16KB pages for the RAM: 512KB/16KB
+    DEFC MMU_RAM_PHYS_PAGES = MMU_RAM_SIZE / MMU_VIRT_PAGES_SIZE
+    ; RAM page index of kernel RAM
+    DEFC MMU_KERNEL_RAM_PAGE_INDEX = (CONFIG_KERNEL_RAM_PHYS_ADDRESS >> 14) - MMU_RAM_PHYS_START_IDX
 
     ; MMU pages configuration I/O address
     DEFC MMU_PAGE_0 = 0xF0
@@ -23,13 +35,12 @@
     DEFC MMU_PAGE2_VIRT_ADDR = 0x8000
     DEFC MMU_PAGE3_VIRT_ADDR = 0xC000
 
-    ; Physical page used for kernel RAM. This is the first physical page, which is
-    ; 16KB wide.
-    DEFC MMU_KERNEL_PHYS_PAGE = 0
-
-    ; Physical page where programs can be loaded. This is placed after the system RAM,
-    ; which is located in the first physical 16KB page.
-    DEFC MMU_USER_PHYS_START_PAGE = MMU_KERNEL_PHYS_PAGE + 1
+    ; Routines implemented in `mmu.asm` source file
+    EXTERN mmu_init_ram_code
+    EXTERN mmu_alloc_page
+    EXTERN mmu_free_page
+    EXTERN mmu_mark_page_allocated
+    EXTERN mmu_bitmap
 
     ; Macro used to map a physical address to a virtual page. Both must be defined at compile time.
     MACRO MMU_MAP_PHYS_ADDR page, address
@@ -78,16 +89,58 @@
         and 3
     ENDM
 
-    ; In order to initialize the system, map the last page of memory
-    ; to the first page of physical RAM. This is where the kernel data
-    ; will be stored. 
-    ; Physical address 0x08_0000 will be mapped to 0xC000
-    MACRO MMU_INIT _
-        ; Nothing special to do, the MMU doesn't need any special initialization
+    ; Macro used to map the kernel RAM into the specified virtual page 
+    MACRO MMU_MAP_KERNEL_RAM page
+        ASSERT(page >= MMU_PAGE_0 && page <= MMU_PAGE_3)
+        ; For some reasons, z88dk doesn't allow us to call another macro is a macro...
+        ; Copy the content of MMU_MAP_PHYS_ADDR here. When it will be supported,
+        ; the following should be used:
+        ; MMU_MAP_PHYS_ADDR(page, CONFIG_KERNEL_RAM_PHYS_ADDRESS)
+        ld a, CONFIG_KERNEL_RAM_PHYS_ADDRESS >> 14
+        out (page), a
     ENDM
 
-    MACRO MMU_MAP_VIRT_FROM_PHYS VIRT_PAGE, PHY_PAGE_IDX
-        MMU_MAP_PHYS_ADDR((VIRT_PAGE), MMU_RAM_PHYS_ADDR + (PHY_PAGE_IDX) * MMU_VIRT_PAGES_SIZE)
+    MACRO MMU_ALLOC_PAGE _
+        call mmu_alloc_page
+    ENDM
+
+    ; Free a previously allocated page
+    ; Must not alter HL, DE
+    MACRO MMU_FREE_PAGE page
+        ld a, page
+        call mmu_free_page
+    ENDM
+
+    MACRO MMU_INIT _
+        LOCAL _kernel_not_in_ram
+        LOCAL _shift
+        ; Map Kernel RAM now and initialize the allocation bitmap
+        ; z88dk doesn't support using a macro in a macro, when it will be supported,
+        ; Replace the following with: MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
+        ld a, CONFIG_KERNEL_RAM_PHYS_ADDRESS >> 14
+        out (MMU_PAGE_3), a
+        ; Clear the allocated bitmap
+        ld hl, 0xFFFF
+        ; At the moment, we know we have only 4 bytes, no need to make a loop
+        ASSERT(MMU_RAM_PHYS_PAGES == 32)
+        ld (mmu_bitmap), hl
+        ld (mmu_bitmap + 2), hl
+        ; In theory, the stack is not ready, let's take some advance and set it
+        ;  in order ot be able to call a function
+        ld sp, CONFIG_KERNEL_STACK_ADDR
+        call mmu_init_ram_code
+        ; Mark kernel RAM page as allocated (page number in A, subtract RAM start index)
+        ld a, MMU_KERNEL_RAM_PAGE_INDEX
+        call mmu_mark_page_allocated
+        ; Check if the kernel is running in RAM, if that's the case, the page it is
+        ; running in as allocated
+        xor a   ; 2 top bits to 0
+        in a, (MMU_PAGE_0) ; Kernel is running from page 0
+        sub MMU_RAM_PHYS_START_IDX
+        ; Kernel is in RAM if there is no carry
+        call nc, mmu_mark_page_allocated
+        ; TODO: If support for RAMDISK is added, loaded by a bootloader, mark its pages
+        ;       as allocated.
     ENDM
 
     ; Macro to map the physical address pointed by HBC to the page pointed by A.
@@ -123,7 +176,7 @@
         ; Success, return 0
         xor a
 endmacro:
-    pop bc
+        pop bc
     ENDM
 
 
