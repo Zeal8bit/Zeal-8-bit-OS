@@ -112,6 +112,18 @@ typedef enum {
     FS_RAWTABLE = 0, // Only filesystem implemented for the moment
 } zos_fs_t;
 
+/**
+ * @note In the functions below, any pointer, buffer or structure address
+ * provided with an explicit or implicit (sizeof structure) size must NOT
+ * cross virtual page boundary, and must not be bigger than a virtual page
+ * size.
+ * For example, if we have two virtual pages located at 0x4000 and 0x8000
+ * respectively, a buffer starting a 0x7F00 cannot be used with a size of
+ * more than 256 bytes in the function below. Indeed, if the size is bigger,
+ * the end of buffer would cross the second page, which starts at 0x8000. In
+ * such cases, two or more calls to the desired syscall/function must be
+ * performed.
+ */
 
 /**
  * @brief Read from an opened device

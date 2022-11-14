@@ -1258,7 +1258,7 @@ zos_check_buffer_size:
         xor a
         ld hl, MMU_VIRT_PAGES_SIZE
         sbc hl, bc
-        jr z, zos_check_buffer_size_invalidparam
+        jr c, zos_check_buffer_size_invalidparam
         push de
         ; BC is less than a page size, get the page number of DE
         MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(D, E)
