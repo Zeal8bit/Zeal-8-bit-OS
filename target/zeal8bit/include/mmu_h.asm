@@ -112,8 +112,6 @@
     ENDM
 
     MACRO MMU_INIT _
-        LOCAL _kernel_not_in_ram
-        LOCAL _shift
         ; Map Kernel RAM now and initialize the allocation bitmap
         ; z88dk doesn't support using a macro in a macro, when it will be supported,
         ; Replace the following with: MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
