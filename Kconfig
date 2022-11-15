@@ -4,8 +4,7 @@ config CPU_FREQ
     help
         Defines the CPU frequency in Hz, this may be used for counting time when no hardware timer
         is available.
-        
-        
+
 config TARGET
     string
     default "zeal8bit" if TARGET_ZEAL_8_BIT
@@ -29,22 +28,9 @@ choice COMPILATION_TARGET
             Compile for example board.
 endchoice
 
-config KERNEL_RAM_PHYS_ADDRESS
-    hex "Kernel RAM physical address"
-    default 0x88000
-    range 0x80000 0xFC000
-    depends on TARGET_ZEAL_8_BIT
-    help
-        Physical address where the Kernel and drivers data (including BSS) will be stored in RAM.
-        If the kernel is meant to be executed from RAM, this value must be checked to avoid overlapping with kernel code!
-
-config ROMDISK_ADDRESS
-    hex "ROMDISK image physical address"
-    default 0x8000
-    range 0x4000 0x3C000
-    depends on TARGET_ZEAL_8_BIT
-    help
-        Address where the ROMDISK image will be placed in flash memory. As flash is mapped at physical address 0x0000,
-        this value also represents the physical address of ROMDISK image.
+# Configuration options depending on the target
+if TARGET_ZEAL_8_BIT
+    source "target/zeal8bit/Kconfig"
+endif
 
 source "kernel/Kconfig"
