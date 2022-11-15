@@ -40,10 +40,12 @@ video_init:
 
         ld a, DEFAULT_CHARS_COLOR_INV
         ld (invert_color), a
-        
+
+        IF CONFIG_TARGET_STDOUT_VIDEO
         ; Set it at the default stdout
         ld hl, this_struct
         call zos_vfs_set_stdout
+        ENDIF ; CONFIG_TARGET_STDOUT_VIDEO
 
         ; Register the timer-related routines
         IF VIDEO_USE_VBLANK_MSLEEP
@@ -148,7 +150,7 @@ video_read:
         ;       A  - Opened dev number getting closed
         ; Returns:
         ;       A - ERR_SUCCESS if success, error code else
-        ; Alters: 
+        ; Alters:
         ;       A, BC, DE, HL
 video_close:
 
@@ -170,6 +172,12 @@ video_seek:
         ret
 
 
+        ;======================================================================;
+        ;================= S T D O U T     R O U T I N E S ====================;
+        ;======================================================================;
+
+        IF CONFIG_TARGET_STDOUT_VIDEO
+
         ; Map the video RAM in the second page.
         ; This is used by other drivers that want to show text or manipulate
         ; the text cursor several times, knowing that no read/write on user
@@ -181,6 +189,8 @@ video_seek:
         ;       None
         ; Alters:
         ;       A
+        PUBLIC stdout_op_start
+stdout_op_start:
         PUBLIC video_map_start
 video_map_start:
         MMU_GET_PAGE_NUMBER(MMU_PAGE_1)
@@ -190,12 +200,13 @@ video_map_start:
         ret
 
         ; Same as above, but for restoring the original page
+        PUBLIC stdout_op_end
+stdout_op_end:
         PUBLIC video_map_end
 video_map_end:
         ld a, (mmu_page_back)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
         ret
-
 
         ; Show the cursor, inverted colors.
         ; The routine video_map_start must have been called
@@ -206,6 +217,8 @@ video_map_end:
         ;       None
         ; Alters:
         ;       A, B
+        PUBLIC stdout_show_cursor
+stdout_show_cursor:
         PUBLIC video_show_cursor
 video_show_cursor:
         ld a, (invert_color)
@@ -232,6 +245,8 @@ video_show_cursor_color:
         ;       None
         ; Alters:
         ;       A, B
+        PUBLIC stdout_hide_cursor
+stdout_hide_cursor:
         PUBLIC video_hide_cursor
 video_hide_cursor:
         ld a, (chars_color)
@@ -246,6 +261,8 @@ video_hide_cursor:
         ;       None
         ; Alters:
         ;       A, BC, HL, DE
+        PUBLIC stdout_move_cursor
+stdout_move_cursor:
         PUBLIC video_move_cursor_near
 video_move_cursor_near:
         ; Hide the cursor
@@ -285,6 +302,8 @@ video_move_cursor_near_a_positive:
         ;       None
         ; Alters:
         ;       A, BC, HL, DE
+        PUBLIC stdout_print_buffer
+stdout_print_buffer:
         PUBLIC video_print_buffer_from_cursor
 video_print_buffer_from_cursor:
         ld hl, (cursor_pos)
@@ -294,6 +313,8 @@ video_print_buffer_from_cursor:
         ex de, hl
         ldir
         ret
+
+        ENDIF ; CONFIG_TARGET_STDOUT_VIDEO
 
         ; Routine called everytime a V-blank interrupt occurs
         ; Must not alter A
@@ -417,7 +438,7 @@ video_screen_pos_mod:
         ; cursor_pos is positive, check if it's too big now
         xor a   ; clear carry flag
         sbc hl, de
-        ; If the result is positive or 0, nothing more the do, 
+        ; If the result is positive or 0, nothing more the do,
         ; HL is now between [0;IO_VIDEO_MAX_CHAR]
         ; Else, we have to add back DE before returning
         ret z
@@ -449,7 +470,7 @@ _video_line_pos_mod_negative:
         ret p
         jr _video_line_pos_mod_negative
 
-        
+
         ; Print a NULL-terminated string
         ; Parameters:
         ;       DE - String to print
@@ -494,12 +515,19 @@ print_buffer:
         ;       BC - New size of the string pointed by DE (if esc sequences)
         ; Alters:
         ;       A, BC, HL
+
+        IF CONFIG_TARGET_STDOUT_VIDEO
+        PUBLIC stdout_print_char
+stdout_print_char:
+        ENDIF ; CONFIG_TARGET_STDOUT_VIDEO
+
         PUBLIC print_char
 print_char:
         or a
+        ret z   ; NULL-character, don't do anything
         cp '\n'
         jp z, _print_char_newline
-        cp '\r'         
+        cp '\r'
         jp z, _print_char_carriage_return
         cp '\b'
         jp z, _print_char_backspace
@@ -589,7 +617,7 @@ _print_char_backspace:
         ; If dec a was positive, then no need to modify roll
         ; back anything
         ret p
-        ; Else, we have to go back to the previous line because 
+        ; Else, we have to go back to the previous line because
         ; A was 0
         ld a, IO_VIDEO_X_MAX - 1
         ld (cursor_line), a
@@ -666,13 +694,13 @@ _parse_char_escape_seq_zero:
         ; [1] -> Green
         ; [2] -> Yellow
 _colors_mapping: DEFB 0x0c, 0x0a, 0x0e, 0x00
-        
+
 
         ; Scroll the screen vertically by 1 line if necessary,
         ; If the scroll index reaches the number of lines,
         ; it will be reset to 0
         ; Parameters:
-        ;       HL - New cursor_pos value 
+        ;       HL - New cursor_pos value
         ; Returns:
         ;       A - New scroll value
         ; Alters:

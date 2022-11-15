@@ -2,6 +2,7 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
+        INCLUDE "osconfig.asm"
         INCLUDE "errors_h.asm"
         INCLUDE "drivers_h.asm"
         INCLUDE "pio_h.asm"
@@ -18,6 +19,25 @@
 uart_init:
         ld a, UART_BAUDRATE_DEFAULT
         ld (_uart_baudrate), a
+
+        IF CONFIG_TARGET_STDOUT_UART
+        ; Initialize the PIO because UART is the first driver. It will initialize
+        ; itself once more later, but that's not an issue.
+        EXTERN pio_init
+        EXTERN zos_vfs_set_stdout
+
+        call pio_init
+
+        ; Configure the UART to convert LF to CRLF when sending bytes
+        ld a, 1
+        ld (_uart_convert_lf), a
+
+        ; If the UART should be the standard output, set it at the default stdout
+        ld hl, this_struct
+        call zos_vfs_set_stdout
+
+        ENDIF ; CONFIG_TARGET_STDOUT_UART
+
         ; Currently, the driver doesn't need to do anything special for open, close or de-init
 uart_open:
 uart_close:
@@ -145,6 +165,18 @@ _uart_send_next_byte:
         ; Alters:
         ;   A, BC
 uart_send_byte:
+        cp '\n'
+        jr nz, _uart_send_byte_raw
+        ; Check if we have to convert LF to CRLF
+        ld a, (_uart_convert_lf)
+        or a
+        ld a, '\n'
+        jr z, _uart_send_byte_raw
+        ld a, '\r'
+        call _uart_send_byte_raw
+        ld a, '\n'
+        ; Fall-through
+_uart_send_byte_raw:
         ; Shift B to match TX pin
         ASSERT(IO_UART_TX_PIN <= 7)
         REPT IO_UART_TX_PIN
@@ -161,7 +193,7 @@ uart_send_byte:
         ; dec b + jp nz, which takes 14 T-states, but coming from here, we
         ; haven't been through these, so we are a bit too early, let's wait
         ; 14 T-states too.
-        jp $+3 
+        jp $+3
         nop
         ; For each baudrate, we have to wait N T-states in TOTAL:
         ; Baudrate 57600 => (D = 0)  => 173.6  T-states (~173 +  0 * 87)
@@ -364,11 +396,124 @@ wait_tstates_next_bit_87_tstates:
         pop hl
         ret
 
+        ;======================================================================;
+        ;================= S T D O U T     R O U T I N E S ====================;
+        ;======================================================================;
+
+        IF CONFIG_TARGET_STDOUT_UART
+
+        ; The following routines are used by other drivers to communicate with
+        ; the standard output, check the file "stdout_h.asm" for more info about
+        ; each of them (parameters, returns, registers that can be altered...)
+        PUBLIC stdout_op_start
+stdout_op_start:
+        PUBLIC stdout_op_end
+stdout_op_end:
+        ; Nothing special to do here
+        ret
+
+        PUBLIC stdout_show_cursor
+stdout_show_cursor:
+        push hl
+        push bc
+        ; Send the ANSI code for showing the cursor
+        ld hl, _show_cursor_seq
+_stdout_send_seq:
+        push de
+        ld bc, _show_cursor_seq_end - _show_cursor_seq
+        ld a, (_uart_baudrate)
+        ld d, a
+        call uart_send_bytes
+        pop de
+        pop bc
+        pop hl
+        ret
+_show_cursor_seq: DEFM 0x1b, "[?25h"
+_show_cursor_seq_end:
+
+        PUBLIC stdout_hide_cursor
+stdout_hide_cursor:
+        push hl
+        push bc
+        ; Same goes for hiding the cursor, the size is the same as above
+        ld hl, _hide_cursor_seq
+        jr _stdout_send_seq
+_hide_cursor_seq: DEFM 0x1b, "[?25l"
+
+
+        PUBLIC stdout_print_char
+stdout_print_char:
+        ; Load baudrate in D
+        ld hl, _uart_baudrate
+        ld h, (hl)
+        ; Save DE in HL as HL can be altered
+        ex de, hl
+        ; Send char in A
+        ENTER_CRITICAL()
+        call uart_send_byte
+        EXIT_CRITICAL()
+        ; Retrieve DE from HL and ret
+        ex de, hl
+        ret
+
+        PUBLIC stdout_print_buffer
+stdout_print_buffer:
+        ; Put buffer to print in HL
+        ex de, hl
+        ; Baudrate in D
+        ld a, (_uart_baudrate)
+        ld d, a
+        ; Save cursor position (DEC)
+        ld e, '7'
+        call _stdout_save_restore_position
+        call uart_send_bytes
+        ld e, '8'
+        jp _stdout_save_restore_position
+        ; Parameters:
+        ;   D - Baudrate
+        ;   E - 7 to save
+        ;       8 to restore
+_stdout_save_restore_position:
+        push bc
+        ld a, 0x1b
+        ENTER_CRITICAL()
+        call uart_send_byte
+        ld a, e
+        call uart_send_byte
+        EXIT_CRITICAL()
+        pop bc
+        ret
+
+
+        PUBLIC stdout_move_cursor
+stdout_move_cursor:
+        ; Add support for -1 and 1
+        inc a
+        jr z, _stdout_move_backward
+        cp 2    ; A has been incremented
+        ld hl, _esc_forward
+        jr z, _stdout_move_cursor_send_bytes
+        ret
+_stdout_move_backward:
+        ld hl, _esc_backward
+_stdout_move_cursor_send_bytes:
+        ld a, (_uart_baudrate)
+        ld d, a
+        ld bc, 4
+        jp uart_send_bytes
+_esc_backward: DEFM 0x1b, "[1D"
+_esc_forward:  DEFM 0x1b, "[1C"
+
+
+        ENDIF ; CONFIG_TARGET_STDOUT_UART
 
         SECTION DRIVER_BSS
 _uart_baudrate: DEFS 1
+        ; When set to 1, LF will be convert to CRLF when sending bytes
+_uart_convert_lf: DEFS 1
 
         SECTION KERNEL_DRV_VECTORS
+this_struct:
 NEW_DRIVER_STRUCT("SER0", \
                   uart_init, \
                   uart_read, uart_write, \

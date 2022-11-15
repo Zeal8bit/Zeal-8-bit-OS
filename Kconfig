@@ -1,36 +1,38 @@
-config CPU_FREQ
-	int "CPU Clock Frequency (Hz)"
-	default 10000000
-    help
-        Defines the CPU frequency in Hz, this may be used for counting time when no hardware timer
-        is available.
+mainmenu "Zeal 8-bit OS Configuration"
 
-config TARGET
-    string
-    default "zeal8bit" if TARGET_ZEAL_8_BIT
-    default "example" if TARGET_EXAMPLE
-
-choice COMPILATION_TARGET
-    prompt "Target board"
-    help
-        Choose the compilation target.
-
-    config TARGET_ZEAL_8_BIT
-        bool
-        prompt "Zeal 8-bit computer"
+    config CPU_FREQ
+        int "CPU Clock Frequency (Hz)"
+        default 10000000
         help
-            Compile for Zeal 8-bit computer.
+            Defines the CPU frequency in Hz, this may be used for counting time when no hardware timer
+            is available.
 
-    config TARGET_EXAMPLE
-        bool
-        prompt "Example target"
+    config TARGET
+        string
+        default "zeal8bit" if TARGET_ZEAL_8_BIT
+        default "example" if TARGET_EXAMPLE
+
+    choice COMPILATION_TARGET
+        prompt "Target board"
         help
-            Compile for example board.
-endchoice
+            Choose the compilation target.
 
-# Configuration options depending on the target
-if TARGET_ZEAL_8_BIT
-    source "target/zeal8bit/Kconfig"
-endif
+        config TARGET_ZEAL_8_BIT
+            bool
+            prompt "Zeal 8-bit computer"
+            help
+                Compile for Zeal 8-bit computer.
 
-source "kernel/Kconfig"
+        config TARGET_EXAMPLE
+            bool
+            prompt "Example target"
+            help
+                Compile for example board.
+    endchoice
+
+    # Configuration options depending on the target
+    if TARGET_ZEAL_8_BIT
+        source "target/zeal8bit/Kconfig"
+    endif
+
+    source "kernel/Kconfig"

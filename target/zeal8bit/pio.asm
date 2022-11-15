@@ -11,6 +11,7 @@
         EXTERN keyboard_interrupt_handler
 
         SECTION KERNEL_DRV_TEXT
+        PUBLIC pio_init
 pio_init:
         ; Disable interrupts for system port first
         ld a, IO_PIO_DISABLE_INT
@@ -55,10 +56,13 @@ interrupt_pio_handler:
         ; Check which pin triggered the interrupt, multiple pins can trigger
         ; this interrupt, so all pins shall be checked.
         in a, (IO_PIO_SYSTEM_DATA)
+
+        IF CONFIG_TARGET_ENABLE_VIDEO
         ; Check if a V-blank interrupt occurred
         bit IO_VBLANK_PIN, a
         ; All the bits are active-low!
         call z, video_vblank_isr
+        ENDIF ; CONFIG_TARGET_ENABLE_VIDEO
 
         bit IO_KEYBOARD_PIN, a
         call z, keyboard_interrupt_handler

@@ -8,6 +8,7 @@
         INCLUDE "interrupt_h.asm"
         INCLUDE "keyboard_h.asm"
         INCLUDE "mmu_h.asm"
+        INCLUDE "stdout_h.asm"
 
         DEFC KEYBOARD_FIFO_SIZE = 16
         DEFC KEYBOARD_INTERNAL_BUFFER_SIZE = 80
@@ -72,9 +73,9 @@ keyboard_read:
         call keyboard_read_raw
         jr _keyboard_end_copy
 _keyboard_read_internal_cooked:
-        call video_map_start
+        call stdout_op_start
         call keyboard_read_cooked
-        call video_map_end
+        call stdout_op_end
 _keyboard_end_copy:
         ; Copy the internal buffer to the user buffer
         ; BC contains the size of the filled internal buffer.
@@ -123,18 +124,12 @@ keyboard_close:
         ;       BC - Number of bytes filled in DE
         ; Alters:
         ;       A, BC, DE, HL
-        EXTERN video_show_cursor
-        EXTERN video_move_cursor_near
-        EXTERN video_map_start
-        EXTERN video_map_end
-        EXTERN video_print_buffer_from_cursor
-        EXTERN print_char
 keyboard_read_cooked:
         ; If the buffer is full, it will still not be sent to the user
         ; because it would still be possible to go back and remove some
         ; characters
 _keyboard_read_ignore:
-        call video_show_cursor
+        call stdout_show_cursor
 _keyboard_read_ignore_no_update:
         call keyboard_next_pressed_key
         dec b
@@ -197,9 +192,9 @@ _keyboard_read_ignore_no_update:
         ; Print the rest of the buffer on the screen.
         ld b, 0 ; print_buffer takes 16-bit size
         ex de, hl
-        call video_print_buffer_from_cursor
+        call stdout_print_buffer
         ld a, 1
-        call video_move_cursor_near
+        call stdout_move_cursor
         jp _keyboard_increment_size_and_cursor
 _keyboard_not_shift:
         ; Save the character in the buffer!
@@ -215,7 +210,7 @@ _keyboard_not_shift:
         ld a, b
         ld b, 0 ; print_buffer takes 16-bit size
         ex de, hl
-        call print_char
+        call stdout_print_char
 _keyboard_increment_size_and_cursor:
         ; Now increment the size of the buffer
         ld hl, kb_buffer_size
@@ -265,10 +260,10 @@ _keyboard_ctrl_backspace:
         dec (hl)
         ; Move the video cursor left
         ld a, -1
-        call video_move_cursor_near
+        call stdout_move_cursor
         pop bc
         pop de
-        call video_print_buffer_from_cursor
+        call stdout_print_buffer
         jp _keyboard_read_ignore
 _keyboard_ctrl_newline:
         ; Move the cursor to the end of the buffer
@@ -277,7 +272,7 @@ _keyboard_ctrl_newline:
         ld a, (kb_buffer_size)
         sub b
         ; If not 0, move the cursor to the end of the line
-        call nz, video_move_cursor_near
+        call nz, stdout_move_cursor
         ; Add new line character to the end of the buffer
         ld hl, kb_internal_buffer
         ld a, (kb_buffer_size)
@@ -294,7 +289,7 @@ _keyboard_ctrl_newline:
         inc c
         push bc
         ld a, '\n'
-        call print_char
+        call stdout_print_char
         pop bc
         ; Prepare the return values:
         ; DE - Address of the buffer
@@ -319,7 +314,7 @@ _keyboard_extended_left_arrow:
         jp z, _keyboard_read_ignore
         dec (hl)
         ld a, -1
-        call video_move_cursor_near
+        call stdout_move_cursor
         jp _keyboard_read_ignore
 _keyboard_extended_right_arrow:
         ; Shall not be at the end of the buffer
@@ -329,7 +324,7 @@ _keyboard_extended_right_arrow:
         ; Move the cursor forward
         inc (hl)
         ld a, 1
-        call video_move_cursor_near
+        call stdout_move_cursor
         jp _keyboard_read_ignore
 _keyboard_extended_up_arrow:
         ; By default, go to the end of the line
@@ -340,7 +335,7 @@ _keyboard_extended_up_arrow:
         sub (hl)
         ; Store the cursor new value first
         ld (hl), b
-        call video_move_cursor_near
+        call stdout_move_cursor
         jp _keyboard_read_ignore
 _keyboard_extended_down_arrow:
         ; By default, go to the beginning of the line
@@ -348,7 +343,7 @@ _keyboard_extended_down_arrow:
         ld a, (hl)      ; Current cursor value
         ld (hl), 0
         neg             ; Move the graphic (-cursor) units
-        call video_move_cursor_near
+        call stdout_move_cursor
         jp _keyboard_read_ignore
 
 

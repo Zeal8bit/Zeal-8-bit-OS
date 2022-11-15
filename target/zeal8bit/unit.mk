@@ -1,6 +1,25 @@
 INCLUDES := ./ ./include
+
+SRCS := pio.asm i2c.asm keyboard.asm romdisk.asm mmu.asm interrupt_vect.asm
+
+# If the UART is configured as the standard output, it shall be the first driver to initialize
+ifdef CONFIG_TARGET_STDOUT_UART
+	SRCS := uart.asm $(SRCS)
+else
+	SRCS += uart.asm
+endif
+
+# Same goes for the video driver
+ifdef CONFIG_TARGET_STDOUT_VIDEO
+	SRCS := video.asm $(SRCS)
+else
+	# Check if it was even activated in the menuconfig
+	ifdef CONFIG_TARGET_ENABLE_VIDEO
+		SRCS += video.asm
+	endif
+endif
+
 # Load the video driver first, in order to get an output early on
-SRCS := video.asm pio.asm uart.asm i2c.asm keyboard.asm romdisk.asm interrupt_vect.asm mmu.asm
 
 	# Command to be executed before compiling the whole OS.
 	# In our case, compile the programs that will be part of ROMDISK and create it.

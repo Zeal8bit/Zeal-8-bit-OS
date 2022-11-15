@@ -4,7 +4,6 @@ menu "Zeal 8-bit Computer configuration"
         hex "Kernel RAM physical address"
         default 0x88000
         range 0x80000 0xFC000
-        depends on TARGET_ZEAL_8_BIT
         help
             Physical address where the Kernel and drivers data (including BSS) will be stored in RAM.
             If the kernel is meant to be executed from RAM, this value must be checked to avoid overlapping with kernel code!
@@ -13,9 +12,37 @@ menu "Zeal 8-bit Computer configuration"
         hex "ROMDISK image physical address"
         default 0x8000
         range 0x4000 0x3C000
-        depends on TARGET_ZEAL_8_BIT
         help
             Address where the ROMDISK image will be placed in flash memory. As flash is mapped at physical address 0x0000,
             this value also represents the physical address of ROMDISK image.
+
+    config TARGET_ENABLE_VIDEO
+        bool
+        prompt "Enable video driver"
+        default "y"
+        help
+            Import the video driver in the kernel compilation. If this option is disabled, the UART will become the default
+            standard output.
+
+    choice TARGET_STDOUT
+        prompt "Standard output driver"
+        default TARGET_STDOUT_VIDEO if TARGET_ENABLE_VIDEO
+        default TARGET_STDOUT_UART if !TARGET_ENABLE_VIDEO
+        help
+            Choose the which driver will act as the standard output.
+
+        config TARGET_STDOUT_VIDEO
+            bool
+            prompt "Video driver"
+            depends on TARGET_ENABLE_VIDEO
+            help
+                Use the (FPGA-based) video board as the standard output.
+
+        config TARGET_STDOUT_UART
+            bool
+            prompt "UART driver"
+            help
+                Use the UART driver as the standard output.
+    endchoice
 
 endmenu
