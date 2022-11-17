@@ -22,9 +22,8 @@
 keyboard_init:
         ; Initialize the software FIFO
         ld hl, kb_fifo
-        ld (kb_fifo_wr), hl 
-        ld (kb_fifo_rd), hl 
-        ; TODO: Clean all the our BSS
+        ld (kb_fifo_wr), hl
+        ld (kb_fifo_rd), hl
         ; Register the keyboard as the default stdin
         ld hl, this_struct
         call zos_vfs_set_stdin
@@ -115,7 +114,7 @@ keyboard_close:
 
 
         ; Read the bytes from the keyboard in the internal buffer in cooked mode.
-        ; We can only return once the new line character has been pressed. 
+        ; We can only return once the new line character has been pressed.
         ; Moreover, when this happens, the buffer will be printed to the screen.
         ; Parameters:
         ;       None
@@ -227,7 +226,7 @@ _keyboard_ctrl_char:
 _keyboard_ctrl_backspace:
         ; The cursor shall not be at the beginning of the line
         ld a, (kb_buffer_cursor)
-        or a 
+        or a
         jp z, _keyboard_read_ignore
         ; BC contains kb_buffer_size - cursor (A)
         ; HL contains &command_buffer + cursor
@@ -241,18 +240,21 @@ _keyboard_ctrl_backspace:
         push de ; We will use it to update the video
         ld a, (kb_buffer_size)
         ; The total length to copy shall be incremented to avoid having
-        ; BC = 0 
+        ; BC = 0
         inc a
         sub c
         ld b, 0
         ld c, a
         push bc
         ldir
-        ; As we incremented the length, HL points to the character after 
-        ; the last (duplicated) one. Remove this duplicate.
-        xor a
+        ; As we incremented the length, HL points to the character after
+        ; the last (duplicated) one. Remove this duplicate thanks to DE.
+        ; Add a space to clear the duplicate character on screen, but inside
+        ; the buffer, store a 0
+        ld a, ' '
         dec de
-        ld (de), a      ; [de] = 0
+        push de
+        ld (de), a      ; [de] = space
         ; Decrement buffer size and cursor
         ld hl, kb_buffer_size
         dec (hl)
@@ -261,9 +263,13 @@ _keyboard_ctrl_backspace:
         ; Move the video cursor left
         ld a, -1
         call stdout_move_cursor
+        pop hl ; End last char of buffer to replace with 0
         pop bc
         pop de
+        push hl
         call stdout_print_buffer
+        pop hl
+        ld (hl), 0
         jp _keyboard_read_ignore
 _keyboard_ctrl_newline:
         ; Move the cursor to the end of the buffer
@@ -396,14 +402,14 @@ keyboard_next_pressed_key:
         bit KB_CAPSL_BIT, a
         jp nz, _caps_lock_set
         ; Caps lock not set, simply test shifts
-        and KEYBOARD_SHIFT_FLAGS 
+        and KEYBOARD_SHIFT_FLAGS
         ; No need to use upper scan codes here
         jr z, _fetch_character
         ld hl, upper_scan
         jr _fetch_character
 _caps_lock_set:
         ; Caps lock is set, if shifts are set, we should use lower case
-        and KEYBOARD_SHIFT_FLAGS 
+        and KEYBOARD_SHIFT_FLAGS
         ; No need to use upper scan codes here
         jr nz, _fetch_character
         ld hl, upper_scan
@@ -600,7 +606,7 @@ _keyboard_queue_next_read:
         ret
 
 
-        ; Dequeue a value from the FIFO. If the FIFO is empty, 
+        ; Dequeue a value from the FIFO. If the FIFO is empty,
         ; A will not be 0
         ; Parameters:
         ;       None
@@ -662,7 +668,7 @@ kb_fifo: DEFS KEYBOARD_FIFO_SIZE
         ; The FIFO size must be a power of two, and be less or equal to 256
         ASSERT(KEYBOARD_FIFO_SIZE != 0 && KEYBOARD_FIFO_SIZE <= 256)
         ASSERT((KEYBOARD_FIFO_SIZE & (KEYBOARD_FIFO_SIZE - 1)) == 0)
-        
+
 
 
         SECTION KERNEL_DRV_VECTORS
