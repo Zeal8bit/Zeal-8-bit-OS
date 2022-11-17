@@ -34,6 +34,37 @@ memsep:
         ex de, hl
         ret
 
+        ; Replace a byte by another in an array.
+        ; Parameters:
+        ;   A - Old byte to replace
+        ;   L - New byte
+        ;   DE - Memory address
+        ;   BC - Memory length
+        ; Returns:
+        ;   BC - 0
+        ;   HL - Memory address + memory length (DE + BC)
+        ; Alters:
+        ;   A, HL, BC, DE
+        PUBLIC memrep
+memrep:
+        ex de, hl
+_memrep_loop:
+        ; New byte in E
+        cpir
+        ; If z flag is not set, BC is 0
+        ret nz
+        ; Replace old byte with the new one
+        dec hl
+        ld (hl), e
+        inc hl
+        ; Still need to check if BC is 0
+        ld d, a
+        ld a, b
+        or c
+        ld a, d
+        jp nz, _memrep_loop
+        ret
+
         ; Trim leading space character from a string pointed by HL
         ; Parameters:
         ;   HL - NULL-terminated string to trim leading spaces from
@@ -110,7 +141,7 @@ _strcmp_compare:
         ; Check if both strings have reached the end
         ; If this is the case, or (hl) will reset in zero flag to be set
         ; In that case, no need to continue, we can return, with flag Z set
-        or (hl) 
+        or (hl)
         jr nz, _strcmp_compare
 _strcmp_end:
         pop de
@@ -345,7 +376,7 @@ dword_to_ascii:
         ld a, c
         call _dword_to_ascii_convert_store
         pop bc
-        ld a, b        
+        ld a, b
         call _dword_to_ascii_convert_store
         ld a, c
         call _dword_to_ascii_convert_store
@@ -367,7 +398,7 @@ _dword_to_ascii_convert_store:
         ;       A - Value to convert
         ; Returns:
         ;       D - First character
-        ;       E - Second character 
+        ;       E - Second character
         ; Alters:
         ;       A
         PUBLIC byte_to_ascii

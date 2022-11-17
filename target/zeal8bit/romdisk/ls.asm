@@ -6,7 +6,7 @@
 
         SECTION TEXT
 
-        DEFC FILENAME_SIZE = 16
+        DEFC FILENAME_SIZE = FILENAME_LEN_MAX
 
         MACRO ERR_CHECK goto_label
                 or a
@@ -82,12 +82,48 @@ _ls_next_entry:
         ld a, (given_params)
         rrca
         jr c, _ls_detailed
+        ; In the case of -1 or no option, replace all the null chars by a space
+        call _ls_replace_nulls
+        ld bc, FILENAME_SIZE
         ; If '-1' was given, add \n at the end of the string
+        ld a, (given_params)
         rrca
-        call c, ls_concat_newline
+        rrca
+        jr nc, _ls_no_newline
+        ; HL points to the final character (extra char)
+        ld (hl), '\n'
+        inc bc  ; Include the final \n to the string to print
+_ls_no_newline:
+        ld de, dir_entry_struct + 1
         S_WRITE1(DEV_STDOUT)
         pop hl
         jp _ls_next_entry
+        ; Parameters:
+        ;   DE - Address of the string
+        ;   BC - Maximum size
+        ; Returns:
+        ;   HL - DE + BC
+        ; Alters:
+        ;   A, HL, DE, BC
+_ls_replace_nulls:
+        ex de, hl
+        xor a
+        cpir
+        ; If not zero, BC is now 0, so not found
+        ret nz
+        ; Replace the rest with space
+        dec hl
+        ld (hl), ' '
+        ld d, h
+        ld e, l
+        inc de
+        ; BC has already been decremented in CPIR
+        ld a, b
+        or c
+        ret z
+        ldir
+        ex de, hl
+        ret
 _ls_detailed:
         ; We arrive here when -l was given
         ; BC contains the maximum file name size
@@ -111,11 +147,9 @@ _ls_detailed:
         ; We will save this in the init_static_buffer, after stat structure of course
         push bc
         ; Clean the string first with spaces, let's say we will use at most 64 bytes
-        ld bc, 64
+        ld bc, 63
         ld hl, STATIC_STRING_BUFFER
         ld de, STATIC_STRING_BUFFER + 1
-        ; FIXME: Use spaces instead of NULL-byte. The video driver will show null-bytes as
-        ; spaces but this might not be the case for all the drivers.
         ld (hl), 0
         ldir
         ; Write the name to the buffer now
@@ -124,8 +158,13 @@ _ls_detailed:
         pop hl
         call strcpy
         ; Now convert the size into a hex value
-        ld de, STATIC_STRING_BUFFER + FILENAME_LEN_MAX + 2 ; give some space after filename
-        ld hl, STATIC_STAT_BUFFER
+        ld hl, STATIC_STRING_BUFFER + FILENAME_LEN_MAX ; give some space after filename
+        ld de, STATIC_STAT_BUFFER
+        ld (hl), ' '
+        inc hl
+        ld (hl), ' '
+        inc hl
+        ex de, hl
         ; FIXME: Print decimal value?
         ld a, '$'       ; Hex value only at the moment
         ld (de), a

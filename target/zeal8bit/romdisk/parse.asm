@@ -57,7 +57,7 @@ parse_exec_cmd:
         call memsep
         ; Save the length of the string for prepare_argv_argc
         ; DE contains the address of the next string (token + 1)
-        push bc 
+        push bc
         ; HL now points to the command name, look for it!
         ; get_command_entry_point returns in IX the entry point of the
         ; command.
@@ -82,11 +82,17 @@ parse_exec_cmd:
         ; Print the command and an error saying we haven't found this command
         ; Parameters:
         ;       HL - String containing the command name
-        ;       BC - Length of the string 
+        ;       BC - Length of the string
 _process_command_not_found:
-        ; Retrieve the length of the current command from the stack
-        pop bc
-        ex de, hl
+        ; Retrieve the length of the whole command line from the stack, only get
+        ; the length of the command name
+        ex de, hl ; name in DE
+        pop hl    ; whole command length
+        ; Carry flag is always 0 when entering this branch
+        sbc hl, bc
+        ; Put the length in BC
+        ld b, h
+        ld c, l
         S_WRITE1(DEV_STDOUT)
         S_WRITE3(DEV_STDOUT, err_msg_not_found, err_msg_not_found_end - err_msg_not_found)
         ret
