@@ -326,11 +326,38 @@ exec_main:
         ld de, 0
         EXEC()
         ret
+
+        ; Print all the commands available
 help_main:
-        ret
-pwd_main:
+        S_WRITE3(DEV_STDOUT, help_msg, help_msg_end - help_msg)
+        ld a, (system_commands_count)
+        ld b, a
+        ld de, system_commands_begin
+        ld hl, DEV_STDOUT
+_help_main_loop:
+        ; Browse all commands name
+        push bc
+        ld bc, MAX_COMMAND_NAME
+        push de
+        WRITE()
+        ; Print a newline
+        ld bc, 1
+        ld de, help_msg_newline
+        WRITE()
+        pop de
+        ex de, hl
+        ld bc, SIZE_COMMAND_ENTRY
+        add hl, bc
+        ex de, hl
+        pop bc
+        djnz _help_main_loop
         ret
 
+help_msg:
+    DEFM "List of commands:"
+help_msg_newline:
+    DEFM "\n"
+help_msg_end:
 
         SECTION DATA
 system_commands_begin:
@@ -348,8 +375,6 @@ system_commands_begin:
         DEFW ls_main
         DEFS MAX_COMMAND_NAME, "mkdir"
         DEFW mkdir_main
-        DEFS MAX_COMMAND_NAME, "pwd"
-        DEFW pwd_main
         DEFS MAX_COMMAND_NAME, "rm"
         DEFW rm_main
         DEFS MAX_COMMAND_NAME, "uartrcv"
