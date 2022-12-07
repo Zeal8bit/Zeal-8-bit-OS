@@ -38,7 +38,7 @@ zos_sys_init:
         ; Alters:
         ;       A
 zos_sys_map:
-        ; Get the register H value. 
+        ; Get the register H value.
         pop hl
         ; Get the page index out of the virtual address pointed by DE
         MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(D, E)
@@ -62,14 +62,14 @@ _zos_sys_map_error:
         ;       None
         ; Alters:
         ;       A
-        PUBLIC zos_sys_perform_syscall 
+        PUBLIC zos_sys_perform_syscall
 zos_sys_perform_syscall:
         ; Here, we cannot use kernel RAM, nor the kernel stack as the kernel RAM has not been
         ; mapped yet.
         ; A contains the user's mapped page, we need it when the kernel stack is mapped,
         ; as it is required to restore the page, so save HL (on the user stack) and
         ; use HL to store A.
-        ; NOTE: it would have been possible to use alternate register to save the 
+        ; NOTE: it would have been possible to use alternate register to save the
         ;       user's RAM page. However, the kernel is interrupt agnostic in the sense
         ;       that it doesn't need interrupt to work. Moreover, using it would
         ;       require instructions "di" and "ei", This would give something like:
@@ -82,14 +82,14 @@ zos_sys_perform_syscall:
         push hl ; A may contain a parameter (for seek), use HL to save A
         ld h, a
         ; Just before performing the "normal" syscall process, check if the call is MAP
-        ; In fact, MAP must not modify any other MMU page than the ones given as a 
+        ; In fact, MAP must not modify any other MMU page than the ones given as a
         ; parameter. Then, let's check it now.
         ld a, l
         cp SYSCALL_MAP_NUMBER
-        jp z, SYSCALL_MAP_ROUTINE
+        jr z, SYSCALL_MAP_ROUTINE
         ; Check if the syscall is even correct
         cp SYSCALL_COUNT
-        jp nc, _zos_sys_invalid_syscall
+        jr nc, _zos_sys_invalid_syscall
         ; The syscall to execute is not MAP, continue the normal process.
         ; Map the kernel RAM to the kernel RAM to the second page (and not third), as such
         ; We will have access to both the user's stack and the kernel stack
@@ -133,17 +133,10 @@ zos_sys_perform_syscall:
         ld h, (hl)
         ld l, a
         ld (_zos_sys_jump + 1), hl
-        ; Set the syscall flag to 1 to mark the fact that the following calls
-        ; will result in returning to the user mode at last
-        ld a, 1
-        ld (_zos_syscall_ongoing), a
         ; Prepare the parameters before calling the syscall
         pop hl
         ld a, (_zos_user_a)
         call _zos_sys_jump
-        ; Use HL to restore the syscall flag
-        ld hl, (_zos_syscall_ongoing)
-        ld (hl), 0
         ; Restore the user's stack pointer before setting its page
         ld sp, (_zos_user_sp)
         ; Keep the return value in H, we can do this because HL is never a return register
@@ -269,7 +262,7 @@ _zos_sys_reserve_page_remap_1:
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
         ; Alters:
-        ;       A 
+        ;       A
         PUBLIC zos_sys_restore_pages
 zos_sys_restore_pages:
         ; If context is NULL, no changes occurred
@@ -292,8 +285,6 @@ _zos_user_a:  DEFS 1
 _zos_user_page_1: DEFS 1
 _zos_user_page_2: DEFS 1
 _zos_user_page_3: DEFS 1
-        ; The following flag marks whether a syscall is in progress.
-_zos_syscall_ongoing: DEFS 1
 _zos_sys_jump: DEFS 3   ; Store jp nnnn instruction (3 bytes)
 
         SECTION SYSCALL_TABLE
