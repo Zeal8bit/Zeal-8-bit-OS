@@ -8,7 +8,15 @@
     ; Macros for keyboard
     DEFC KB_IO_ADDRESS = 0xE8
 
-    DEFC KEYBOARD_SHIFT_FLAGS = (1 << KB_RSHIFT_BIT) | (1 << KB_LSHIFT_BIT)
+    DEFGROUP {
+        BASE_SCAN_TABLE,
+        UPPER_SCAN_TABLE,
+        SPECIAL_SCAN_TABLE,
+        EXT_SCAN_TABLE,
+    }
+
+    DEFC KB_EVT_PRESSED = 0
+    DEFC KB_EVT_RELEASED = 1
 
     DEFC KB_PRINTABLE_CNT = 0x60
     DEFC KB_SPECIAL_START = 0x66	; Between 0x60 and 0x66, nothing special
@@ -25,14 +33,13 @@
                                     ; are treated with a mapped array
 
     ; Macros for modifier key flags
-    DEFC KB_IGNORE_MODIF  = 0x7
-    DEFC KB_RCTRL_BIT 	  = 0x6
-    DEFC KB_LCTRL_BIT 	  = 0x5
-    DEFC KB_RALT_BIT 	  = 0x4
-    DEFC KB_LALT_BIT 	  = 0x3
-    DEFC KB_RSHIFT_BIT 	  = 0x2
-    DEFC KB_LSHIFT_BIT 	  = 0x1
-    DEFC KB_CAPSL_BIT 	  = 0x0
+    DEFC KB_FLAG_IGN_BIT   = 0x7
+    DEFC KB_FLAG_KEYP_BIT  = 0x6
+    DEFC KB_FLAG_CTRL_BIT  = 0x4
+    DEFC KB_FLAG_ALT_BIT   = 0x3
+    DEFC KB_FLAG_SHIFT_BIT = 0x2
+    DEFC KB_FLAG_BLOCK_BIT = 0x1 ; 1 = non-blocking, 0 = blocking
+    DEFC KB_FLAG_MODE_BIT  = 0x0 ; 1 = raw mode, 0 = cooked mode
 
     ; Keyboard keycode
     DEFC KB_NUMPAD_0	  = 0x80

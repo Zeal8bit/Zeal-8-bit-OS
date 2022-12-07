@@ -62,7 +62,9 @@ keyboard_read:
         ld a, b
         or c
         ret z
-        ; Call the right function according to the mode
+        ; Call the right function according to the mode, make the assumption the
+        ; mode is bit 0. If that's not the case, modify the code below
+        ASSERT(KB_FLAG_MODE_BIT == 0)
         ld a, (kb_flags)
         rrca
         ; Read into the internal buffer first
@@ -131,16 +133,23 @@ _keyboard_read_ignore:
         call stdout_show_cursor
 _keyboard_read_ignore_no_update:
         call keyboard_next_pressed_key
+        ; Optimize KB_EVT_RELEASED == 1 case
+        ASSERT(KB_EVT_RELEASED == 1)
         dec b
-        jp z, _keyboard_read_ignore_no_update
+        jp z, _keyboard_read_released_key
         ; The graphic driver should now take care of the cursor
         ; Check that it is a printable character: from 0x20 to 0x7E
         bit 7, a
         jp nz, _keyboard_extended_char
         cp 0x20
         jp c, _keyboard_ctrl_char
-        ; Printable character, save it and print it!
-        ld b, a                         ; Store the char to print in b
+        ; Printable character, save it and print it in B!
+        ld b, a
+        ; If the character received was in the base scan, we may need to convert it to
+        ; an upper scan character if shift or caps lock is activated.
+        ld a, (kb_flags)
+        and 1 << KB_FLAG_SHIFT_BIT
+        call nz, keyboard_switch_to_upper
         ; Check that the size has not reached the maximum
         ld a, (kb_buffer_size)
         cp KEYBOARD_INTERNAL_BUFFER_SIZE - 1    ; Keep space for the last \n
@@ -303,15 +312,36 @@ _keyboard_ctrl_newline:
         ld de, kb_internal_buffer
         ret
 _keyboard_extended_char:
+        cp KB_CAPS_LOCK
+        jr z, _keyboard_extended_toggle_shift
+        cp KB_LEFT_SHIFT
+        jr z, _keyboard_extended_toggle_shift
+        cp KB_RIGHT_SHIFT
+        jr z, _keyboard_extended_toggle_shift
         ld hl, kb_buffer_cursor
         cp KB_LEFT_ARROW
-        jp z, _keyboard_extended_left_arrow
+        jr z, _keyboard_extended_left_arrow
         cp KB_RIGHT_ARROW
-        jp z, _keyboard_extended_right_arrow
+        jr z, _keyboard_extended_right_arrow
         cp KB_UP_ARROW
-        jp z, _keyboard_extended_up_arrow
+        jr z, _keyboard_extended_up_arrow
         cp KB_DOWN_ARROW
-        jp z, _keyboard_extended_down_arrow
+        jr z, _keyboard_extended_down_arrow
+        jp _keyboard_read_ignore
+_keyboard_read_released_key:
+        ; Check if the key released is shift. Let's ignore the edge case where
+        ; both (left & right) shift keys are pressed and one only is released.
+        cp KB_LEFT_SHIFT
+        jr z, _keyboard_extended_toggle_shift
+        cp KB_RIGHT_SHIFT
+        jr z, _keyboard_extended_toggle_shift
+        jp _keyboard_read_ignore_no_update
+_keyboard_extended_toggle_shift:
+        ; Toggle the shift/caps bit
+        ld hl, kb_flags
+        ld a, (hl)
+        xor 1 << KB_FLAG_SHIFT_BIT
+        ld (hl), a
         jp _keyboard_read_ignore
 _keyboard_extended_left_arrow:
         ; The cursor shall not be at the beginning of the line
@@ -364,6 +394,23 @@ keyboard_read_raw:
         ret
 
 
+        ; Check and convert the character pressed to upper if in base scan table
+        ; Parameters:
+        ;   B - Character received
+        ;   C - Scan table the character pressed was in
+        ;   HL - Address of the character in base scan
+        ; Returns:
+        ;   B - Upper character
+keyboard_switch_to_upper:
+        ld a, c
+        cp BASE_SCAN_TABLE
+        ret nz
+        ; Switch to upper scan table
+        ld bc, upper_scan - base_scan
+        add hl, bc
+        ld b, (hl)
+        ret
+
         ; Returns the next key pressed on the keyboard. If no key was pressed,
         ; it will wait for one.
         ; Parameters:
@@ -372,12 +419,19 @@ keyboard_read_raw:
         ;       A - Pressed Key. If A is less than 128 (highest bit is 1),
         ;           it contains an ASCII character, else, it shall be compared
         ;           to the other characters code.
-        ;       B - Event: 0 pressed, 1 released
+        ;       B - Event:
+        ;            - KB_EVT_PRESSED
+        ;            - KB_EVT_RELEASED
+        ;       C - Scan table the character is in:
+        ;            - BASE_SCAN_TABLE
+        ;            - UPPER_SCAN_TABLE
+        ;            - SPECIAL_TABLE
+        ;            - EXT_SCAN_TABLE
+        ;       HL - Address of the key pressed in the (base or special) scan
         ; Alters:
         ;       A, BC
         PUBLIC keyboard_next_pressed_key
 keyboard_next_pressed_key:
-        push hl
         call wait_for_character
         call keyboard_dequeue
         ; Ignore FIFO empty, should not happen
@@ -388,61 +442,18 @@ keyboard_next_pressed_key:
         ; Check if the character is a printable char
         cp KB_PRINTABLE_CNT - 1
         jp nc, _special_code ; jp nc <=> A >= KB_PRINTABLE_CNT - 1
-        ; Check if caps lock is pressed
-        ld hl, kb_flags
-        cp KB_CAPSL_SCAN
-        jp z, _char_is_caps_lock
-        ; Choose upper scan or base scan? Check Caps Lock flag
-        ; Save the char in B
-        ld b, a
-        ld a, (hl)
-        ld hl, base_scan
-        bit KB_IGNORE_MODIF, a
-        jp nz, _fetch_character
-        bit KB_CAPSL_BIT, a
-        jp nz, _caps_lock_set
-        ; Caps lock not set, simply test shifts
-        and KEYBOARD_SHIFT_FLAGS
-        ; No need to use upper scan codes here
-        jr z, _fetch_character
-        ld hl, upper_scan
-        jr _fetch_character
-_caps_lock_set:
-        ; Caps lock is set, if shifts are set, we should use lower case
-        and KEYBOARD_SHIFT_FLAGS
-        ; No need to use upper scan codes here
-        jr nz, _fetch_character
-        ld hl, upper_scan
-_fetch_character:
-        ld c, b
+        ; Save the char in BC as it represents the index
+        ld c, a
         ld b, 0
+        ld hl, base_scan
         add hl, bc
         ld a, (hl)
-        ld b, 0
-        pop hl
-        ret
-_char_is_caps_lock:
-        ; The key pressed is Caps Locks
-        ld a, KB_CAPS_LOCK
-        ld b, 0
-        bit KB_CAPSL_BIT, (hl)
-        jp z, _set_caps_lock
-        ; Caps lock is set, reset it
-        res KB_CAPSL_BIT, (hl)
-        ld b, 0
-        pop hl
-        ret
-_set_caps_lock:
-        ; Caps lock is not set, set it
-        set KB_CAPSL_BIT, (HL)
-        ; Caps lock is not an ASCII character, thus, jump back
-        ; to the beginning of the routine
-        pop hl
+        ; Return KB_EVT_PRESSED in B, BASE_SCAN_TABLE in C
+        ld bc, KB_EVT_PRESSED << 8 | BASE_SCAN_TABLE
         ret
 _release_char:
         call keyboard_next_pressed_key
-        ld b, 1
-        pop hl
+        ld b, KB_EVT_RELEASED
         ret
 _special_code:
         ; Load in HL special scan codes
@@ -455,8 +466,8 @@ _special_code:
         ld hl, special_scan
         add hl, bc
         ld a, (hl)
-        ld b, 0
-        pop hl
+        ; Return KB_EVT_PRESSED in B, SPECIAL_SCAN_TABLE in C
+        ld bc, KB_EVT_PRESSED << 8 | SPECIAL_SCAN_TABLE
         ret
 _extended_code:
         ; In case the received character is a released (special) character
@@ -484,22 +495,23 @@ _extended_code:
         ld hl, extended_scan
         add hl, bc
         ld a, (hl)
-        pop hl
+        ; Return KB_EVT_PRESSED in B, EXT_SCAN_TABLE in C
+        ld bc, KB_EVT_PRESSED << 8 | EXT_SCAN_TABLE
         ret
 _unmapped_ext_scans:
-        pop hl
-        ld b, 0
+        ; Return KB_EVT_PRESSED in B, let's consider those as extended scans
+        ld bc, KB_EVT_PRESSED << 8 | EXT_SCAN_TABLE
         cp KB_RIGHT_ALT_SCAN
         jp z, _right_alt_ret_rcved
-	cp KB_RIGHT_CTRL_SCAN
+        cp KB_RIGHT_CTRL_SCAN
         jp z, _right_ctrl_rcved
-	cp KB_NUMPAD_DIV_SCAN
+        cp KB_NUMPAD_DIV_SCAN
         jp z, _numpad_div_rcved
         cp KB_LEFT_SUPER_SCAN
         jp z, _left_super_rcved
-	cp KB_NUMPAD_RET_SCAN
+        cp KB_NUMPAD_RET_SCAN
         jp z, _numpad_ret_rcved
-	cp KB_PRT_SCREEN_SCAN
+        cp KB_PRT_SCREEN_SCAN
         jp z, _print_screen_rcved
         ld a, KB_UNKNOWN
         ret
@@ -654,6 +666,7 @@ kb_fifo_size: DEFS 1
         ; Flags for the FIFO, by default, all to 0:
         ;       Bit 0 - Cooked mode (0) / Raw mode (1)
         ;       Bit 1 - Blocking (0) / Non-blocking (1)
+        ; Check `keyboard_h.asm` file for all flags
 kb_flags: DEFS 1
 kb_internal_buffer: DEFS KEYBOARD_INTERNAL_BUFFER_SIZE
         ASSERT(KEYBOARD_INTERNAL_BUFFER_SIZE < 256)
