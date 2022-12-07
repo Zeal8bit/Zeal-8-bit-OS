@@ -70,10 +70,10 @@ zos_load_file:
         call zos_vfs_dstat_internal
         ; H still contains dev number, DE contains the status structure address.
         ; Put the structure address in HL instead and so the dev number will be in D
-        ex de, hl 
+        ex de, hl
         ; Check if an error occurred while getting the info
         or a
-        ret nz
+        jr nz, _zos_load_failed
         ; Check the size field, if size field is not the first attribute, modify the code below
         ASSERT(file_size_t == 0)
         ; A is 0 if we reached here. The size is in little-endian!
@@ -110,12 +110,14 @@ zos_load_file:
         ld bc, MMU_VIRT_PAGES_SIZE
         ld h, d
         ld de, MMU_PAGE1_VIRT_ADDR
+        push hl
         call zos_vfs_read_internal
+        pop hl
         ; In any case, pop the file size in DE
         pop de
         ; Check A for any error
         or a
-        ret nz
+        jr nz, _zos_load_failed_h_dev
         ; Check if we still have data to read
         ex de, hl
         ; HL now contains the file size, D contains the opened dev.
@@ -129,7 +131,8 @@ zos_load_file:
         ld de, MMU_PAGE2_VIRT_ADDR
         call zos_vfs_read_internal
         or a
-        ret nz
+        ; On error, close the opened file and return
+        jp nz, _zos_load_failed_h_dev
 _zos_load_read_finish:
         ; The stack may not be clean, but there is no need to pop the value as it won't be used:
         ; we are going to set the user stack and jump to the program.
@@ -141,7 +144,15 @@ _zos_load_read_finish:
         ; KERNEL STACK CANNOT BE ACCESSED ANYMORE FROM NOW ON, JUST JUMP TO THE USER CODE!
         ; ============================================================================== ;
         jp CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
+_zos_load_failed_h_dev:
+        push af ; Save error value
+        call zos_vfs_close
+        pop af
+        ret
 _zos_load_failed:
+        ; Close the opened dev (in D register)
+        ld h, d
+        call zos_vfs_close
         ld a, ERR_FAILURE
         ret
 
