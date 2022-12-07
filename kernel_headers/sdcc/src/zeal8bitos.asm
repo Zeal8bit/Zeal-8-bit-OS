@@ -153,6 +153,15 @@ _stat:
     ;   [Stack] - whence
     .globl _seek
 _seek:
+    ; Pop return address in HL, and exchange with whence
+    pop hl
+    dec sp
+    ex (sp), hl
+    ; Put the whence in A and the dev in H
+    ld l, a
+    ld a, h
+    ld h, l
+    push hl
     ; Start by dereferencing offset from DE
     ex de, hl
     ld e, (hl)
@@ -162,15 +171,8 @@ _seek:
     ld c, (hl)
     inc hl
     ld b, (hl)
-    ; Pop return address in IX, we cannot alter HL, it contains the offset address.
-    pop ix
-    dec sp
+    ; Pop the parameter H back from the stack and save the offset
     ex (sp), hl
-    ; H contains the whence, top of the stack contains offset*.
-    ; Exchange A and H.
-    ld l, h
-    ld h, a
-    ld a, l
     ; Syscall parameters:
     ;   H - Dev number, must refer to an opened driver (not a file)
     ;   BCDE - 32-bit offset, signed if whence is SEEK_CUR/SEEK_END.
@@ -179,8 +181,6 @@ _seek:
     syscall 6
     ; Offset address in HL
     pop hl
-    ; Put back the return address on the stack
-    push ix
     ; If an error occurred, return directly, without modifying offset* value.
     or a
     ret nz
