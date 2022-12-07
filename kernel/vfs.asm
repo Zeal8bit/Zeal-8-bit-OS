@@ -120,7 +120,7 @@ zos_vfs_set_stdout:
 _zos_vfs_set_stdout_no_set:
         call zos_log_stdout_ready
         xor a   ; Optimization for A = ERR_SUCCESS
-        ret        
+        ret
 
         ; Routine to set the default stdin of the system.
         ; Parameters:
@@ -281,7 +281,7 @@ _zos_vfs_open_driver:
         ; the address of the empty dev entry.
         ; Before saving the driver as opened, we have to execute its "open" routine, which MUST succeed!
         ; Parameters:
-        ;       BC - Name of the opened driver 
+        ;       BC - Name of the opened driver
         ;       H - Flags to pass to it
         ; After this, we will still need DE (driver address).
         push de
@@ -325,22 +325,24 @@ zos_vfs_read:
         call zos_vfs_read_internal
         pop de
         ret
+        ; Alters:
+        ;   A, BC, DE, HL
 zos_vfs_read_internal:
-        push hl
         push de
         call zof_vfs_get_entry
         pop de
         or a
-        jp nz, _zos_vfs_pop_ret
+        ret nz
         ; Check if the buffer and the size are valid, in other words, check that the
-        ; size is less or equal to a page size and BC+size doesn't cross page boundary 
+        ; size is less or equal to a page size and BC+size doesn't cross page boundary
         call zos_check_buffer_size
         or a
-        jp nz, _zos_vfs_pop_ret
+        ret nz
         ; Check if the opened dev is a file or a driver
         call zos_disk_is_opnfile
         or a
-        jr z, _zos_vfs_read_isfile
+        ; HL, DE and BC are valid, tail-call to zos_disk_read
+        jp z, zos_disk_read
         ; We have a driver here, we will call its `read` function directly with the right
         ; parameters.
         ; Note: All drivers' `read` function take a 32-bit offset as a parameter on the
@@ -349,43 +351,18 @@ zos_vfs_read_internal:
         ; First thing to do it retrieve the drivers' read function, to do this,
         ; we need both DE and HL
         push de
-        ex de, hl 
+        ex de, hl
         ; Retrieve driver (DE) read function address, in HL.
         GET_DRIVER_READ()
         pop de
-        ; HL now contains read address
-        ; We have to save DE as it must not be altered,
-        ; at the same time, we also have to put a 32-bit offset (= 0)
-        ; Use the work buffer to do this, it can then be used freely
-        ; by the drivers. That buffer is used as a "dynamic" memory that
-        ; is considered as active during a whole syscall.
-        ; Which means that after a syscall, `read` for example, it can
-        ; be re-used by any other syscall. It's not permanent, it's a
-        ; temporary buffer.
-        ; Encode jp driver_read_function inside the work buffer
-        ld a, 0xc3      ; jp instruction
-        ld (_vfs_work_buffer), a
-        ld (_vfs_work_buffer + 1), hl
-        push de
-        ld hl, zos_vfs_read_driver_return
-        push hl ; Return address
-        ld hl, 0
-        push hl
-        push hl ; 32-bit offset parameter (0)
-        ; Jump to that read function
-        jp _vfs_work_buffer
-zos_vfs_read_driver_return:
-        ; Restore DE and HL before returning
-        pop de
-        pop hl
-        ret
-_zos_vfs_read_isfile:
-        push de
-        call zos_disk_read
-        pop de
-        pop hl
-        ret
-
+        ; We have to push 32-bit offset of 0 on the stack, to do so, generate 0 in AF
+        xor a
+        inc a
+        ld a, 0
+        push af
+        push af
+        ; Tail-call to driver's `read` routine
+        jp (hl)
 
         ; Write to the given dev number.
         ; Parameters:
@@ -405,51 +382,36 @@ zos_vfs_write:
         pop de
         ret
 zos_vfs_write_internal:
-        push hl
         ; We use the same flow as the one for the read function
         push de
         call zof_vfs_get_entry
         pop de
         or a
-        jp nz, _zos_vfs_pop_ret
+        ret nz
         call zos_check_buffer_size
         or a
-        jp nz, _zos_vfs_pop_ret
+        ret nz
         ; Check if the opened dev is a file or a driver
         call zos_disk_is_opnfile
         or a
-        jr z, _zos_vfs_write_isfile
+        ; Tail-call to zos_disk_write as the stack is clean
+        jp z, zos_disk_write
         ; We have a driver here, we will call its `write` function directly with the right
         ; parameters.
         push de
-        ex de, hl 
+        ex de, hl
         ; Retrieve driver (DE) `write` function address, in HL.
         GET_DRIVER_WRITE()
         pop de
-        ; HL now contains `write` function's address.
-        ; Encode jp driver_write_function inside the work buffer
-        ld a, 0xc3      ; jp instruction
-        ld (_vfs_work_buffer), a
-        ld (_vfs_work_buffer + 1), hl
-        push de
-        ld hl, zos_vfs_write_driver_return
-        push hl ; Return address
-        ld hl, 0
-        push hl
-        push hl ; 32-bit offset parameter (0)
-        ; Jump to that read function
-        jp _vfs_work_buffer
-zos_vfs_write_driver_return:
-        ; Restore DE and HL before returning
-        pop de
-        pop hl
-        ret
-_zos_vfs_write_isfile:
-        push de
-        call zos_disk_write
-        pop de
-        pop hl
-        ret
+        ; HL now contains driver's `write` routine address.
+        ; We have to push 32-bit offset of 0 on the stack, to do so, generate 0 in AF
+        xor a
+        inc a
+        ld a, 0
+        push af
+        push af
+        ; Tail-call to driver's `read` routine
+        jp (hl)
 
         ; Close the given dev number
         ; This should be done as soon as a dev is not required anymore, else, this could
@@ -478,12 +440,12 @@ zos_vfs_close:
         ; We have a driver here, we will call its `close` function directly.
         push de
         push bc
-        ex de, hl 
+        ex de, hl
         ; Retrieve driver (DE) close function address, in HL.
         GET_DRIVER_CLOSE()
         ; HL now contains the address of driver's close function. Call it
         ; with the dev number as a parameter
-        ld a, (_dev_table_empty_entry) 
+        ld a, (_dev_table_empty_entry)
         CALL_HL()
         pop bc
 _zos_vfs_close_clean_entry:
@@ -558,8 +520,6 @@ _zos_vfs_pop_ret:
         ;            enough to store the file information (>= STAT_STRUCT_SIZE)
         ; Returns:
         ;       A - 0 on success, error else
-        ; Alters:
-        ;       TBD
         PUBLIC zos_vfs_stat
 zos_vfs_stat:
         ; Open the file in BC, alters HL only. Set flags to O_RDONLY.
@@ -598,7 +558,6 @@ zos_vfs_stat:
         ;       A - ERR_SUCCESS on success, error code else
         PUBLIC zos_vfs_ioctl
 zos_vfs_ioctl:
-        push hl
         push bc
         ld b, h
         ; Get the entry address in HL
@@ -611,7 +570,7 @@ zos_vfs_ioctl:
         call zos_disk_is_opnfile
         or a
         ld a, ERR_INVALID_PARAMETER
-        jp z, _zos_vfs_ioctl_pop_ret
+        jr z, _zos_vfs_ioctl_pop_ret
         ; HL points to a driver, get the IOCTL routine address
         ex de, hl
         GET_DRIVER_IOCTL()
@@ -623,7 +582,6 @@ zos_vfs_ioctl:
 _zos_vfs_ioctl_pop_ret:
         pop de
         pop bc
-        pop hl
         ret
 
         ; Move the cursor of an opened file or an opened driver.
@@ -646,10 +604,10 @@ _zos_vfs_ioctl_pop_ret:
         PUBLIC zos_vfs_seek
 zos_vfs_seek:
         ; check if the whence is valid
-        cp SEEK_END + 1 
+        cp SEEK_END + 1
         jp nc, _zos_vfs_invalid_parameter
-        ; Save the whence in memory as we will need it later
-        ld (_vfs_work_buffer + 2), a
+        ; Save the whence on the stack as we will need it later
+        ld l, a
         push hl
         push de
         call zof_vfs_get_entry
@@ -660,26 +618,19 @@ zos_vfs_seek:
         or a
         jr z, _zos_vfs_seek_isfile
         ; HL points to a driver, get its `seek` function.
-        ex de, hl 
+        ex de, hl
         ; Retrieve driver (DE) read function address, in HL.
         GET_DRIVER_SEEK()
-        ; HL now contains address of `seek` routine.
-        ; In theory, we could use CALL_HL() directly.
-        ; In practice, this would mean we would have to drop
-        ; one of the parameter, which we should avoid.
-        ld a, 0xc3      ; jp instruction
-        ld (_vfs_work_buffer), a
-        ld (_vfs_work_buffer + 1), hl
-        ; Put the whence in A
-        ld a, (_vfs_work_buffer + 2)
+        ; Pop back the low 16-bit offset parameter which was on the stack
         pop de
+        ; HL now contains address of `seek` routine. The top of the stack contains
+        ; the "dev" number and the whence.
+        ; Exchange the contain on the stack with the address in HL (seek) and jump to
+        ; that routine thanks to ret (tail-call)
         ; We have to get the original HL from the stack too as it contains
         ; the "dev" number.
-        pop hl
-        ; Save it back as it must not be modified
-        push hl
-        call _vfs_work_buffer
-        pop hl
+        ex (sp), hl
+        ld a, l
         ret
 _zos_vfs_seek_isfile:
         ; DE is not preserved across the call, no need to save it
@@ -792,7 +743,7 @@ zos_vfs_chdir_deallocate_return:
 zos_vfs_curdir:
         push de
         push bc
-        ; Remap the user buffer if necesary
+        ; Remap the user buffer if necessary
         call zos_sys_remap_de_page_2
         ; Copy the current dir to the buffer
         ld hl, _vfs_current_dir
@@ -844,7 +795,7 @@ zos_vfs_opendir_internal:
         cp VFS_DRIVER_INDICATOR
         ; TODO: List all the drivers
         ld a, -ERR_INVALID_PATH
-        jp z, _zos_vfs_opendir_ret_error
+        ret z
         ; As required by zos_get_full_path, put the user's path in BC
         ld b, d
         ld c, e
@@ -965,24 +916,19 @@ zos_vfs_rm:
         ;       A - ERR_SUCCESS on success, error code else
         PUBLIC zos_vfs_mount
 zos_vfs_mount:
-        push hl
         push de
         call zof_vfs_get_entry
         pop de
         or a
-        jp nz, _zos_vfs_pop_ret
+        ret nz
         ; Check if the entry is a file/directory or a driver
         call zos_disk_is_opnfile
         or a
         ld a, ERR_INVALID_PARAMETER
-        jp z, _zos_vfs_pop_ret
+        ret z
         ; The dev is a driver, we can try to mount it directly
-        push de
         ld a, d ; Letter to mount it on in A register
-        call zos_disks_mount
-        pop de
-        pop hl
-        ret
+        jp zos_disks_mount
 
         ; Duplicate on dev number to another dev number.
         ; This can be handy to override the standard input or output
@@ -995,38 +941,32 @@ zos_vfs_mount:
         ;       A - ERR_SUCCESS on success, error code else
         PUBLIC zos_vfs_dup
 zos_vfs_dup:
-        push hl
         push de
         ; Check that the "old" dev is a valid entry
         call zof_vfs_get_entry
         pop de
         or a
-        jp nz, _zos_vfs_pop_ret
+        ret nz
         ; Check that the "new" dev entry is empty
         ld a, e
         cp CONFIG_KERNEL_MAX_OPENED_DEVICES
-        jp nc, _zos_vfs_invalid_parameter_pophl
-        push de
+        jp nc, _zos_vfs_invalid_parameter
         push hl
         ; We need to multiple A by two as each entry is 2 bytes long
-        rlca
+        add a
         ld hl, _dev_table
         ADD_HL_A()
         ld a, (hl)
         inc hl
         or (hl)
         ; Before checking A, pop the "old" dev's content in DE
-        ; After this, two elements are on the stack: former DE value,
-        ; and former HL value.
         pop de
         ; If A is not zero, then the entry is not free
-        jp nz, _zos_vfs_invalid_parameter_popdehl
+        jp nz, _zos_vfs_invalid_parameter
         ; It's free! Copy the "old" dev value to it.
         ld (hl), d
         dec hl
         ld (hl), e
-        pop de
-        pop hl
         ; Both "new" and "old" devs can be used now
         ; Return success, A is already 0.
         ret
@@ -1220,7 +1160,7 @@ _zos_get_full_path_invalid:
         ret
 
         ; Check the consistency of the passed flags for open routine.
-        ; For example, it is inconsistent to pass both 
+        ; For example, it is inconsistent to pass both
         ; O_RDWR and O_WRONLY flag, or both O_TRUNC and O_APPEND
         ; Parameters:
         ;       H - Flags
@@ -1412,7 +1352,7 @@ _zos_realpath_slash:
         and 0x07        ; Only the first 3 bits are interesting
         jp z, _zos_realpath_slash_write
         ; Reset the valid char seen flag
-        res 4, c 
+        res 4, c
         ; If we've seen a slash already, skip this part, else, set the slash-flag
         rrca    ; Bit 0 in CY
         jp c, _zos_realpath_loop
@@ -1519,7 +1459,7 @@ _zos_realpath_end_str:
         pop de
         ret
 _zos_realpath_error_path:
-        ; When .. is passed at the root 
+        ; When .. is passed at the root
         ld a, 1
         pop bc
         pop de
@@ -1546,7 +1486,7 @@ _vfs_current_dir_backup: DEFS CONFIG_KERNEL_PATH_MAX + 1
         ; As the following will also be used as a temporary buffer to calculate the realpath
         ; of file/directories (in zos_get_full_path), it must be able to handle 2 paths
         ; concatenated +1 for the potential NULL character added by the string library.
-_vfs_current_dir: DEFS CONFIG_KERNEL_PATH_MAX * 2 + 1   
+_vfs_current_dir: DEFS CONFIG_KERNEL_PATH_MAX * 2 + 1
         ; Work buffer usable by any (virtual) file system. It shall only be used by one
         ; FS implementation at a time, thus, it shall be used as a temporary buffer in
         ; the routines.

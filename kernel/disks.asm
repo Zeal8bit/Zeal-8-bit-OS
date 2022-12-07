@@ -32,26 +32,23 @@ _zos_disks_init_opened_files:
         ; Parameters:
         ;       A  - Letter to mount the disk on
         ;       E  - File system (taken from vfs_h.asm)
-        ;       HL - Pointer to the driver structure
+        ;       HL - Pointer to the driver structure. Guaranteed valid by the caller.
         ; Returns:
         ;       A - ERR_SUCCESS on success
         ;           ERR_ALREADY_MOUNTED if the letter has already on disk mounted on
         ;           ERR_INVALID_PARAMETER if the pointer or the letter passed is wrong
         ; Alters:
-        ;       A, DE
+        ;       A
         PUBLIC zos_disks_mount
 zos_disks_mount:
         push bc
+        push de
         ld b, a
         ld c, e
-        ; Let's say that the pointer is invalid if the upper byte is 0
-        ld a, h
-        or a
-        jp z, _zos_disks_mount_invalid_param
         ; Check the letter now
         ld a, b
         call to_upper
-        jp c, _zos_disks_mount_invalid_param
+        jr c, _zos_disks_mount_invalid_param
         ; Convert A to the _disk array index
         sub 'A'
         ld b, a
@@ -64,7 +61,7 @@ zos_disks_mount:
         ; Check upper byte for an already-registered driver
         ld a, (hl)
         or a
-        jp nz, _zos_disks_mount_already_mounted
+        jr nz, _zos_disks_mount_already_mounted
         ; Cell is empty, fill it with the new drive
         ld (hl), d
         dec hl
@@ -74,24 +71,24 @@ zos_disks_mount:
         ld hl, _disks_fs
         ADD_HL_A()
         ld (hl), c
-        pop bc
         xor a   ; Optimization for ERR_SUCCESS
+_zos_disks_mount_ex_pop_ret:
         ex de, hl
-        ret
-_zos_disks_mount_already_mounted:
+_zos_disks_mount_pop_ret:
+        pop de
         pop bc
-        ex de, hl
-        ld a, ERR_ALREADY_MOUNTED
         ret
 _zos_disks_mount_invalid_param:
-        pop bc
         ld a, ERR_INVALID_PARAMETER
-        ret
+        jr _zos_disks_mount_pop_ret
+_zos_disks_mount_already_mounted:
+        ld a, ERR_ALREADY_MOUNTED
+        jr _zos_disks_mount_ex_pop_ret
 
         ; Unmount the disk of the given letter. It is not possible to unmount the
         ; default disk. It shall must be changed.
         ; Parameters:
-        ;       A  - Letter to mount the disk on
+        ;       A  - Letter of the disk to unmount
         ; Returns:
         ;       A - ERR_SUCCESS on success
         ;           ERR_INVALID_PARAMETER if the letter passed is wrong or
@@ -104,7 +101,7 @@ zos_disks_unmount:
         ; TODO: empty the VFS for any opened file on the drive to unmount!
         ld hl, _disks_default
         cp (hl)
-        jp z, _zos_disks_mount_already_mounted
+        jp z, _zos_disks_invalid_param
         ; Check if the letter is correct now
         call to_upper
         jp c, _zos_disks_invalid_param
@@ -118,7 +115,7 @@ zos_disks_unmount:
         ld (hl), a
         inc hl
         ld (hl), a
-        ; Optimization of ERR_SUCCESS, A is already 0 
+        ; Optimization of ERR_SUCCESS, A is already 0
         ret
 
         PUBLIC zos_disks_get_default
@@ -158,7 +155,7 @@ _zos_disks_invalid_param:
         ;       A, C, DE, HL
 zos_disks_get_driver_and_fs:
         call to_upper
-        jp c, _zos_disks_invalid_param
+        jr c, _zos_disks_invalid_param
         ; A is a correct upper letter for sure now
         sub 'A'
         ; A *= 2 because _disks entry are 16-bit long
@@ -173,7 +170,7 @@ zos_disks_get_driver_and_fs:
         ; HL contains the content of _disks[A], check if it's NULL
         ld a, h
         or l
-        jp z, _zos_disks_invalid_param
+        jr z, _zos_disks_invalid_param
         ; Get the filesystem number thanks to E
         ld a, c
         ex de, hl       ; Store the driver address in DE
@@ -243,7 +240,7 @@ zos_disk_stat:
         push bc
         ; Retrieve the size and save it inside the structure.
         ; DE already points to the structure's size field
-        ; HL also points to size field 
+        ; HL also points to size field
         ld bc, file_date_t - file_size_t
         ldir
         ; Make HL point to the user field now
@@ -330,7 +327,7 @@ zos_disk_read:
         sbc (hl)
         jp nz, _zos_disk_read_add_min_is_bc
         ; If we reach here, BC contains the difference between size and offset
-        ; Compare it to the size given by the user 
+        ; Compare it to the size given by the user
         ld h, b
         ld l, c
         pop bc
@@ -531,7 +528,7 @@ zos_disk_seek:
         jr z, _zos_disk_seek_end
         ; Whence is SEEK_CUR. Several things to check here:
         ; - BCDE + file offset must not overflow if BCDE positive
-        ; - file offset - BCDE must not be less than 0 (underflow) 
+        ; - file offset - BCDE must not be less than 0 (underflow)
         ; Make Hl point to the offset field
         push hl
         REPT opn_file_off_t - opn_file_size_t
@@ -873,7 +870,7 @@ _zos_disks_allocate_found:
         pop bc
         ld (hl), c
         inc hl
-        ld (hl), b     
+        ld (hl), b
         inc hl
         ; Save the original address
         push de
@@ -1193,7 +1190,7 @@ zos_disk_add_offset_bc:
         ret
 
         SECTION KERNEL_BSS
-        ; Letter of the default disk 
+        ; Letter of the default disk
 _disks_default: DEFS 1
 _disks: DEFS DISKS_MAX_COUNT * 2
 _disks_fs: DEFS DISKS_MAX_COUNT
