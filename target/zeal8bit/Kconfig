@@ -16,6 +16,15 @@ menu "Zeal 8-bit Computer configuration"
             Address where the ROMDISK image will be placed in flash memory. As flash is mapped at physical address 0x0000,
             this value also represents the physical address of ROMDISK image.
 
+    config KERNEL_PHYS_ADDRESS
+        hex "Physical address of the kernel"
+        default 0x0000
+        range 0x0000 0x3C000
+        help
+            Address where the kernel/OS will be placed in flash memory. This will be used to calculate the offset between,
+            the kernel and the romdisk. For example, if kernel is meant to be flashed at 0x4000 and the romdisk at 0x8000,
+            the latter will be at a distance of <romdisk_address> - <kernel_entry> = 0x4000 bytes from the kernel entry.
+
     config TARGET_ENABLE_VIDEO
         bool
         prompt "Enable video driver"

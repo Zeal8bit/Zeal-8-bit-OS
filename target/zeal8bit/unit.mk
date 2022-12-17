@@ -41,5 +41,5 @@ PRECMD := (cd $(PWD)/romdisk && make) && \
 POSTCMD := @echo "RAM used by kernel: $$(du -bs $(BINDIR)/*KERNEL_BSS*.bin | cut -f1) bytes" && \
 	   rm $(BINDIR)/*KERNEL_BSS*.bin && mv $(BINDIR)/*RST_VECTORS*.bin $(FULLBIN) && \
 	   echo "OS size: $$(du -bs $(FULLBIN) | cut -f1) bytes" && \
-	   truncate -s $$(($(CONFIG_ROMDISK_ADDRESS))) $(FULLBIN) && \
+	   truncate -s $$(( $(CONFIG_ROMDISK_ADDRESS) - $(CONFIG_KERNEL_PHYS_ADDRESS) )) $(FULLBIN) && \
 	   cat $(PWD)/romdisk/disk.img >> $(FULLBIN)
