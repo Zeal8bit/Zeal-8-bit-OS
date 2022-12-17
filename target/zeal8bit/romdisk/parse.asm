@@ -23,6 +23,7 @@
         EXTERN less_main
         EXTERN mkdir_main
         EXTERN rm_main
+        EXTERN load_main
         EXTERN uartsnd_main
         EXTERN uartrcv_main
 
@@ -371,6 +372,8 @@ system_commands_begin:
         DEFW help_main
         DEFS MAX_COMMAND_NAME, "less"
         DEFW less_main
+        DEFS MAX_COMMAND_NAME, "load"
+        DEFW load_main
         DEFS MAX_COMMAND_NAME, "ls"
         DEFW ls_main
         DEFS MAX_COMMAND_NAME, "mkdir"
