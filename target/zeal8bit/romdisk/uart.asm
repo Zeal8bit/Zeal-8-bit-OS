@@ -96,7 +96,7 @@ _load_usage:
         S_WRITE1(DEV_STDOUT)
         ret
 _load_usage_str:
-        DEFM "usage: load <size_between_1_and_16384>"
+        DEFM "usage: load <size_between_1_and_16384>\n"
 _load_usage_str_end:
 
 
