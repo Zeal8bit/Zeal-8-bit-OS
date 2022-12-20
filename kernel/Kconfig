@@ -1,5 +1,13 @@
 menu "Kernel configuration"
-        
+
+        config KERNEL_REPRODUCIBLE_BUILD
+                bool "Generate a reproducible binary"
+                default n
+                help
+                        When this option is enabled, compiling the project several times with
+                        the same configuration will produce the exact same binary. Thus, information
+                        like build time will be excluded from the binary.
+
         config KERNEL_STACK_ADDR
                 hex "Kernel Stack virtual address"
                 default 0xFFFF
@@ -7,7 +15,7 @@ menu "Kernel configuration"
                 help
                         After initializing the MMU, the kernel will set the Stack Pointer (SP).
                         This value defines the top of the stack in the virtual memory.
-                        This address must point to RAM.  
+                        This address must point to RAM.
 
         config KERNEL_COLDBOOT_HOOK
                 bool "Hook routine at coldboot"
@@ -57,7 +65,7 @@ menu "Kernel configuration"
                 help
                         Maximum length of a single absolute file path. Incrementing this value will make
                         the kernel use more RAM.
-                       
+
         config KERNEL_INIT_EXECUTABLE
                 string "Executable to launch on boot"
                 default "A:/init.bin"
@@ -79,5 +87,5 @@ menu "Kernel configuration"
                 help
                         Kernel logger, by default, prints logs without any color. However, if this option
                         is enable, it will be able to print error messages in red, warning messages in yellow
-                        and info messages in green. 
+                        and info messages in green.
 endmenu

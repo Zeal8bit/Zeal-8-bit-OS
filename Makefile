@@ -12,6 +12,8 @@ export MENUCONFIG_STYLE = aquatic
 export OSCONFIG_ASM = include/osconfig.asm
 # Output related
 BIN=os.bin
+# As the first section of the OS  must be RST_VECTORS, the final binary is named os_RST_VECTORS.bin
+BIN_GENERATED=os_RST_VECTORS.bin
 BINDIR=build
 FULLBIN=$(BINDIR)/$(BIN)
 MAPFILE=os.map
@@ -54,7 +56,7 @@ endef
 #	- $2: Variable name where INCLUDES will be stored
 #   - $3: Variable name where PRECMD will be stored
 #   - $4: Variable name where POSTCMD will be stored
-define IMPORT_subunitmk = 
+define IMPORT_subunitmk =
     SUBMKFILE = $$(wildcard */$$(MKFILE))
     TMP1 :=
     TMP2 :=
@@ -87,15 +89,17 @@ LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
 all:$(KCONFIG_CONFIG) version packer precmd $(LINKERFILE_OBJ) $(OBJS)
 	$(CC) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
+	@mv $(BINDIR)/$(BIN_GENERATED) $(FULLBIN)
 	@echo "OS binary: $(FULLBIN)"
 	@echo "Executing post commands..."
 	$(POSTCMD)
 
-    # Generate a version file that will be used as a boilerplate
-    # when the system starts
+# Generate a version file that will be used as a boilerplate when the system starts
+# We add the build time to the file only if reproducible build is not enabled
 version:
 	@echo Zeal 8-bit OS `git describe --tags` > version.txt
-	@echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt
+	@[ -z "$(CONFIG_KERNEL_REPRODUCIBLE_BUILD)" ]  && \
+	 echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt || true
 
 packer:
 	@echo "Building packer"
@@ -105,7 +109,7 @@ precmd:
 	@echo "Executing pre commands..."
 	@$(PRECMD)
 
-# Check if configuration file exists  
+# Check if configuration file exists
 $(KCONFIG_CONFIG):
 	@test -e $@ || { echo "Configuration file $@ could not be found. Please run make menuconfig first"; exit 1; }
 
@@ -145,10 +149,10 @@ prepare_dirs:
 	@mkdir -p $(BINDIR)
 
 dump:
-	$(DISASSEMBLER) -x $(BINDIR)/os.map $(BINDIR)/$(BIN) | less
+	$(DISASSEMBLER) -x $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN) | less
 
 fdump:
-	$(DISASSEMBLER) -x $(BINDIR)/os.map $(BINDIR)/$(BIN) > $(BINDIR)/os.dump
+	$(DISASSEMBLER) -x $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN) > $(BINDIR)/os.dump
 
 clean:
 	rm -rf $(OSCONFIG_ASM) $(BINDIR) $(KCONFIG_CONFIG) version.txt
