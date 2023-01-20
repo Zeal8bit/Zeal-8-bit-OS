@@ -158,22 +158,21 @@ zos_disks_get_driver_and_fs:
         jr c, _zos_disks_invalid_param
         ; A is a correct upper letter for sure now
         sub 'A'
+        ; Save the index of the disk, before multiplying it by 2
+        ld c, a
         ; A *= 2 because _disks entry are 16-bit long
         add a
-        ld c, a
         ld hl, _disks
         ADD_HL_A()
         ld e, (hl)
         inc hl
         ld d, (hl)
-        ex de, hl
-        ; HL contains the content of _disks[A], check if it's NULL
-        ld a, h
-        or l
+        ; DE contains the content of _disks[A], check if it's NULL
+        ld a, e
+        or d
         jr z, _zos_disks_invalid_param
         ; Get the filesystem number thanks to E
         ld a, c
-        ex de, hl       ; Store the driver address in DE
         ld hl, _disks_fs
         ADD_HL_A()
         ; Put the FS number in C and exit with success
