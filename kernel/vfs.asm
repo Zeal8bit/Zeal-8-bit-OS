@@ -693,7 +693,7 @@ _zos_vfs_chdir_internal:
         call zos_get_full_path
         ; DE contains the full real path now, A the error code
         or a
-        jp nz, zos_vfs_chdir_deallocate_return
+        jr nz, zos_vfs_chdir_deallocate_return
         ; We have to check whether the directory exists or not, so let's open it
         ;       C - Disk letter
         ;       HL - Absolute path to the file (without X:/)
@@ -706,12 +706,12 @@ _zos_vfs_chdir_internal:
         inc hl
         call zos_disk_opendir
         or a
-        jp nz, zos_vfs_chdir_pop_deallocate_return
+        jr nz, zos_vfs_chdir_pop_deallocate_return
         ; Success, which means that the direcotry exists, we can close it directly
         call zos_disk_close
         ; Check for error again (unlikely)
         or a
-        jp nz, zos_vfs_chdir_pop_deallocate_return
+        jr nz, zos_vfs_chdir_pop_deallocate_return
         ; Pop the original path and copy it to the current dir path
         pop hl
         ld de, _vfs_current_dir
@@ -722,7 +722,27 @@ _zos_vfs_chdir_internal:
         ld (hl), a
         call strcpy
         ; HL was unmodified, it still points to the allocated buffer on the stack
-        jr zos_vfs_chdir_deallocate_return
+        ; We have to add a '/' at the end of the current path pointed by DE, if
+        ; there isn't one already.
+        xor a   ; Look for NULL-byte
+        ld bc, CONFIG_KERNEL_PATH_MAX
+        ex de, hl   ; Buffer allocated on the stack in DE
+        cpir
+        ; HL should now point to byte after the \0, move the \0 there
+        ld (hl), a
+        dec hl  ; Points to \0
+        dec hl  ; Points to the last char
+        ; Check if there is already a '/'
+        ld a, '/'
+        cp (hl)
+        jr z, _zos_vfs_chdir_no_append_slash
+        inc hl
+        ld (hl), a
+_zos_vfs_chdir_no_append_slash:
+        ex de, hl
+        ; Return value in A, which is 0
+        xor a
+        jp zos_vfs_chdir_deallocate_return
         ; Fall-through
 zos_vfs_chdir_pop_deallocate_return:
         pop hl
@@ -1365,11 +1385,12 @@ _zos_realpath_slash:
         jp c, _zos_realpath_loop
         ; We have encountered a '..', if we are at root, error, else, we have to
         ; look for the previous '/'
+_zos_realpath_slash_at_end:
         bit 7, c
         jp nz, _zos_realpath_error_path
         res 2, c
         ; Look for the previous '/' in the destination
-        ; For exmaple, if HL is /mydir/../
+        ; For example, if HL is /mydir/../
         ; Destination would be /mydir/, and DE pointing after the last slash
         ; We have to look for the one before the last one.
         dec de
@@ -1416,14 +1437,14 @@ _zos_realpath_dot:
         ; If we've already seen a triple dot, then this dot is part of a file name
         bit 3, c
         jr nz, _zos_realpath_valid_dot
-        ; If we have seen regulart characters before, the dot is valid
+        ; If we have seen regular characters before, the dot is valid
         bit 4, c
         jr nz, _zos_realpath_valid_dot
         ; If we've seen a .. before, then, this dot makes the file name '...'
         ; this is not a special sequence, so we have to write these to DE.
         bit 2, c
         jr nz, _zos_realpath_tripledot
-        ; Update the flags and continue  the loop. Do not write anything to the
+        ; Update the flags and continue the loop. Do not write anything to the
         ; destination (yet). If we saw a dot before, the flags become:
         ; xxxxx_x01x => xxxxx_x10x
         ; If we haven't, it becomes:
@@ -1453,6 +1474,12 @@ _zos_realpath_valid_dot:
         inc hl
         jp _zos_realpath_loop
 _zos_realpath_end_str:
+        ; If we have seen a .. right before the NULL-byte, we have to
+        ; act as if a final / was present.
+        ; HL won't be incremented in _zos_realpath_slash_at_end, so it will
+        ; still point to the NULL-byte, ending the next recursion.
+        bit 2, c
+        jr nz, _zos_realpath_slash_at_end
         xor a
         ld (de), a
         pop bc
