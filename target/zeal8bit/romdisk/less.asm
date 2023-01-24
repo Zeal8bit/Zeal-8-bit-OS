@@ -54,7 +54,7 @@ _less_read_loop:
         READ()
         ; Check for a potential error
         or a
-        jp nz, read_error 
+        jp nz, read_error
         ; Check if we've reached the end of the file
         ld a, b
         or c
@@ -74,7 +74,7 @@ _less_read_loop:
         sbc hl, bc
         ; Pop doesn't alter flags
         pop hl
-        ; H now contains the opened dev, BC is still the buffer size and DE is the buffer 
+        ; H now contains the opened dev, BC is still the buffer size and DE is the buffer
         jp z, _less_read_loop
         ; End of loop else
 _less_end:
@@ -98,8 +98,12 @@ open_error:
         ret
 
 read_error:
-        ; We have to close the file dev which is in h
+        ; We have to close the file dev which is in h, save A as it contains
+        ; the real error that occurred
+        ld b, a
         CLOSE()
+        ; Ignore the potential error from close
+        ld a, b
         ld de, str_read_err
         ld bc, str_read_err_end - str_read_err
         call error_print
@@ -110,7 +114,7 @@ read_error:
 
 str_usage: DEFM "usage: less <path_to_file>\n"
 str_usage_end:
-str_open_err: DEFM "error opening the file: "
+str_open_err: DEFM "open error: "
 str_open_err_end:
-str_read_err: DEFM "error reading the file: "
+str_read_err: DEFM "read error: "
 str_read_err_end:
