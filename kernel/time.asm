@@ -143,7 +143,7 @@ zos_time_settime:
         ; Routine to get the time counter, in milliseconds.
         ; The granularity is dependent on the implementation, it could be 1ms
         ; 16ms, or more. The user should be aware of this when calling this
-        ; routine. 
+        ; routine.
         ; Parameters:
         ;       H - Id of the clock (for future use, unused for now)
         ; Returns:
@@ -198,7 +198,7 @@ zos_date_init:
         ;           ERR_NOT_IMPLEMENTED if target doesn't implement this feature
         ;           error code else
         ; Alters:
-        ;       A 
+        ;       A
         PUBLIC zos_date_setdate
 zos_date_setdate:
         ld hl, (_zos_date_driver_setdate)
@@ -231,11 +231,31 @@ _zos_date_check_bc_call_hl:
         ;           ERR_NOT_IMPLEMENTED if target doesn't implement this feature
         ;           error code else
         ; Alters:
-        ;       A 
+        ;       A
         PUBLIC zos_date_getdate
 zos_date_getdate:
         ld hl, (_zos_date_driver_getdate)
         jp _zos_date_check_bc_call_hl
+
+
+        ; Routine to get the date from a routine within the kernel, there won't be
+        ; any check of the destination buffer.
+        ; Parameters:
+        ;       DE - Address to a date structure to fill, as defined in the
+        ;            time_h.asm header file. Must not be NULL.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success,
+        ;           ERR_NOT_IMPLEMENTED if target doesn't implement this feature
+        ;           error code else
+        PUBLIC zos_date_getdate_kernel
+zos_date_getdate_kernel:
+        ld hl, (_zos_date_driver_getdate)
+        ld a, h
+        or l
+        ld a, ERR_NOT_IMPLEMENTED
+        ret z
+        jp (hl)
+
 
         SECTION KERNEL_BSS
         ; Time routines
