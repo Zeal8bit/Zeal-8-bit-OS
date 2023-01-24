@@ -10,7 +10,6 @@
 
         EXTERN zos_sys_remap_de_page_2
         EXTERN zos_date_init
-        EXTERN _vfs_work_buffer
 
         ; Mask used to get the value from SDA input pin
         DEFC SDA_INPUT_MASK = 1 << IO_I2C_SDA_IN_PIN
@@ -134,9 +133,9 @@ i2c_getdate:
         ; Save the user's buffer first
         push de
         ; The work buffer is bigger than the date structure, let's use it.
-        ld hl, _vfs_work_buffer
+        ld hl, _driver_buffer
         ld (hl), 0
-        ld de, _vfs_work_buffer + 1
+        ld de, _driver_buffer + 1
         ; Perform a write followed by a read on the bus
         ; Parameters:
         ;   A - 7-bit device address
@@ -157,7 +156,7 @@ i2c_getdate:
         ld (hl), 0x20
         inc hl
         ; DE contains the register read from the RTC, they are in reverse order (seconds, minutes, etc...)
-        ld de, _vfs_work_buffer + 1 + 6
+        ld de, _driver_buffer + 1 + 6
         ; We cannot use LDI or LDD, because HL must be incremented while DE must be decremented
         ld b, 6
 _getdate_loop:
@@ -512,10 +511,34 @@ i2c_perform_stop:
         ;   A, HL
         PUBLIC i2c_write_device
 i2c_write_device:
-        ; In order to optimize the size of this routine, C will be used as a
-        ; temporary storage for device address and error code
         push bc
         push de
+        ; Set no secondary/register buffer
+        ld c, 0
+        call i2c_write_double_buffer
+        pop de
+        pop bc
+        ret
+
+        ; Write bytes on the bus to the specified device. A secondary buffer can be passed.
+        ; This secondary buffer will be sent first, it can contain the register address.
+        ; Parameters:
+        ;   A - 7-bit device address
+        ;   DE - Register address buffer
+        ;   C  - Size of the register address buffer, can be 0, which ignores DE
+        ;   HL - Buffer to write on the bus
+        ;   B - Size of the buffer, must not be 0
+        ; Returns:
+        ;   A - 0: Success
+        ;       -1: No device responded
+        ;       positive value: Device stopped responding during transmission (NACK received)
+        ; Alters:
+        ;   A, BC, DE, HL
+        PUBLIC i2c_write_double_buffer
+i2c_write_double_buffer:
+        push hl
+        ex de, hl   ; Put the register buffer in HL
+        push bc
 
         ; Making the write device address in A (left shift + 0)
         sla a
@@ -525,26 +548,45 @@ i2c_write_device:
         call i2c_send_byte
         ; If not zero, NACK was received, abort
         ld a, 0xff
-        jp nz, _i2c_write_device_nack
+        ; Get back both buffer sizes in BC before checking errors
+        pop bc
+        jp nz, _i2c_write_double_nack
 
-        ; Start reading and sending the bytes
-_i2c_write_device_byte:
+        ld a, c
+        or a
+        jp z, _i2c_write_double_no_register
+_i2c_write_double_register:
         ld a, (hl)
         inc hl
         ; BC are both preserved across this function call
         call i2c_send_byte
         ; If not zero, NACK was received, abort.
-        jr nz, _i2c_write_device_nack
-        djnz _i2c_write_device_byte
+        jr nz, _i2c_write_double_nack
+        dec c
+        jp nz, _i2c_write_double_register
+_i2c_write_double_no_register:
+        ; Get back the data buffer from the stack
+        pop hl
+        ; Start reading and sending the bytes
+_i2c_write_double_byte:
+        ld a, (hl)
+        inc hl
+        ; BC are both preserved across this function call
+        call i2c_send_byte
+        ; If not zero, NACK was received, abort.
+        jr nz, _i2c_write_double_nack_no_pop
+        djnz _i2c_write_double_byte
 
         ; A should be 0 at the end to show success
         xor a
-_i2c_write_device_nack:
-        ; Send stop signal in ANY case
+        jp i2c_perform_stop
+_i2c_write_double_nack:
+        pop hl
+_i2c_write_double_nack_no_pop:
+        ; Doesn't alter A (return value)
         call i2c_perform_stop
-        pop de
-        pop bc
         ret
+
 
         ; Read bytes from a device on the bus
         ; Parameters:
@@ -696,6 +738,7 @@ _i2c_write_read_device_end:
 
         SECTION DRIVER_BSS
 _i2c_dev_addr: DEFS 1
+_driver_buffer: DEFS 32
 
         SECTION KERNEL_DRV_VECTORS
 NEW_DRIVER_STRUCT("I2C0", \
