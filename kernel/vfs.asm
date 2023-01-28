@@ -16,8 +16,6 @@
         EXTERN zos_sys_remap_user_pages
         EXTERN zos_driver_find_by_name
         EXTERN zos_log_stdout_ready
-        EXTERN strncat
-        EXTERN strncpy
 
         SECTION KERNEL_TEXT
 
@@ -422,6 +420,8 @@ zos_vfs_write_internal:
         ;       H - Number of the dev to close
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
+        ; Alters:
+        ;       A, HL
         PUBLIC zos_vfs_close
 zos_vfs_close:
         push hl
@@ -436,10 +436,10 @@ zos_vfs_close:
         jp nz, _zos_vfs_popdehl_ret
         ; Check if the opened dev is a file/dir or a driver
         DISKS_IS_OPN_FILEDIR(hl)
-        jr z, _zos_vfs_close_isfile
-        ; We have a driver here, we will call its `close` function directly.
         push de
         push bc
+        jr z, _zos_vfs_close_isfile
+        ; We have a driver here, we will call its `close` function directly.
         ex de, hl
         ; Retrieve driver (DE) close function address, in HL.
         GET_DRIVER_CLOSE()
@@ -447,8 +447,8 @@ zos_vfs_close:
         ; with the dev number as a parameter
         ld a, (_dev_table_empty_entry)
         CALL_HL()
-        pop bc
 _zos_vfs_close_clean_entry:
+        pop bc
         ; Clean the entry in _dev_table to 0, the top of the stack contains
         ; the address + 1.
         pop hl
@@ -461,7 +461,6 @@ _zos_vfs_popdehl_ret:
         pop hl
         ret
 _zos_vfs_close_isfile:
-        push de
         call zos_disk_close
         jp _zos_vfs_close_clean_entry
 
@@ -707,7 +706,7 @@ _zos_vfs_chdir_internal:
         call zos_disk_opendir
         or a
         jr nz, zos_vfs_chdir_pop_deallocate_return
-        ; Success, which means that the direcotry exists, we can close it directly
+        ; Success, which means that the directory exists, we can close it directly
         call zos_disk_close
         ; Check for error again (unlikely)
         or a
