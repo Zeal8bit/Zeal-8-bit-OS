@@ -343,6 +343,11 @@ _zos_disk_read_add_min_is_bc:
         pop bc
 _zos_disk_read_add_min_is_bc_no_pop:
         pop de
+        ; Before using A, test if BC is 0, if that's the case we can return successfully
+        ; right now without calling any underlying fs, nor updating the file offset.
+        ld a, b
+        or c
+        jr z, _zos_disk_read_early_success
         pop af
         pop hl
         push hl ; Save HL on the stack again
@@ -354,6 +359,7 @@ _zos_disk_read_add_min_is_bc_no_pop:
         cp FS_FAT16
         jp z, _zos_disk_read_fat16
         ; The filesystem has not been found, memory corruption?
+        pop hl
         ld a, ERR_INVALID_FILESYSTEM
         ret
 _zos_disk_read_zealfs:
@@ -382,6 +388,12 @@ _zos_disk_read_epilogue:
         ; we need to return it. It can be a tail-call as our stack is clean,
         ; we have nothing more to do.
         jp zos_disk_add_offset_bc
+_zos_disk_read_early_success:
+        ; Clean the stack, we can pop the values in any register
+        pop hl
+        pop hl
+        ; A is already 0
+        ret
 _zos_disk_bad_mode:
         ld a, ERR_BAD_MODE
         ret
@@ -455,14 +467,15 @@ _zos_disk_write_no_append:
         cp FS_FAT16
         jp z, _zos_disk_write_fat16
         ; The filesystem has not been found, memory corruption?
+        pop hl
         ld a, ERR_INVALID_FILESYSTEM
         ret
 _zos_disk_write_rawtable:
         call zos_fs_rawtable_write
-        jp _zos_disk_read_epilogue
+        jp _zos_disk_write_epilogue
 _zos_disk_write_zealfs:
         call zos_fs_zealfs_write
-        jp _zos_disk_read_epilogue
+        jp _zos_disk_write_epilogue
 _zos_disk_write_fat16:
         call zos_fs_fat16_write
 _zos_disk_write_epilogue:
@@ -475,16 +488,72 @@ _zos_disk_write_epilogue:
         ld a, b
         or c
         ret z   ; A is 0, it's a success, BC is also 0
-        ; Else, we will have to add BC to both the size in the structure
-        ; and the offset. Make HL point to the file size.
-        ld de, opn_file_size_t - opn_file_magic_t
+        ; Else, we will have to add BC to the offset. Make HL point to the offset.
+        ld de, opn_file_off_t - opn_file_magic_t
         add hl, de
         ; Save the address of HL in DE as we will need it later to get the
-        ; address of offset field
+        ; address of size field
         ld d, h
         ld e, l
         ; Perform (UINT32) [HL] += (UINT16) BC
         call zos_disk_add_offset_bc
+        ; Now, we have to set the size to the offset value if the offset is bigger
+        ; than the size.
+        ; DE points to opn_file_size_t + 4 (== opn_file_off_t), make it point to the
+        ; highest byte while making HL point to the highest byte of the offset.
+        ld h, d
+        ld l, e
+        dec de
+        inc hl
+        inc hl
+        inc hl
+        ; Compare the offset (HL) to the size (DE)
+        ld a, (de)
+        cp (hl)
+        jr c, _zos_disk_write_set_size_4
+        ; If the result is not 0, it means the size is bigger, we can return
+        ret nz
+        ; Do the same for the 3rd byte
+        dec hl
+        dec de
+        ld a, (de)
+        cp (hl)
+        jr c, _zos_disk_write_set_size_3
+        ret nz
+        ; 2nd byte
+        dec hl
+        dec de
+        ld a, (de)
+        cp (hl)
+        jr c, _zos_disk_write_set_size_2
+        ret nz
+        ; Last byte
+        dec hl
+        dec de
+        ld a, (de)
+        cp (hl)
+        jr c, _zos_disk_write_set_size_1
+        ; Size is bigger than offset, we can return with a success
+        xor a
+        ret
+_zos_disk_write_set_size_4:
+        ; Jump here if the offset is bigger than the size
+        ; All 4 bytes must be copied, from HL to DE.
+        ldd
+        inc bc
+_zos_disk_write_set_size_3:
+        ldd
+        inc bc
+_zos_disk_write_set_size_2:
+        ldd
+        inc bc
+_zos_disk_write_set_size_1:
+        ldd
+        inc bc
+        xor a
+        ret
+
+
         ; Perform the same operation on the offset, it will return ERR_SUCCESS
         ; in all cases, we can do a tail-call here
         ex de, hl
@@ -764,12 +833,9 @@ zos_disk_close:
         ld e, (hl)
         inc hl
         ld d, (hl)
-        inc hl
-        ; Point to the user field. HL is pointing to the size field.
-        inc hl
-        inc hl
-        inc hl
-        inc hl
+        ; Point to the user field. HL is pointing to the size field - 1.
+        ld bc, opn_file_usr_t - opn_file_size_t + 1
+        add hl, bc
         ; Call the filesystem now
         ; FIXME: Use a vector table?
         cp FS_RAWTABLE
@@ -1160,9 +1226,11 @@ zos_fs_fat16_rm:
         ; Parameters:
         ;       HL - Address of an unsigned 32-bit value (little-endian)
         ;       BC - Unsigned 16-bit value
-        ; Alters:
+        ; Returns:
         ;       [HL] - Sum of (uint32*) [HL] and (uint16) BC
         ;       A - ERR_SUCCESS in all cases
+        ; Alters:
+        ;       A, HL
 zos_disk_add_offset_bc:
         ld a, (hl)
         add c

@@ -36,7 +36,7 @@
         ; Driver's structure start with 4 characters, which represents the name.
         ; These char are ASCII. Thus, if in the following structure, the magic
         ; is an invalid ASCII char (e.g. 0xA0), it will be quiet easy to determine
-        ; whether a pointer to a "dev" is a file or not. 
+        ; whether a pointer to a "dev" is a file or not.
         DEFVARS 0 {
                 opn_file_magic_t   DS.B 1 ; 0xA0 if entry free, 0xAF else
                 opn_file_fs_t      DS.B 1 ; Filesystem number (lowest nibble) and flags (highest nibble)
@@ -44,7 +44,7 @@
                 opn_file_size_t    DS.B 4 ; Little-endian
                 opn_file_off_t     DS.B 4 ; Offset in the file
                 opn_file_usr_t     DS.B 4 ; 4 bytes for the FS, can be used at it wants
-                opn_file_end_t     DS.B 1 
+                opn_file_end_t     DS.B 1
         }
 
         DEFC DISKS_OPN_FILE_MAGIC_FREE = 0xA0
@@ -75,6 +75,41 @@
         DEFC DISKS_DIR_ENTRY_SIZE = dir_entry_end_t
         DEFC DISKS_DIR_ENTRY_IS_FILE = 1
         DEFC DISKS_DIR_ENTRY_IS_DIR  = 0
+
+
+        ; Macro to test whether the flags from an opened file address, pointing to a opn_file_* field,
+        ; was opened in WRITE or not.
+        ; Prerequisite:
+        ;   HL - Address of the opened file structure
+        ; Parameter:
+        ;   name of the field HL is pointing to
+        ; Returns:
+        ;   A/Z flag - 0 if not opened in write, positive value else
+        ; Alters:
+        ;   A, BC, HL
+        DEFC WR_FLAGS = O_WRONLY | O_RDWR
+        MACRO DISKS_FILE_IS_WRITE field
+            ld bc, opn_file_fs_t - field
+            add hl, bc
+            ld a, (hl)
+            and WR_FLAGS << 4
+        ENDM
+
+
+        ; Macro to get the address of the size of an opened file.
+        ; The opened file can point to any opn_file_* field.
+        ; Prerequisite:
+        ;   HL - Address of the opened file structure
+        ; Parameter:
+        ;   name of the field HL is pointing to
+        ; Returns:
+        ;   HL - Address of the size field
+        ; Alters:
+        ;   A, BC, HL
+        MACRO DISKS_FILE_GET_SIZE field
+            ld bc, opn_file_size_t - (field)
+            add hl, bc
+        ENDM
 
         ; Macro to test whether the given address points to an opened file/directory or not
         ; The result is put in A and flags: 0 (z) if true, other value (nz) else
