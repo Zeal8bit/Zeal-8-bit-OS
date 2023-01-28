@@ -149,10 +149,10 @@ prepare_dirs:
 	@mkdir -p $(BINDIR)
 
 dump:
-	$(DISASSEMBLER) -x $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN) | less
+	$(DISASSEMBLER) -o 0x0000 -x $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN) | less
 
 fdump:
-	$(DISASSEMBLER) -x $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN) > $(BINDIR)/os.dump
+	$(DISASSEMBLER) -o 0x0000 -x $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN) > $(BINDIR)/os.dump
 
 clean:
 	rm -rf $(OSCONFIG_ASM) $(BINDIR) $(KCONFIG_CONFIG) version.txt
