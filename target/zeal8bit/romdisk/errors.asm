@@ -6,7 +6,7 @@
 
     SECTION TEXT
 
-    DEFC LAST_VALID_ERROR = ERR_NO_MORE_ENTRIES
+    DEFC LAST_VALID_ERROR = ERR_DIR_NOT_EMPTY
 
     ; Print a given message and the string of an error.
     ; This is handy for example after a failed syscall.
@@ -79,7 +79,7 @@ _error_print_no_default:
     ;   A, HL
     PUBLIC error_to_string
 error_to_string:
-    ; Currently, the last 
+    ; Currently, the last
     cp LAST_VALID_ERROR + 1
     jp nc, _error_to_string_invalid
     ; Error code is valid, get the pointer from the table
@@ -135,6 +135,11 @@ error_table:
     DEFW err_bad_mode_str
     DEFW err_cannot_register_more_str
     DEFW err_no_more_entries_str
+    DEFW err_no_more_memory_str
+    DEFW err_not_a_dir
+    DEFW err_not_a_file
+    DEFW err_entry_corrupted
+    DEFW err_dir_not_empty
 
     ; Table that regroups the length of the strings listed above
 error_table_len:
@@ -159,7 +164,13 @@ error_table_len:
     DEFB err_bad_mode_str - err_read_only_str - 1
     DEFB err_cannot_register_more_str - err_bad_mode_str - 1
     DEFB err_no_more_entries_str - err_cannot_register_more_str - 1
-    DEFB err_no_more_entries_str_end - err_no_more_entries_str - 1
+    DEFB err_no_more_memory_str - err_no_more_entries_str - 1
+    DEFB err_not_a_dir - err_no_more_memory_str - 1
+    DEFB err_not_a_file - err_not_a_dir - 1
+    DEFB err_entry_corrupted - err_not_a_file - 1
+    DEFB err_dir_not_empty - err_entry_corrupted - 1
+    DEFB err_dir_not_empty_end - err_dir_not_empty - 1
+
 
     ; The strings themselves
 err_success_str: DEFM "Success", 0
@@ -184,4 +195,9 @@ err_read_only_str: DEFM "Read-only device", 0
 err_bad_mode_str: DEFM "Bad open mode", 0
 err_cannot_register_more_str: DEFM "Cannot register more", 0
 err_no_more_entries_str: DEFM "No more entries", 0
-err_no_more_entries_str_end:
+err_no_more_memory_str: DEFM "No more memory", 0
+err_not_a_dir: DEFM "Not a directory", 0
+err_not_a_file: DEFM "Not a file", 0
+err_entry_corrupted: DEFM "Entry corrupted", 0
+err_dir_not_empty: DEFM "Directory not empty", 0
+err_dir_not_empty_end:

@@ -18,6 +18,7 @@
         EXTERN strcmp
 
         EXTERN cd_main
+        EXTERN cp_main
         EXTERN date_main
         EXTERN ls_main
         EXTERN less_main
@@ -364,6 +365,8 @@ help_msg_end:
 system_commands_begin:
         DEFS MAX_COMMAND_NAME, "cd"
         DEFW cd_main
+        DEFS MAX_COMMAND_NAME, "cp"
+        DEFW cp_main
         DEFS MAX_COMMAND_NAME, "date"
         DEFW date_main
         DEFS MAX_COMMAND_NAME, "exec"
