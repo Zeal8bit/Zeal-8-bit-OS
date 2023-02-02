@@ -39,6 +39,19 @@
         EXTERN i2c_write_read_device
 
 
+        ; Read bytes from a device on the bus
+        ; Parameters:
+        ;   A - 7-bit device address
+        ;   HL - Buffer to store the bytes read
+        ;   B - Size of the buffer
+        ; Returns:
+        ;   A - 0: Success
+        ;       -1: No device responded
+        ; Alters:
+        ;   A, HL
+        EXTERN i2c_read_device
+
+
         ; Write bytes on the bus to the specified device
         ; Parameters:
         ;   A - 7-bit device address

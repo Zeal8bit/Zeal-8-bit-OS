@@ -88,4 +88,13 @@ menu "Kernel configuration"
                         Kernel logger, by default, prints logs without any color. However, if this option
                         is enable, it will be able to print error messages in red, warning messages in yellow
                         and info messages in green.
+
+        config KERNEL_ENABLE_ZEALFS_SUPPORT
+                bool "Enable support for ZealFS file system"
+                default y
+                help
+                        If this option is enabled, ZealFS support will be added to the kernel, thus, disks using
+                        it can be mounted.
+                        Disable this option if you don't have any disk using ZealFS or if you want to reduce
+                        kernel size. (saves around 1.3KB)
 endmenu

@@ -9,6 +9,7 @@
         INCLUDE "vfs_h.asm"
         INCLUDE "strutils_h.asm"
         INCLUDE "fs/rawtable_h.asm"
+        INCLUDE "fs/zealfs_h.asm"
 
         SECTION KERNEL_TEXT
 
@@ -184,7 +185,7 @@ zos_disks_get_driver_and_fs:
         ; Parameters:
         ;       B - Flags, can be O_RDWR, O_RDONLY, O_WRONLY, O_NONBLOCK, O_CREAT, O_APPEND, etc...
         ;       C - Disk letter (lower/upper are both accepted)
-        ;       HL - Absolute path to the file (without X:/)
+        ;       HL - Absolute path to the file (without X:)
         ; Returns:
         ;       HL - Newly opened descriptor
         ;       A - ERR_SUCCESS on success, error code else
@@ -875,7 +876,7 @@ _zos_disk_close_dir:
         ;       DEHL - 32-bit file size
         ; Returns:
         ;       A - ERR_SUCCESS if success, error code else
-        ;       HL - Address of an empty opened filed structure
+        ;       HL - Address of an empty opened file structure
         ;       DE - Address of the user field in that same structure
         ; Alters:
         ;       A, BC, DE, HL
@@ -918,7 +919,7 @@ _zos_disks_allocate_found:
         ld d, h
         ld e, l
         inc hl
-        ; Save file system number
+        ; Save file system number and flags
         ld (hl), a
         inc hl
         ; Save driver address
@@ -1198,27 +1199,18 @@ zos_disk_rm:
         ;======================================================================;
 
 
-        ; TODO: Remove the stubs once other FS implemented
-        ; STUBS FOR COMPILING
-zos_fs_zealfs_open:
+        ; Private stub used when a file system is disabled from the menuconfig
 zos_fs_fat16_open:
-zos_fs_zealfs_stat:
 zos_fs_fat16_stat:
-zos_fs_zealfs_read:
 zos_fs_fat16_read:
-zos_fs_zealfs_close:
 zos_fs_fat16_close:
-zos_fs_zealfs_write:
 zos_fs_fat16_write:
-zos_fs_zealfs_opendir:
 zos_fs_fat16_opendir:
-zos_fs_zealfs_readdir:
 zos_fs_fat16_readdir:
-zos_fs_zealfs_mkdir:
 zos_fs_fat16_mkdir:
-zos_fs_zealfs_rm:
 zos_fs_fat16_rm:
-        ld a, ERR_NOT_IMPLEMENTED
+zos_disk_fs_not_supported:
+        ld a, ERR_NOT_SUPPORTED
         ret
 
         ; Perform a addition of an unsigned 32-bit value pointed by HL with the

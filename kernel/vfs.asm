@@ -225,7 +225,7 @@ zos_vfs_open_internal:
         ; Parameters:
         ;       B - Flags, can be O_RDWR, O_RDONLY, etc...
         ;       C - Disk letter
-        ;       HL - Absolute path to the file (without X:/)
+        ;       HL - Absolute path to the file (without X:)
         ; This call saves none of the register A, BC, DE and HL.
         ex de, hl
         call zos_disk_open_file

@@ -37,7 +37,7 @@
 
         EXTERN _vfs_work_buffer
 
-        DEFC RAM_DRIVER_ADDR = _vfs_work_buffer 
+        DEFC RAM_DRIVER_ADDR = _vfs_work_buffer
         DEFC RAM_EXE_CODE = RAM_DRIVER_ADDR + 2 ; Reserve 2 bytes for the address
         DEFC RAM_BUFFER   = RAM_EXE_CODE + 3    ; Reserve 3 bytes for the jp code
 
@@ -46,7 +46,7 @@
         ; Open a file from a disk that has a RAWTABLE filesystem
         ; Parameters:
         ;       B - Flags, can be O_RDWR, O_RDONLY, O_WRONLY, O_NONBLOCK, O_CREAT, O_APPEND, etc...
-        ;       HL - Absolute path, without the disk letter (without X:/), guaranteed not NULL by caller.
+        ;       HL - Absolute path, without the disk letter (without X:), guaranteed not NULL by caller.
         ;       DE - Driver address, guaranteed not NULL by the caller.
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
@@ -108,7 +108,7 @@ zos_fs_rawtable_open:
         pop bc
         ; Check return value
         or a
-        ret nz   ; If error occured in `open`, return 
+        ret nz   ; If error occured in `open`, return
         ; Save driver address?
         ; push de
         ; Retrieve driver (DE) read function address, in HL.
@@ -121,7 +121,7 @@ zos_fs_rawtable_open:
         ; time than push + pop everytime BUT this needs to be done a single time.
         ; Use a function for this.
         call zos_fs_rawtable_get_and_store_driver_read
-        ; ================== Start reading ================== ; 
+        ; ================== Start reading ================== ;
         ; Read the header of the partition, to do so, read the first 34 bytes
         ; Buffer in DE, size in BC, 32-bit offset on the stack, higher bytes first
         ; +-----------+
@@ -188,7 +188,7 @@ _zos_fs_rawtable_open_loop:
         push hl
         push bc
         ; Load the parameters. Before putting the offset on the stack,
-        ; we must push the return address. Thus, we won't be able to 
+        ; we must push the return address. Thus, we won't be able to
         ; use `call` later on, we will have to use jp.
         ld de, _rawtable_code_ret2
         push de
@@ -252,7 +252,7 @@ _zos_fs_rawtable_open_entry_found:
         pop bc
         ret nz  ; If error, return directly
         ; HL contains the stucture address,
-        ; DE points to the private data we can use at our will. We have 4 bytes. 
+        ; DE points to the private data we can use at our will. We have 4 bytes.
         ; BC contains the offset of the header, store it in our private field
         ex de, hl
         ld (hl), c
@@ -270,8 +270,7 @@ _zos_fs_rawtable_open_entry_found:
         ; Parameters:
         ;       BC - Driver address, guaranteed not NULL by the caller.
         ;       HL - Opened file structure address, pointing to the user field.
-        ;       DE - Address of the date structure to fill, followed by the name:
-        ;            { uint8_t date[8]; char name[16]; }
+        ;       DE - Address of the STAT_STRUCT to fill.
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
         ; Alters:
@@ -326,7 +325,7 @@ _zos_fs_rawtable_stat_return:
         ld bc, file_end_t - file_name_t
         ldir
         ; Success, we can exit safely
-        xor a   ; Optimizaiton for ERR_SUCCESS
+        xor a   ; Optimization for ERR_SUCCESS
         ret
 
         ; Read bytes of an opened file, which is located on a disk that is
@@ -334,7 +333,7 @@ _zos_fs_rawtable_stat_return:
         ; At most BC bytes must be read in the buffer pointed by DE.
         ; Upon completion, the actual number of bytes filled in DE must be
         ; returned in BC register. It must be less or equal to the initial
-        ; value of BC. 
+        ; value of BC.
         ; Note: _vfs_work_buffer can be used at our will here
         ; Parameters:
         ;       HL - Address of the opened file. Guaranteed by the caller to be a
@@ -343,7 +342,7 @@ _zos_fs_rawtable_stat_return:
         ;            READ-ONLY, MUST NOT BE MODIFIED.
         ;       DE - Buffer to fill with the read bytes. Guaranteed to not be cross page boundaries.
         ;       BC - Size of the buffer passed, maximum size is a page size guaranteed.
-        ;            It is also guaranteed to not overflow the file's total size. 
+        ;            It is also guaranteed to not overflow the file's total size.
         ; Returns:
         ;       A  - 0 on success, error value else
         ;       BC - Number of bytes filled in DE.
@@ -364,7 +363,7 @@ zos_fs_rawtable_read:
         inc hl
         ld d, (hl)
         inc hl
-        ; Get the read function out of the driver pointed by DE, the resulted 
+        ; Get the read function out of the driver pointed by DE, the resulted
         ; function address will be in HL. Save it beforehand.
         push hl
         call zos_fs_rawtable_get_and_store_driver_read
@@ -461,7 +460,7 @@ _zos_fs_rawtable_read_header_err:
         ;            valid opened file. It embeds the offset to write to the file,
         ;            the driver address and the user field.
         ;            READ-ONLY, MUST NOT BE MODIFIED.
-        ;       DE - Buffer containing the bytes to write to the opened file, the buffer is gauranteed to 
+        ;       DE - Buffer containing the bytes to write to the opened file, the buffer is gauranteed to
         ;            NOT cross page boundary.
         ;       BC - Size of the buffer passed, maximum size is a page size
         ; Returns:
@@ -501,7 +500,7 @@ zos_fs_rawtable_close:
         ; Note: Currently, RAWTABLE only supports a single directory,
         ;       the root one: '/'.
         ; Parameters:
-        ;       HL - Absolute path, without the disk letter (without X:/), guaranteed not NULL by caller.
+        ;       HL - Absolute path, without the disk letter (without X:), guaranteed not NULL by caller.
         ;       DE - Driver address, guaranteed not NULL by the caller.
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
@@ -514,7 +513,7 @@ zos_fs_rawtable_opendir:
         ld a, (hl)
         or a
         jp z, _zos_fs_rawtable_path_valid
-        ; Either / followed by \0 
+        ; Either / followed by \0
         sub '/'
         inc hl
         or (hl)
@@ -570,7 +569,7 @@ _zos_fs_rawtable_path_valid:
         ld hl, 0
         push hl
         push hl
-        ; BC = sizeof(rawtable_count_t) 
+        ; BC = sizeof(rawtable_count_t)
         ld bc, 2
         jp RAM_EXE_CODE
 _zos_fs_rawtable_opendir_ret:
@@ -580,13 +579,13 @@ _zos_fs_rawtable_opendir_ret:
 
 
         ; Read the next entry from the opened directory and store it in the user's buffer.
-        ; The given buffer is guarenteed to be big enough to store DISKS_DIR_ENTRY_SIZE bytes.
+        ; The given buffer is guaranteed to be big enough to store DISKS_DIR_ENTRY_SIZE bytes.
         ; Note: _vfs_work_buffer can be used at our will here
         ; Parameters:
         ;       HL - Address of the user field in the opened directory structure. This is the same address
         ;            as the one given when opendir was called.
         ;       DE - Buffer to fill with the next entry data. Guaranteed to not be cross page boundaries.
-        ;            Garenteed to be at least DISKS_DIR_ENTRY_SIZE bytes.
+        ;            Guaranteed to be at least DISKS_DIR_ENTRY_SIZE bytes.
         ; Returns:
         ;       A - ERR_SUCCESS on success,
         ;           ERR_NO_MORE_ENTRIES if the end of directory has been reached,
@@ -650,7 +649,7 @@ zos_fs_rawtable_readdir:
         ld hl, 0        ; 32-bit offset
         push hl
         ; Let's directly read the filename
-        ; Subtract 1 as we already wrote a byte above (is_dir flag) 
+        ; Subtract 1 as we already wrote a byte above (is_dir flag)
         ld bc, DISKS_DIR_ENTRY_SIZE - 1
         jp RAM_EXE_CODE
 _zos_fs_rawtable_readdir_ret:
@@ -690,7 +689,7 @@ zos_fs_rawtable_mkdir:
         ; Remove a file or a(n empty) directory on the disk
         ; Parameters:
         ;       HL - Absolute path of the file/dir to remove, without the
-        ;            disk letter (without X:/), guaranteed not NULL by caller.
+        ;            disk letter (without X:), guaranteed not NULL by caller.
         ;       DE - Driver address, guaranteed not NULL by the caller.
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
@@ -714,6 +713,7 @@ zos_fs_rawtable_rm:
         ;       HL - Address of read function
         ; Alters:
         ;       A, DE, HL
+        PUBLIC zos_fs_rawtable_get_and_store_driver_read
 zos_fs_rawtable_get_and_store_driver_read:
         ; Retrieve driver (DE) read function address, in HL.
         GET_DRIVER_READ()
@@ -741,7 +741,7 @@ _fast_strncmp_compare:
         ; Check if both strings have reached the end
         ; If this is the case, or (hl) will reset in zero flag to be set
         ; In that case, no need to continue, we can return, with flag Z set
-        or (hl) 
+        or (hl)
         jr nz, _fast_strncmp_compare
 _fast_strncmp_end:
         pop bc

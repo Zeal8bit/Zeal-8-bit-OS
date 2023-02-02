@@ -16,7 +16,7 @@
                 FS_END,
         }
 
-        ; Standard index in the opened devs table 
+        ; Standard index in the opened devs table
         DEFC STANDARD_OUTPUT = 0
         DEFC STANDARD_INPUT = 1
 
@@ -61,8 +61,9 @@
         ; For the moment, make sure that the total length of the file structure is 28 bytes
         ASSERT(file_end_t == 28)
 
+        DEFC STAT_STRUCT_NAME_LEN = 16
         DEFC STAT_STRUCT_SIZE = file_end_t
-        
+
         ; Misc
         DEFC VFS_WORK_BUFFER_SIZE = 64
 

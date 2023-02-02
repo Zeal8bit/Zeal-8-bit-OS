@@ -1,6 +1,6 @@
 INCLUDES := ./ ./include
 
-SRCS := pio.asm i2c.asm keyboard.asm romdisk.asm mmu.asm interrupt_vect.asm
+SRCS := pio.asm i2c.asm keyboard.asm romdisk.asm mmu.asm interrupt_vect.asm eeprom.asm
 
 # Add the suffix "_romdisk" to the full binary name
 FULLBIN_W_ROMDISK = $(basename $(FULLBIN))_with_romdisk.img
