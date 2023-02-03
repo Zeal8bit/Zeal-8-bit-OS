@@ -47,7 +47,7 @@ _zos_valid_name:
         ; Driver name already exists
         ld a, ERR_ALREADY_EXIST
         call _zos_driver_log_error
-        jp _zos_next_driver        
+        jp _zos_next_driver
 _zos_register_driver:
         ; Register the driver in the list
         call zos_driver_register
@@ -65,7 +65,7 @@ _zos_next_driver:
         ret
 
 _driver_log_success: DEFM "Driver: .... init success\n", 0
-_driver_log_failed: DEFM "Driver: .... init failed, error $..\n", 0
+_driver_log_failed: DEFM "Driver: .... init error $..\n", 0
 _driver_log_end:
 
         DEFC SUCCESS_MESSAGE_LEN = _driver_log_failed - _driver_log_success
@@ -90,7 +90,7 @@ _zos_driver_log_error:
         REPT DRIVER_NAME_LENGTH
         ldi
         ENDR
-        ; Point to failed log message's error code 
+        ; Point to failed log message's error code
         ld hl, _vfs_work_buffer + LOG_MESSAGES_LEN - 4
         call byte_to_ascii
         ld (hl), d
@@ -114,7 +114,7 @@ _zos_driver_log_success:
         ld hl, _vfs_work_buffer
         call zos_log_info
         pop hl
-        ; Do not alter former flags 
+        ; Do not alter former flags
         or a
         ret
 
@@ -136,7 +136,7 @@ zos_driver_find_by_name:
         ret
 _zos_driver_find_by_name_start:
         push bc
-        ; Save HL as it must not be destroyed 
+        ; Save HL as it must not be destroyed
         push hl
         ; Calculate the offset in the loaded drivers array
         ld hl, _loaded_drivers
@@ -178,7 +178,7 @@ _zos_driver_find_by_name_already_exists:
         ;======================================================================;
 
         ; Checks whether the string passed as a parameter is a valid driver
-        ; name. In other words, it tests if all the characters are alpha-numerical 
+        ; name. In other words, it tests if all the characters are alpha-numerical
         ; Parameters:
         ;       HL - Address of the string
         ; Returns:
@@ -199,7 +199,7 @@ zos_driver_name_valid:
         ENDR
         ret
 
-        ; Registers the driver pointed by HL in the array of loaded drivers 
+        ; Registers the driver pointed by HL in the array of loaded drivers
         ; Parameters:
         ;       HL - Address of the driver to register
         ; Returns:
@@ -300,9 +300,9 @@ zos_hash_name:
 
         SECTION KERNEL_BSS
 ; Allocate 8-bit for the current number of drivers
-_loaded_drivers_count: DEFS 1 
+_loaded_drivers_count: DEFS 1
 ; Allocate 2 bytes per cell, each cell contains a pointer to the driver structure.
-_loaded_drivers: DEFS CONFIG_KERNEL_MAX_LOADED_DRIVERS * 2 
+_loaded_drivers: DEFS CONFIG_KERNEL_MAX_LOADED_DRIVERS * 2
 _loaded_drivers_end:
 ; Log message
 _driver_log_msg: DEFS 16
