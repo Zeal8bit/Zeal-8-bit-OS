@@ -343,10 +343,11 @@ _i2c_send_byte_loop:
 
         ; SDA is not allowed to change here as SCL is high
         djnz _i2c_send_byte_loop
-        ; End of byte transmission
+        ; End of byte transmission, A contains the last value sent
 
-        ; Need to check ACK: set SCL to low, do not modify SDA
-        and ~(1 << IO_I2C_SCL_OUT_PIN)
+        ; Need to check ACK: set SCL to low, do not modify SDA (A)
+        ; We could use `or c`, but we want to operation to last a bit longer
+        or PINS_DEFAULT_STATE
         out (IO_PIO_SYSTEM_DATA), a
 
         ; SDA MUST be set to 1 to activate the open-drain output!
@@ -354,7 +355,9 @@ _i2c_send_byte_loop:
         out (IO_PIO_SYSTEM_DATA), a
 
         ; Wait a bit to have a 5us period
+        IFNDEF I2C_NO_LIMIT
         jr $+2
+        ENDIF
 
         ; Put SCL high again
         ld a, PINS_DEFAULT_STATE | (1 << IO_I2C_SDA_OUT_PIN) | (1 << IO_I2C_SCL_OUT_PIN)
