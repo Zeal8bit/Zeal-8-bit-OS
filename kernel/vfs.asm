@@ -283,11 +283,10 @@ _zos_vfs_open_driver:
         ;       H - Flags to pass to it
         ; After this, we will still need DE (driver address).
         push de
-        ; Prepare the name, exchange B and H
-        ld a, b
-        push af ; Save the open flags parameter (in register A)
+        ; Prepare the name, put the name in BC (instead of HL)
+        push bc ; Save the open flags parameter (in register B)
         ld b, h
-        ; ld c, l ; C hasn't been modified
+        ld c, l
         GET_DRIVER_OPEN()
         ; Set the opened dev number in D
         ld a, (_dev_table_empty_entry)
@@ -296,13 +295,14 @@ _zos_vfs_open_driver:
         pop af
         CALL_HL()
         pop de  ; pop driver address from the stack
+        pop hl  ; pop the address of the empty dev from the stack
         ; Check the return value
         or a
-        ; Pop the address of the empty dev from the stack
-        pop hl
-        jp nz, _zos_vfs_open_ret_error
-        ; Success! We can now save the driver (DE) inside the empty spot (HL).
-        jp _zos_vfs_open_save_entry
+        ; On success, save the driver (DE) inside the empty spot (HL)
+        jp z, _zos_vfs_open_save_entry
+        ; Error, negate and return (faster than jp/jr)
+        neg
+        ret
 
 
         ; Read the given dev number
@@ -353,12 +353,7 @@ zos_vfs_read_internal:
         ; Retrieve driver (DE) read function address, in HL.
         GET_DRIVER_READ()
         pop de
-        ; We have to push 32-bit offset of 0 on the stack, to do so, generate 0 in AF
-        xor a
-        inc a
-        ld a, 0
-        push af
-        push af
+        ld a, DRIVER_OP_NO_OFFSET
         ; Tail-call to driver's `read` routine
         jp (hl)
 
@@ -402,12 +397,7 @@ zos_vfs_write_internal:
         GET_DRIVER_WRITE()
         pop de
         ; HL now contains driver's `write` routine address.
-        ; We have to push 32-bit offset of 0 on the stack, to do so, generate 0 in AF
-        xor a
-        inc a
-        ld a, 0
-        push af
-        push af
+        ld a, DRIVER_OP_NO_OFFSET
         ; Tail-call to driver's `read` routine
         jp (hl)
 

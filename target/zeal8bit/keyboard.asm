@@ -34,9 +34,6 @@ keyboard_open:
 
 
 keyboard_write:
-        ; Clean the stack as it has a 32-bit offset
-        pop hl
-        pop hl
 keyboard_seek:
 keyboard_ioctl:
         ld a, ERR_NOT_SUPPORTED
@@ -46,18 +43,13 @@ keyboard_ioctl:
         ; Parameters:
         ;       DE - Destination buffer.
         ;       BC - Size to read in bytes. Guaranteed to be equal to or smaller than 16KB.
-        ;       Top of stack: 32-bit offset. MUST BE POPPED IN THIS FUNCTION.
-        ;              [SP]   - Upper 16-bit of offset
-        ;              [SP+2] - Lower 16-bit of offset
+        ;       A  - Should be DRIVER_OP_NO_OFFSET in our case (as not registered as a disk)
         ; Returns:
         ;       A  - ERR_SUCCESS if success, error code else
         ;       BC - Number of bytes read.
         ; Alters:
         ;       This function can alter any register.
 keyboard_read:
-        ; Clean the stack now
-        pop hl
-        pop hl
         ; If the parameter is 0, return
         ld a, b
         or c

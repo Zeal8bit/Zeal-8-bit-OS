@@ -218,17 +218,13 @@ _getdate_no_adjust:
         ; Parameters:
         ;       DE - Destination buffer, smaller than 16KB, not cross-boundary, guaranteed to be mapped.
         ;       BC - Size to read in bytes. In the case of I2C, must be smaller than 256.
-        ;       Top of stack: 32-bit offset. MUST BE POPPED IN THIS FUNCTION.
-        ;                     Always 0 in case of drivers.
+        ;       A  - Should be DRIVER_OP_NO_OFFSET here.
         ; Returns:
         ;       A  - ERR_SUCCESS if success, error code else
         ;       BC - Number of bytes read.
         ; Alters:
         ;       This function can alter any register.
 i2c_read:
-        ; We need to clean the stack as it has an empty 32-bit value
-        pop hl
-        pop hl
         ; Check that the size is not too big
         ld a, d
         or a
@@ -248,9 +244,6 @@ i2c_read:
         jp i2c_read_device
 
 i2c_write:
-        ; We need to clean the stack as it has an empty 32-bit value
-        pop hl
-        pop hl
         ; Check that the size is not too big
         ld a, d
         or a

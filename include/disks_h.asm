@@ -29,6 +29,7 @@
         EXTERN zos_disk_readdir
         EXTERN zos_disk_mkdir
         EXTERN zos_disk_rm
+        EXTERN zos_disks_get_driver_and_fs
 
         ; Structure of an opened file (and directory)
         ; The first field, the magic will also be used to determine

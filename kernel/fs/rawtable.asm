@@ -144,6 +144,8 @@ zos_fs_rawtable_open:
         ; Set Buffer to work buffer and a size of 34 bytes to start with
         ld de, RAM_BUFFER
         ld bc, RAWTABLE_ENTRY_SIZE + 2 ; 2 for the entries count
+        ; Mark that we have an offset on the stack
+        xor a   ; Optimize a bit DRIVER_OP_HAS_OFFSET
         jp RAM_EXE_CODE
 _rawtable_code_ret:
         pop bc
@@ -203,6 +205,8 @@ _zos_fs_rawtable_open_loop:
         ; Push 0, offset is a 32-bit value
         ld hl, 0
         push hl
+        ; Mark that we have an offset on the stack
+        xor a
         jp RAM_EXE_CODE
 _rawtable_code_ret2:
         pop bc  ; Pop filename
@@ -306,6 +310,8 @@ zos_fs_rawtable_stat:
         ; Prepare the arguments for open:
         ld de, RAM_BUFFER
         ld bc, RAWTABLE_ENTRY_SIZE
+        ; Mark that we have an offset on the stack
+        xor a
         jp RAM_EXE_CODE
 _zos_fs_rawtable_stat_return:
         ; Pop the structure field to fill out of the stack
@@ -408,6 +414,8 @@ zos_fs_rawtable_read:
         push hl
         ; Almost ready, set the temporary destination buffer
         ld de, RAM_BUFFER
+        ; Mark that we have an offset on the stack
+        xor a
         jp RAM_EXE_CODE
 _zos_fs_rawtable_read_header_ret:
         or a
@@ -443,6 +451,8 @@ _zos_fs_rawtable_read_header_ret:
         push hl
         ld hl, (RAM_BUFFER + 2)
         push hl
+        ; Mark that we have an offset on the stack
+        xor a
         jp RAM_EXE_CODE
         ; No return.
 _zos_fs_rawtable_read_header_err:
@@ -571,6 +581,8 @@ _zos_fs_rawtable_path_valid:
         push hl
         ; BC = sizeof(rawtable_count_t)
         ld bc, 2
+        ; Mark that we have an offset on the stack
+        xor a
         jp RAM_EXE_CODE
 _zos_fs_rawtable_opendir_ret:
         ; No matter the return value, pop hl and return now
@@ -651,6 +663,8 @@ zos_fs_rawtable_readdir:
         ; Let's directly read the filename
         ; Subtract 1 as we already wrote a byte above (is_dir flag)
         ld bc, DISKS_DIR_ENTRY_SIZE - 1
+        ; Mark that we have an offset on the stack
+        xor a
         jp RAM_EXE_CODE
 _zos_fs_rawtable_readdir_ret:
         pop bc

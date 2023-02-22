@@ -141,6 +141,8 @@ zos_disks_set_default:
         ld (_disks_default), a
         xor a           ; Optimization for ERR_SUCCESS
         ret
+_zos_disks_invalid_param_pop_hl:
+        pop hl
 _zos_disks_invalid_param:
         ld a, ERR_INVALID_PARAMETER
         ret
@@ -153,10 +155,12 @@ _zos_disks_invalid_param:
         ;       C - Filesystem number
         ;       DE - Driver structure address
         ; Alters:
-        ;       A, C, DE, HL
+        ;       A, C, DE
+        PUBLIC zos_disks_get_driver_and_fs
 zos_disks_get_driver_and_fs:
         call to_upper
         jr c, _zos_disks_invalid_param
+        push hl
         ; A is a correct upper letter for sure now
         sub 'A'
         ; Save the index of the disk, before multiplying it by 2
@@ -171,7 +175,7 @@ zos_disks_get_driver_and_fs:
         ; DE contains the content of _disks[A], check if it's NULL
         ld a, e
         or d
-        jr z, _zos_disks_invalid_param
+        jr z, _zos_disks_invalid_param_pop_hl
         ; Get the filesystem number thanks to E
         ld a, c
         ld hl, _disks_fs
@@ -179,6 +183,7 @@ zos_disks_get_driver_and_fs:
         ; Put the FS number in C and exit with success
         ld c, (hl)
         xor a           ; Optimization for ERR_SUCCESS
+        pop hl
         ret
 
         ; Open a file on a disk with the given flags
@@ -193,12 +198,9 @@ zos_disks_get_driver_and_fs:
         ;       A, BC, DE, HL
         PUBLIC zos_disk_open_file
 zos_disk_open_file:
-        push hl
         ; Get the driver of the given disk letter
         ld a, c
         call zos_disks_get_driver_and_fs
-        ; Pop won't modify the flags
-        pop hl
         ; DE contains the potential driver, A must be a success here
         or a
         ret nz
@@ -991,12 +993,9 @@ zos_disk_is_opnfile:
         ;       A, BC, DE, HL
         PUBLIC zos_disk_opendir
 zos_disk_opendir:
-        push hl
         ; Get the driver of the given disk letter
         ld a, c
         call zos_disks_get_driver_and_fs
-        ; Pop won't modify the flags
-        pop hl
         ; DE contains the potential driver, A must be a success here
         or a
         ret nz
@@ -1025,12 +1024,9 @@ zos_disk_opendir:
         ;       A, BC, DE, HL
         PUBLIC zos_disk_mkdir
 zos_disk_mkdir:
-        push hl
         ; Get the driver of the given disk letter
         ld a, c
         call zos_disks_get_driver_and_fs
-        ; Pop won't modify the flags
-        pop hl
         ; DE contains the potential driver, A must be a success here
         or a
         ret nz
@@ -1172,12 +1168,9 @@ zos_disk_readdir:
         ;       A, BC, DE, HL
         PUBLIC zos_disk_rm
 zos_disk_rm:
-        push hl
         ; Get the driver of the given disk letter
         ld a, c
         call zos_disks_get_driver_and_fs
-        ; Pop won't modify the flags
-        pop hl
         ; DE contains the potential driver, A must be a success here
         or a
         ret nz

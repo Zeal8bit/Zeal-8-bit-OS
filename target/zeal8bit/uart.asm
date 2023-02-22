@@ -90,17 +90,13 @@ uart_ioctl_valid:
         ; Parameters:
         ;       DE - Destination buffer, smaller than 16KB, not cross-boundary, guaranteed to be mapped.
         ;       BC - Size to read in bytes. Guaranteed to be equal to or smaller than 16KB.
-        ;       Top of stack: 32-bit offset. MUST BE POPPED IN THIS FUNCTION.
-        ;                     Always 0 in case of drivers.
+        ;       A  - Should always be DRIVER_OP_NO_OFFSET here, no need to clean the stack.
         ; Returns:
         ;       A  - ERR_SUCCESS if success, error code else
         ;       BC - Number of bytes read.
         ; Alters:
         ;       This function can alter any register.
 uart_read:
-        ; We need to clean the stack as it has a 32-bit value
-        pop hl
-        pop hl
         ; Prepare the buffer to receive in HL
         ex de, hl
         ; Put the baudrate in D
@@ -109,8 +105,6 @@ uart_read:
         jp uart_receive_bytes
 
 uart_write:
-        pop hl
-        pop hl
         ; Prepare the buffer to send in HL
         ex de, hl
         ; Put the baudrate in D

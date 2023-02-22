@@ -41,7 +41,7 @@ romdisk_deinit:
         ;       (if needed) as multiple reads will occur.
         ; Parameters:
         ;       BC - Name of the file to open
-        ;       A  - Flags 
+        ;       A  - Flags
         ; Returns:
         ;       A - ERR_SUCCESS if success, error code else
         ; Alters:
@@ -54,8 +54,12 @@ romdisk_close:
 
         ; Read function, called every time the filesystem needs data from the rom disk.
         ; Parameters:
+        ;       A  - DRIVER_OP_HAS_OFFSET (0) if the stack has a 32-bit offset to pop
+        ;            DRIVER_OP_NO_OFFSET  (1) if the stack is clean, nothing to pop.
         ;       DE - Destination buffer.
         ;       BC - Size to read in bytes. Guaranteed to be equal to or smaller than 16KB.
+        ;
+        ;       ! IF AND ONLY IF A IS 0: !
         ;       Top of stack: 32-bit offset. MUST BE POPPED IN THIS FUNCTION.
         ;              [SP]   - Upper 16-bit of offset
         ;              [SP+2] - Lower 16-bit of offset
@@ -65,6 +69,9 @@ romdisk_close:
         ; Alters:
         ;       This function can alter any register.
 romdisk_read:
+        ; The driver being registered as hidden, A should always be 0 here
+        or a
+        ret nz
         ; Before mapping the ROMDISK to a page, we have to check which page is free
         ; The 1st one is the current code and the 4th one is kernel RAM.
         ; If DE is mapped in the 2nd one, ROMDISK will be mapped in the 3rd.
@@ -102,7 +109,7 @@ _romdisk_read_to_page1:
         ; H must be 0, L's highest 5 bit must be 0. In other words, L must be 7 or lower.
         jp nz, _romdisk_read_offset_error
         or l
-        ; This operation must set a carry, meaning that L is smaller or equal to 7 
+        ; This operation must set a carry, meaning that L is smaller or equal to 7
         cp 8
         jp nc, _romdisk_read_offset_error
         ; The offset is in range. The pages are 16KB big, so divide the offset by 16KB
@@ -133,7 +140,7 @@ _romdisk_read_to_page1:
         push bc
         ; Before starting the copy, we must make sure that the source buffer+size is NOT crossing 16KB
         ; boundary!
-        ; In other words, (HL + BC) must still point to the same page, else we would need 2 ldir 
+        ; In other words, (HL + BC) must still point to the same page, else we would need 2 ldir
         call _romdisk_copy_if_cross_boundary
         jr z, _romdisk_copy_no_remap
         ; A cross-boundary copy is occurring, we have to remap the flash/rom to the next page
@@ -251,10 +258,13 @@ _romdisk_copy_if_cross_boundary_no:
         ; API: Same as the routine above but for writing.
         ; No supported for romdisk.
 romdisk_write:
+        or a
+        ld a, ERR_READ_ONLY
+        ; Directly return if the stack is cleaned
+        ret nz
         ; Clean the stack
         pop hl
         pop hl
-        ld a, ERR_READ_ONLY
         ret
 
 romdisk_seek:

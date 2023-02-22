@@ -4,6 +4,7 @@
 
         INCLUDE "osconfig.asm"
         INCLUDE "drivers_h.asm"
+        INCLUDE "disks_h.asm"
         INCLUDE "errors_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "vfs_h.asm"
@@ -42,7 +43,9 @@ _zos_driver_init_next_driver:
         ; Log that this driver has an invalid name
         jp _zos_next_driver
 _zos_valid_name:
-        call zos_driver_find_by_name     ; Check if the name already exists
+        ; Check if the name already exists
+        call zos_driver_find_by_name
+        or a
         jp nz, _zos_register_driver
         ; Driver name already exists
         ld a, ERR_ALREADY_EXIST
@@ -125,16 +128,30 @@ _zos_driver_log_success:
         ;       A  - 0 if exists, non-zero else
         ;       DE - Address of the existing drivers (if any)
         ; Alters:
-        ;       A, DE
+        ;       A, DE, C
         PUBLIC zos_driver_find_by_name
 zos_driver_find_by_name:
         ; If we have no drivers, returns 1 directly
         ld a, (_loaded_drivers_count)
         or a
-        jp nz, _zos_driver_find_by_name_start
-        inc a
-        ret
-_zos_driver_find_by_name_start:
+        jr z, _zos_driver_failure
+        ; Check if the name is a disk name 'A:\0'
+        ld d, h
+        ld e, l
+        inc de
+        ld a, (de)
+        cp ':'
+        jp nz, _zos_driver_find_by_name_driver
+        inc de
+        ld a, (de)
+        or a
+        ; Driver names cannot contain ':', so if this isn't a disk name, return an error
+        jr nz, _zos_driver_failure
+        ; The name is of the form 'X:', return the driver of the disk
+        ld a, (hl)  ; Get the letter of the disk
+        ; B must not be altered, but C can be altered
+        jp zos_disks_get_driver_and_fs
+_zos_driver_find_by_name_driver:
         push bc
         ; Save HL as it must not be destroyed
         push hl
@@ -172,6 +189,9 @@ _zos_driver_find_by_name_already_exists:
         pop hl
         pop bc
         ret
+_zos_driver_failure:
+        ld a, ERR_INVALID_NAME
+        ret
 
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
@@ -182,22 +202,32 @@ _zos_driver_find_by_name_already_exists:
         ; Parameters:
         ;       HL - Address of the string
         ; Returns:
-        ;       A - 0 if invalid, non-zero else
+        ;       Carry flag - Name is invalid
+        ;       Not carry flag - Name is valid
         ; Alters:
         ;       A, DE
 zos_driver_name_valid:
         ld d, h
         ld e, l
+        ; Char 0
         ld a, (de)
         call is_alpha_numeric
         ret c
-        REPT (DRIVER_NAME_LENGTH - 1)
+        ; Char 1
         inc de
         ld a, (de)
         call is_alpha_numeric
         ret c
-        ENDR
-        ret
+        ; Char 2
+        inc de
+        ld a, (de)
+        call is_alpha_numeric
+        ret c
+        inc de
+        ; Char 3
+        ld a, (de)
+        jp is_alpha_numeric
+
 
         ; Registers the driver pointed by HL in the array of loaded drivers
         ; Parameters:

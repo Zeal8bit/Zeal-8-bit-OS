@@ -96,9 +96,6 @@ pio_ioctl:
         ; The following functions don't make sense for the PIO
 pio_read:
 pio_write:
-        ; We need to clean the stack as it has a 32-bit value
-        pop hl
-        pop hl
 pio_open:
 pio_close:
 pio_seek:

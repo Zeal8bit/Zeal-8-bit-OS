@@ -5,6 +5,13 @@
         IFNDEF DRIVERS_H
         DEFINE DRIVERS_H
 
+        ; Flags to mark whether the driver's write/read functions contains a 32-bit
+        ; offset at the top of the stack or not.
+        ; The offset is used by filesystem, whereas the absence of offset marks an access
+        ; made by a user program directly to the driver (as a block device).
+        DEFC DRIVER_OP_HAS_OFFSET = 0
+        DEFC DRIVER_OP_NO_OFFSET  = 1
+
         ; The drivers structure is like this:
         DEFVARS 0 {
                 driver_name_t   DS.B 4
@@ -52,12 +59,12 @@
         MACRO GET_DRIVER_OPEN _
             GET_DRIVER_FUN(driver_open_t)
         ENDM
-        
+
         ; Macro used to reference `read` function from the driver in DE
         MACRO GET_DRIVER_READ _
             GET_DRIVER_FUN(driver_read_t)
         ENDM
-        
+
         ; Macro used to reference `write` function from the driver in DE
         MACRO GET_DRIVER_WRITE _
             GET_DRIVER_FUN(driver_write_t)
@@ -67,7 +74,7 @@
         MACRO GET_DRIVER_CLOSE _
             GET_DRIVER_FUN(driver_close_t)
         ENDM
-        
+
         ; Macro used to reference `ioctl` function from the driver in DE
         MACRO GET_DRIVER_IOCTL _
             GET_DRIVER_FUN(driver_ioctl_t)

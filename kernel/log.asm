@@ -22,7 +22,7 @@
 
         PUBLIC zos_log_init
 zos_log_init:
-        ; Initialize the prefix buffer with '( ) ' 
+        ; Initialize the prefix buffer with '( ) '
         ld de, _log_esc
         ld hl, _log_dummy_prefix
         ld bc, _log_dummy_prefix_end - _log_dummy_prefix
@@ -40,7 +40,7 @@ _log_dummy_prefix_end:
         ; if this is the first time the stdout is set.
         ; In other words, print the boilerplate if we are booting.
         ; Parameters:
-        ;       HL - STDOUT driver 
+        ;       HL - STDOUT driver
         PUBLIC zos_log_stdout_ready
 zos_log_stdout_ready:
         ; We are going to optimize this a bit. Instead of calling vfs function
@@ -138,7 +138,7 @@ zos_log_message:
         ld bc, _log_esc_end - _log_esc
  ELSE
         ld de, _log_prefix
-        ld bc, _log_esc_end - _log_prefix        
+        ld bc, _log_esc_end - _log_prefix
  ENDIF
         push hl
         call _zos_log_call_write
@@ -163,7 +163,7 @@ _zos_log_buffer:
         ; TODO: implement with a ringbuffer?
         pop bc
         ret
-        
+
         IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
 _zos_log_write_end_seq:
         ld de, _log_postfix
@@ -178,18 +178,14 @@ _zos_log_write_end_seq:
         ; Alters:
         ;       A, BC, DE, HL
 _zos_log_call_write:
-        ; Driver's write function needs 32-bit on the stack.
-        ; No need to push the return address as we are not returning
-        ; from it.
-        ld hl, 0
-        push hl
-        push hl
         ; Load the function address
         ld hl, (_log_write_fun)
         ; Check if the function is 0!
         ld a, h
         or l
         ret z
+        ; Specify that we don't have any offset on the stack
+        ld a, DRIVER_OP_NO_OFFSET
         jp (hl)
 
         ; Modify logging properties. For example, this lets logging only append in the
@@ -199,7 +195,7 @@ _zos_log_call_write:
         ; Returns:
         ;       None
         ; Alters:
-        ;       None 
+        ;       None
 zos_log_set_property:
         ld (_log_property), a
         ret

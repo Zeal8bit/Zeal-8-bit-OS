@@ -23,6 +23,7 @@ eeprom_init:
     ; Re-use the same buffer for write and reads.
     ld hl, 0
     ld (_eeprom_buffer), hl
+    ld (_eeprom_offset), hl
     ld hl, _eeprom_buffer
     ld d, h
     ld e, l
@@ -75,8 +76,12 @@ eeprom_deinit:
 
     ; Read function, called every time the filesystem needs data from the rom disk.
     ; Parameters:
+    ;       A  - DRIVER_OP_HAS_OFFSET (0) if the stack has a 32-bit offset to pop
+    ;            DRIVER_OP_NO_OFFSET  (1) if the stack is clean, nothing to pop.
     ;       DE - Destination buffer.
     ;       BC - Size to read in bytes. Guaranteed to be equal to or smaller than 16KB.
+    ;
+    ;       ! IF AND ONLY IF A IS 0: !
     ;       Top of stack: 32-bit offset. MUST BE POPPED IN THIS FUNCTION.
     ;              [SP]   - Upper 16-bit of offset
     ;              [SP+2] - Lower 16-bit of offset
@@ -86,6 +91,9 @@ eeprom_deinit:
     ; Alters:
     ;       This function can alter any register.
 eeprom_read:
+    ; Check if the EEPROM is accessed as a disk or a block
+    or a
+    jp nz, _eeprom_read_as_block
     ; The offset must be 16-bit according to the filesystem, so the top of the stack must have
     ; 0x000
     pop hl
@@ -97,6 +105,7 @@ eeprom_read:
     ; bigger size for now.
     or b
     jr nz, eeprom_read_invalid_size
+_eeprom_read_from:
     push bc
     ; We must store the offset in big-endian in a buffer
     ld a, h
@@ -116,10 +125,81 @@ eeprom_read_invalid_size:
 eeprom_read_invalid_offset:
     ld a, ERR_INVALID_OFFSET
     ret
+    ; Jump to here if the EEPROM is accessed as a block, which means
+    ; we have to determine the offset from our static context.
+_eeprom_read_as_block:
+    ld hl, _eeprom_read_from
+    jp _eeprom_operation_offset
+_eeprom_write_as_block:
+    ld hl, _eeprom_write_to
+    ; Fall-through
 
+    ; Perform a read or a write according to the offset stored statically
+    ; Parameters:
+    ;   HL - Routine to call with the offset
+    ;   BC - Size to read/wrote
+    ;   DE - Destination buffer
+_eeprom_operation_offset:
+    ; If BC is bigger or equal to 256, adjust it to 0xFF
+    ld a, b
+    or a
+    jr z, _eeprom_op_block_no_adjust
+    ld bc, 0xff
+_eeprom_op_block_no_adjust:
+    ; Make sure C is not zero either
+    or c
+    ret z
+    ; C is not zero, we can continue safely
+    push hl
+    ld hl, (_eeprom_offset)
+    ; If the offset is 0xFFFF, we reached the end of the EEPROM, exit
+    inc hl
+    ld a, h
+    or l
+    jr z, _eeprom_op_block_end_of_eeprom
+    dec hl
+    ; For the moment, make the assumption that the EEPROM is 64KB.
+    ; Check if HL += C triggers an overflow. Use C - 1 instead to avoid testing
+    ; both nc and z flags after the adc
+    ld a, c
+    dec a
+    add l
+    ; If a carry occurred, check if H overflows
+    ld a, 0
+    adc h
+    jr nc, _eeprom_op_block_no_carry
+    ; We reached the end of the EEPROM, set C = -L
+    ld a, l
+    neg
+    ld c, a
+_eeprom_op_block_no_carry:
+    ; Save the offset in order to update it later and get the routine to call
+    ex (sp), hl
+    call _eeprom_op_call_hl
+    pop hl
+    or a
+    ret nz
+    ; No error, we can calculate the new offset from BC
+    add hl, bc
+    ld (_eeprom_offset), hl
+    ret
+    ; Load the offset from the static variable in HL before calling the routine that
+    ; was pointed by HL at first
+_eeprom_op_call_hl:
+    push hl
+    ld hl, (_eeprom_offset)
+    ret ; This will call the original address that was in HL
+_eeprom_op_block_end_of_eeprom:
+    pop hl      ; Clean the stack
+    ld bc, 0    ; Read/write 0 bytes
+    xor a       ; Success
+    ret
 
     ; API: Same as the routine above but for writing.
 eeprom_write:
+    ; Check if the EEPROM is accessed as a disk or a block
+    or a
+    jp nz, _eeprom_write_as_block
     ; The offset must be 16-bit according to the filesystem, so the top of the stack must have
     ; 0x000
     pop hl
@@ -129,6 +209,7 @@ eeprom_write:
     jr nz, eeprom_read_invalid_offset
     or b
     jr nz, eeprom_read_invalid_size
+_eeprom_write_to:
     push bc
     ; We can only write I2C_MAX_WRITE_SIZE at once on I2C EEPROMs. Thus,
     ; we have to iterate until BC is 0. Moreover, we cannot cross page boundary.
@@ -169,6 +250,7 @@ _eeprom_failure:
     pop bc
     ld a, ERR_FAILURE
     ret
+
 
     ; Parameters:
     ;   B - Number of bytes to write
@@ -237,13 +319,13 @@ _eeprom_write_poll_loop:
     ret
 
 eeprom_seek:
-    ; Seek shouldn't be called as it should be implemented by the filesystem.
 eeprom_ioctl:
     ld a, ERR_NOT_IMPLEMENTED
     ret
 
     SECTION KERNEL_BSS
 _eeprom_buffer: DEFS 2
+_eeprom_offset: DEFS 2
 
     SECTION KERNEL_DRV_VECTORS
 _eeprom_driver:

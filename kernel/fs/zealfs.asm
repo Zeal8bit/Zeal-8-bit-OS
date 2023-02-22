@@ -78,6 +78,9 @@
     ASSERT(24 + ZEALFS_HEADER_SIZE <= VFS_WORK_BUFFER_SIZE)
 
     ; Used to create self-modifying code in RAM
+    DEFC XOR_A    = 0xaf
+    DEFC LD_L_A   = 0x6f
+    DEFC LD_H_A   = 0x67
     DEFC PUSH_HL  = 0xe5
     DEFC LD_HL    = 0x21
     DEFC JP_NNNN  = 0xc3
@@ -1487,8 +1490,10 @@ _zealfs_clear_buffer:
 
     ; This routine gets the `read` function of a driver and stores it in the RAM_EXE_READ buffer.
     ; It will in fact store a small routine that does:
+    ;       xor a   ; Set A to "FS" mode, i.e., has offset on stack
     ;       push hl
-    ;       ld hl, 0
+    ;       ld h, a
+    ;       ld l, a ; Set HL to 0
     ;       push hl
     ;       jp driver_read_function
     ; As such, HL is the 16-bit offset to read from the driver, can this routine can be called
@@ -1500,9 +1505,9 @@ _zealfs_clear_buffer:
     ; Alters:
     ;   A, DE, HL
 zos_zealfs_prepare_driver_read:
-    ld hl, LD_HL << 8 | PUSH_HL
+    ld hl, PUSH_HL << 8 | XOR_A
     ld (RAM_EXE_READ + 0), hl
-    ld hl, 0
+    ld hl, LD_L_A << 8 | LD_H_A
     ld (RAM_EXE_READ + 2), hl
     ld hl, JP_NNNN << 8 | PUSH_HL
     ld (RAM_EXE_READ + 4), hl
@@ -1514,9 +1519,9 @@ zos_zealfs_prepare_driver_read:
 
     ; Same as above, but with write routine
 zos_zealfs_prepare_driver_write:
-    ld hl, LD_HL << 8 | PUSH_HL
+    ld hl, PUSH_HL << 8 | XOR_A
     ld (RAM_EXE_WRITE + 0), hl
-    ld hl, 0
+    ld hl, LD_L_A << 8 | LD_H_A
     ld (RAM_EXE_WRITE + 2), hl
     ld hl, JP_NNNN << 8 | PUSH_HL
     ld (RAM_EXE_WRITE + 4), hl

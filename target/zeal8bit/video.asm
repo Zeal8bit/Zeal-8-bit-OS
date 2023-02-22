@@ -100,8 +100,12 @@ video_ioctl:
         ; Write function, called every time user application needs to output chars
         ; or pixels to the video chip.
         ; Parameters:
+        ;       A  - DRIVER_OP_HAS_OFFSET (0) if the stack has a 32-bit offset to pop
+        ;            DRIVER_OP_NO_OFFSET  (1) if the stack is clean, nothing to pop.
         ;       DE - Source buffer. Guaranteed to not cross page boundary.
         ;       BC - Size to read in bytes. Guaranteed to be equal to or smaller than 16KB.
+        ;
+        ;       ! IF AND ONLY IF A IS 0: !
         ;       Top of stack: 32-bit offset. MUST BE POPPED IN THIS FUNCTION.
         ;              [SP]   - Upper 16-bit of offset
         ;              [SP+2] - Lower 16-bit of offset
@@ -111,9 +115,9 @@ video_ioctl:
         ; Alters:
         ;       This function can alter any register.
 video_write:
-        ; Clean the stack right now as HL is not used
-        pop hl
-        pop hl
+        ; Video driver is not registered as a file system, thus A must always
+        ; be 1, meaning that the stack is clean, nothing to pop.
+
         ; We have to map the source buffer to a reachable virtual page.
         ; Page 0 is the current code
         ; Page 1 and 2 are user's RAM
@@ -140,10 +144,8 @@ video_write:
         ret
 
         ; Read not supported yet.
-        ; Pop the 32-bit value on the stack to avoid crashes.
+        ; Same reasons as above, stack is clean
 video_read:
-        pop hl
-        pop hl
 
         ; Close an opened dev number.
         ; Parameter:
