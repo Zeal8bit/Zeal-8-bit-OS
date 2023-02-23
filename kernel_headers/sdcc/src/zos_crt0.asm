@@ -45,7 +45,7 @@ clean_section:
     ret z
     ld d, h
     ld e, l
-    inc hl
+    inc de
     ldir
     ret
 
