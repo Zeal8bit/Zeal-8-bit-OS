@@ -20,7 +20,7 @@ CC=sdcc
 CFLAGS=-mz80 -c --codeseg TEXT -I$(ZOS_INCLUDE)
 LD=sdldz80
 # Make sure the whole program is relocated at 0x4000 as request by Zeal 8-bit OS.
-LDFLAGS=-n -mjwx -i -b _HEADER=0x4000 $(SDLD_FLAGS) -k /usr/local/share/sdcc/lib/z80 -l z80
+LDFLAGS=-n -mjwx -i -b _HEADER=0x4000 $(SDLD_FLAGS) -k ../../sdcc/lib -l z80
 # Binary used to convert ihex to binary
 OBJCOPY=objcopy
 

@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include "zos_errors.h"
 #include "zos_vfs.h"
 #include "zos_sys.h"
@@ -39,15 +40,10 @@ void main(void) {
             goto error;
         }
 
-        /* Success, the structure has been filled, we can read the name and print it */
-        print_string(entry.d_name);
-
-        /* Print a final / in case of a directory */
-        if (D_ISDIR(entry.d_flags)) {
-            print_string("/\n");
-        } else {
-            print_string("\n");
-        }
+        /* Success, the structure has been filled, we can read the name and print it,
+         * with a final / in case of a directory.
+         * Let's use stdio's printf this time! */
+        printf("%s%c\n", entry.d_name, D_ISDIR(entry.d_flags) ? '/' : '\0');
     }
 
     print_string("Program finished\n");

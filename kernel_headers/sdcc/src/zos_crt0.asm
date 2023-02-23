@@ -80,14 +80,15 @@ _init_end:
     ; =========== START OF CODE =========== ;
     .area _HOME
 
+    ; SYSTEM section contains the system library code that acts as a glue between C and OS assembly.
+    .area _SYSTEM
+
     ; TEXT section contains the actual user's code. We MUST use this section to store the code
     ; intead of the default _CODE one because the SDCC assembler/linker will always put _CODE
     ; as the first section. We don't want this behavior, we cannot override it, so let's work
     ; around it.
     .area _TEXT
 
-    ; SYSTEM section contains the system library code that acts as a glue between C and OS assembly.
-    .area _SYSTEM
     ; ============ END OF CODE ============ ;
 
 

@@ -7,6 +7,9 @@
         rst 8
     .endm
 
+    ; Size of the buffers used for getchar and putchar
+    .equ STD_BUFFER_SIZE, 80
+
     ; Put all the syscall glue from this file inside the _SYSTEM area/section
     .area _SYSTEM
 
@@ -449,3 +452,132 @@ _map:
     ld h, l
     syscall 23
     ret
+
+
+    ; int getchar(void)
+    ; Get next character from standard input. Input is buffered.
+    ; Returns:
+    ;   DE - Character received
+    .globl _getchar
+_getchar:
+    ; Get the size of the buffer, if it's 0, we have to call the READ syscall
+    ld a, (#_getchar_size)
+    or a
+    jp nz, _getchar_read_next
+    ; Read a buffer from STDIN:
+    ;   H - Opened dev
+    ;   DE - Buffer source
+    ;   BC - Buffer size
+    ; Returns:
+    ;   A - Error value
+    ;   BC - Number of bytes written
+    ld h, #1 ; DEV_STDIN
+    ld de, #_getchar_buffer
+    ld bc, #STD_BUFFER_SIZE
+    syscall 0
+    or a
+    jr nz, _putchar_error
+    ; Save the size in the static variable, we can ignore B, we know it's 0
+    ; Put the size in A as required by the rest of the code
+    ld a, c
+    ld (#_getchar_size), a
+_getchar_read_next:
+    ; Before reading the character, check if we are going to reach the end of the buffer.
+    ; In other words, check if Idx + 1 == A (size)
+    ld hl, #_getchar_idx
+    ld d, #0
+    ld e, (hl)  ; Index of the buffer in DE
+    inc (hl)
+    cp (hl)
+    ; If result is not 0 (likely), no need to reset the size and index
+    jr nz, _getchar_read_next_no_reset
+    ; Reset both index and size
+    ld (hl), d  ; D is 0 already
+    inc hl
+    ld (hl), d
+    dec hl
+_getchar_read_next_no_reset:
+    ; HL is pointing to the index in the buffer
+    inc hl
+    inc hl
+    ; Offset of the next character to read: ADD HL, DE
+    add hl, de
+    ; Character to return in E, D is already 0
+    ld e, (hl)
+    ret
+
+
+
+    ; int _putchar(int c)
+    ; Print a character on the standard output. Output is buffered.
+    ; Parameters:
+    ;   HL - Character to print
+    ; Returns:
+    ;   DE - Character printed, EOF on error
+    .globl _putchar
+_putchar:
+    ; Store the character to print in E, ignore high byte
+    ld d, #0
+    ld e, l
+    ; Add the character to the buffer and increment the index
+    ld a, (#_putchar_idx)
+    ld c, a ; Backup A
+    ld hl, #_putchar_buffer
+    ; ADD HL, A
+    add l
+    ld l, a
+    adc h
+    sub l
+    ld h, a
+    ; Store the byte to print
+    ld (hl), e
+    ; We have to flush the buffer if ++A is 80 OR if A is '\n'
+    inc c
+    ld a, c
+    ld (#_putchar_idx), a    ; In most cases, we won't flush
+    ; BC = A
+    ld b, #0
+    sub #STD_BUFFER_SIZE
+    jr z, _putchar_flush
+    ; Check if the character is \n
+    ld a, e
+    sub #'\n'
+    ; Return if we have nothing to flush
+    ret nz
+_putchar_flush:
+    ; BC contains the current length of the buffer, update the index to 0 (A)
+    ld (_putchar_idx), a
+    ; Write the buffer to STDOUT:
+    ;   H - Opened dev
+    ;   DE - Buffer source
+    ;   BC - Buffer size
+    ; Returns:
+    ;   A - Error value
+    ;   BC - Number of bytes written
+    ld h, a ; DEV_STDOUT = 0, A is 0 here
+    push de ; Return value
+    ld de, #_putchar_buffer
+    syscall 1
+    pop de
+    ; Check if an error occurred
+    or a
+    ; Return directly on success
+    ret z
+_putchar_error:
+    ; Error, set DE to EOF (-1)
+    ld de, #0xffff
+    ret
+
+
+    .area _BSS
+_getchar_idx:
+    .ds 1
+_getchar_size:
+    .ds 1
+_getchar_buffer:
+    .ds STD_BUFFER_SIZE
+
+_putchar_idx:
+    .ds 1
+_putchar_buffer:
+    .ds STD_BUFFER_SIZE

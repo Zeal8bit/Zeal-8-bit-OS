@@ -14,5 +14,8 @@ bin/zos_crt0.rel: src/zos_crt0.asm src/zeal8bitos.asm
 	@echo -e "\x1b[1;32mAssembling Zeal 8-bit OS library and crt0 files...\x1b[0m"
 	$(AS) $(ASFLAGS) $@ $^
 
+lib/z80.lib:
+	python3 lib/patch_lib_code.py /usr/local/share/sdcc/lib/z80/z80.lib lib/z80.lib
+
 clean:
 	rm -f bin/*.rel
