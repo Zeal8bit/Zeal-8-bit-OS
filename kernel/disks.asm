@@ -251,7 +251,7 @@ zos_disk_stat:
         ENDR
         ; Pop the driver address from the stack
         pop bc
-        ; We have a very few filesystems, no need for a lookup table AT THE MOMENT
+        ; We have a very few file systems, no need for a lookup table AT THE MOMENT
         cp FS_RAWTABLE
         jp z, zos_fs_rawtable_stat
         cp FS_ZEALFS
@@ -264,8 +264,7 @@ zos_disk_stat:
 
         ; Read bytes from an opened file.
         ; Parameters:
-        ;       HL - Address of the opened file. Guaranteed by the caller to be a
-        ;            non-free opened file (check zos_disk_is_opnfile)
+        ;       HL - Address of the opened file/directory
         ;       DE - Buffer to store the bytes read from the dev, the buffer must NOT cross page boundary
         ;       BC - Size of the buffer passed, maximum size is a page size
         ; Returns:
@@ -275,6 +274,9 @@ zos_disk_stat:
         ;       A, BC, DE, HL
         EXTERN zos_disk_read
 zos_disk_read:
+        ; Check that we are not reading a directory
+        call zos_disk_is_opnfile
+        ret nz
         ; Load the filesystem from the opened file address
         inc hl
         ld a, (hl)
@@ -404,8 +406,7 @@ _zos_disk_bad_mode:
 
         ; Write bytes to an opened file.
         ; Parameters:
-        ;       HL - Address of the opened file. Guaranteed by the caller to be a
-        ;            non-free opened file. (check zos_disk_is_opnfile)
+        ;       HL - Address of the opened file/directory
         ;       DE - Buffer containing the bytes to write to the dev. The buffer is guaranteed
         ;            to not cross page boundary.
         ;       BC - Size of the buffer passed, maximum size is a page size.
@@ -417,6 +418,9 @@ _zos_disk_bad_mode:
         DEFC O_WRITE_MASK = (O_WRONLY | O_RDWR)
         PUBLIC zos_disk_write
 zos_disk_write:
+        ; Check that we are not reading a directory
+        call zos_disk_is_opnfile
+        ret nz
         ; Load the filesystem from the opened file address
         inc hl
         ld a, (hl)
@@ -818,13 +822,17 @@ zos_disk_addr_add_bcde:
         ; Returns:
         ;       A  - 0 on success, error value else
         ; Alters:
-        ;       A, BC, DE, HL
+        ;       A, BC, DE
         PUBLIC zos_disk_close
 zos_disk_close:
         ; Check if it's a directory
         ld a, (hl)
-        sub DISKS_OPN_DIR_MAGIC_USED
-        jp z, _zos_disk_close_dir
+        and DISKS_OPN_ENTITY_MARKER
+        cp DISKS_OPN_DIR_MAGIC_FREE
+        jr z, _zos_disk_close_dir
+        ; Check if it's a file, if not, corrupted data?
+        cp DISKS_OPN_FILE_MAGIC_FREE
+        jp nz, zos_disk_invalid_filedev
         ; Load the filesystem from the opened file address
         push hl
         inc hl
@@ -861,12 +869,14 @@ _zos_disk_close_fat16:
         call zos_fs_fat16_close
 _zos_disk_close_epilogue:
         pop hl
-        or a
-        ret nz
-        ; Clean the entry. A is already 0 if we reached here, so we can
-        ; return directly.
+        ; Decrement reference counter in all cases
+        dec (hl)
+        ret
 _zos_disk_close_dir:
-        ld (hl), DISKS_OPN_FILE_MAGIC_FREE
+        ; Decrement the reference count.
+        ; If there was a single reference, 0xB1, becomes 0xB0 here
+        dec (hl)
+        xor a
         ret
 
         ; Function returning the address of an empty opened-file structure
@@ -890,12 +900,13 @@ zos_disk_allocate_opnfile:
         ; Save the driver address
         push bc
         push af ; Save the filesystem
-        ld a, DISKS_OPN_FILE_MAGIC_FREE
         ld b, CONFIG_KERNEL_MAX_OPENED_FILES
         ld de, DISKS_OPN_FILE_STRUCT_SIZE
         ld hl, _disk_file_slot
 _zos_disks_allocate_loop:
-        cp (hl)         ; Compare A with structure's first field
+        ; Check if structure's first field reference count is 0
+        ld a, (hl)
+        and DISKS_OPN_ENTITY_REF
         jr z, _zos_disks_allocate_found
         add hl, de      ; Go to the next structure
         djnz _zos_disks_allocate_loop
@@ -908,8 +919,8 @@ _zos_disks_allocate_loop:
         ld hl, 0
         ret
 _zos_disks_allocate_found:
-        ; a free structure has been found, mark it as allocated now
-        ld (hl), DISKS_OPN_FILE_MAGIC_USED
+        ; a free structure has been found, mark it as allocated now (reference count + 1)
+        ld (hl), DISKS_OPN_FILE_MAGIC_FREE + 1
         ; we need to retrieve the 32-bit size from the stack in registers
         ; because we need to save HL address on the top of the stack
         ; Restore the file system and the driver address
@@ -960,7 +971,7 @@ _zos_disks_allocate_found:
         ret
 
 
-        ; Function checking if the opened dev address passed is an opened file (or a driver).
+        ; Routine checking if the opened dev address passed is an opened file.
         ; To do so, the first byte will be dereferenced and compared to the "magic" value.
         ; Parameters:
         ;       HL - Address of the opened "dev". Must not be NULL.
@@ -971,16 +982,23 @@ _zos_disks_allocate_found:
         PUBLIC zos_disk_is_opnfile
 zos_disk_is_opnfile:
         ld a, (hl)
-        ; A now contains the first byte pointed by the opened "dev".
-        ; If this value is DISKS_OPN_FILE_MAGIC_USED, then we're good!
-        ; If it's something else, even DISKS_OPN_FILE_MAGIC_FREE, it's not good
-        sub DISKS_OPN_FILE_MAGIC_USED
+        and DISKS_OPN_ENTITY_MARKER
+        sub DISKS_OPN_FILE_MAGIC_FREE
         ; If zero, return directly, small optimization for ERR_SUCCESS
         ret z
-        ; Error, not an opened file
+zos_disk_invalid_filedev:
+        ; Error, not an opened file, Z flag is not set
         ld a, ERR_INVALID_FILEDEV
         ret
 
+        ; Routine checking that the opened dev is a file OR a directory.
+        PUBLIC zos_disk_is_opn_filedir
+zos_disk_is_opn_filedir:
+        ld a, (hl)
+        and DISKS_OPN_FILE_MAGIC_FREE & DISKS_OPN_DIR_MAGIC_FREE
+        sub DISKS_OPN_FILE_MAGIC_FREE & DISKS_OPN_DIR_MAGIC_FREE
+        ret z
+        jr zos_disk_invalid_filedev
 
         ; Open a directory on a disk
         ; Parameters:
@@ -1050,19 +1068,21 @@ zos_disk_mkdir:
         ;       HL - Address of the opened "dev". Must not be NULL.
         ; Returns:
         ;       A - ERR_SUCCESS if it's a directory, ERR_INVALID_FILEDEV else
+        ;       Z flag - Set if A is ERR_SUCCESS
         ; Alters:
         ;       A
         PUBLIC zos_disk_is_opndir
 zos_disk_is_opndir:
         ld a, (hl)
-        sub DISKS_OPN_DIR_MAGIC_USED
+        and DISKS_OPN_ENTITY_MARKER
+        sub DISKS_OPN_DIR_MAGIC_FREE
         ret z
         ld a, ERR_INVALID_FILEDEV
         ret
 
 
         ; Routine returning the address of an empty opened-dir structure
-        ; This will be used by the filesystems `opendir` routines.
+        ; This will be used by the file systems `opendir` routines.
         ; The first field will be marked as `USED` in this routine.
         ; Parameters:
         ;       A  - Filesystem number
@@ -1079,16 +1099,17 @@ zos_disk_allocate_opndir:
         ; Save the driver address and the filesystem in C
         push bc
         ld c, a
-        ld a, DISKS_OPN_DIR_MAGIC_FREE
         ld b, CONFIG_KERNEL_MAX_OPENED_FILES
         ld de, DISKS_OPN_DIR_STRUCT_SIZE
         ld hl, _disk_file_slot
 _zos_disks_allocatedir_loop:
-        cp (hl)         ; Compare A with structure's first field
+        ; Check if structure's first field reference count is 0
+        ld a, (hl)
+        and DISKS_OPN_ENTITY_REF
         jr z, _zos_disks_allocatedir_found
         add hl, de      ; Go to the next structure
         djnz _zos_disks_allocatedir_loop
-        ; Could not find any emptry entry, send an error
+        ; Could not find any empty entry, send an error
         pop bc
         ld a, ERR_CANNOT_REGISTER_MORE
         ld hl, 0
@@ -1099,7 +1120,7 @@ _zos_disks_allocatedir_found:
         pop bc
         ; A free structure has been found, mark it as allocated now
         push hl
-        ld (hl), DISKS_OPN_DIR_MAGIC_USED
+        ld (hl), DISKS_OPN_DIR_MAGIC_FREE + 1
         ; Let's save the filesystem (A) and the driver address (BC) first
         inc hl
         ld (hl), a

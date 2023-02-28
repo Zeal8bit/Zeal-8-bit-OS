@@ -10,7 +10,7 @@
         ; Filesystem list, useful when mounting a disk
         ; We can have at most 16 filesystems at the moment
         DEFGROUP {
-                FS_RAWTABLE,    ; Check fs/rawtable.asm for more info
+                FS_RAWTABLE = 0,    ; Check fs/rawtable.asm for more info
                 FS_ZEALFS,
                 FS_FAT16,
                 FS_END,

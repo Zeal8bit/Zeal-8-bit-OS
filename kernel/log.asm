@@ -45,13 +45,9 @@ _log_dummy_prefix_end:
 zos_log_stdout_ready:
         ; We are going to optimize this a bit. Instead of calling vfs function
         ; to write to the stdout, we will directly communicate with the driver.
-        push hl
-        push de
-        ex de, hl
+        ; Get driver's write routine in HL
         GET_DRIVER_WRITE()
         ld (_log_write_fun), hl
-        pop de
-        pop hl
         ld a, (_log_plate_printed)
         or a
         ret nz
@@ -62,12 +58,9 @@ zos_log_stdout_ready:
         ; TODO: Flush the buffer
         ld a, LOG_ON_STDOUT
         ld (_log_property), a
-        push hl
         xor a   ; No prefix to print
         ld hl, zos_boilerplate
-        call zos_log_message
-        pop hl
-        ret
+        jp zos_log_message
 
         ; Log an error message starting with (E) and in red color if supported.
         PUBLIC zos_log_error

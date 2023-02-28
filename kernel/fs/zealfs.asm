@@ -544,7 +544,7 @@ zos_zealfs_close:
     call zos_zealfs_prepare_driver_write_safe
     ; Keep HL on the stack, we are going to need it to get the info about the file.
     push hl
-    GET_DRIVER_CLOSE()
+    GET_DRIVER_CLOSE_FROM_DE()
     ; Put the close routine address on the stack and get the opened file structure
     ex (sp), hl
     ; Check if the file was opened with write flag
@@ -1512,7 +1512,7 @@ zos_zealfs_prepare_driver_read:
     ld hl, JP_NNNN << 8 | PUSH_HL
     ld (RAM_EXE_READ + 4), hl
     ; Retrieve driver (DE) read function address, in HL.
-    GET_DRIVER_READ()
+    GET_DRIVER_READ_FROM_DE()
     ld (RAM_EXE_READ + 6), hl
     ret
 
@@ -1526,7 +1526,7 @@ zos_zealfs_prepare_driver_write:
     ld hl, JP_NNNN << 8 | PUSH_HL
     ld (RAM_EXE_WRITE + 4), hl
     ; Retrieve driver (DE) read function address, in HL.
-    GET_DRIVER_WRITE()
+    GET_DRIVER_WRITE_FROM_DE()
     ld (RAM_EXE_WRITE + 6), hl
     ret
 

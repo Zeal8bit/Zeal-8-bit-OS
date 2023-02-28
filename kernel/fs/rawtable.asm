@@ -99,7 +99,7 @@ zos_fs_rawtable_open:
         ; Save the driver address in RAM
         ld (RAM_DRIVER_ADDR), de
         ; Put driver's open function in HL
-        GET_DRIVER_OPEN()
+        GET_DRIVER_OPEN_FROM_DE()
         ; Put the flags in A
         ld a, O_RDONLY
         ; Open function in HL
@@ -500,7 +500,7 @@ zos_fs_rawtable_close:
         ; flush or any particular behavior. Calling the driver's close
         ; function will be enough.
         ; Retrieve driver (DE) close function address, in HL.
-        GET_DRIVER_CLOSE()
+        GET_DRIVER_CLOSE_FROM_DE()
         jp (hl)
 
 
@@ -730,7 +730,7 @@ zos_fs_rawtable_rm:
         PUBLIC zos_fs_rawtable_get_and_store_driver_read
 zos_fs_rawtable_get_and_store_driver_read:
         ; Retrieve driver (DE) read function address, in HL.
-        GET_DRIVER_READ()
+        GET_DRIVER_READ_FROM_DE()
         ld a, JP_INSTR_OPCODE
         ld (RAM_EXE_CODE), a
         ld (RAM_EXE_CODE + 1), hl

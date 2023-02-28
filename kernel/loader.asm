@@ -67,10 +67,11 @@ zos_load_file:
         ; (the system is in the first bank, so we have 3 free banks)
         ld de, _file_stats
         ld h, a
+        push hl
         call zos_vfs_dstat_internal
-        ; H still contains dev number, DE contains the status structure address.
-        ; Put the structure address in HL instead and so the dev number will be in D
-        ex de, hl
+        ; Put the structure address in HL instead and store dev number in D.
+        ld hl, _file_stats
+        pop de
         ; Check if an error occurred while getting the info
         or a
         jr nz, _zos_load_failed

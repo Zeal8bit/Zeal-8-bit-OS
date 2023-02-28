@@ -52,7 +52,7 @@ zos_err_t exec(const char* name, char* argv[]) CALL_CONV;
  *              the physical address given, an error will be returned.
  *              Similarly to the virtual address, the value may be rounded down
  *              to the closest page bound.
- * 
+ *
  * @returns ERR_SUCCESS on success, error code else.
  */
 zos_err_t map(const void* vaddr, uint32_t paddr) CALL_CONV;

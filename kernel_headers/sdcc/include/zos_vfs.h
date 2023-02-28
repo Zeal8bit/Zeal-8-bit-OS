@@ -109,7 +109,8 @@ typedef enum {
  * @brief Enumeration regrouping all the filesystems supported on Zeal 8-bit OS
  */
 typedef enum {
-    FS_RAWTABLE = 0, // Only filesystem implemented for the moment
+    FS_RAWTABLE = 0,
+    FS_ZEALFS   = 1,
 } zos_fs_t;
 
 /**
@@ -352,21 +353,3 @@ zos_err_t mount(zos_dev_t dev, char letter, zos_fs_t fs) CALL_CONV;
  * @returns ERR_SUCCESS on success, error code else.
  */
 zos_err_t dup(zos_dev_t dev, zos_dev_t ndev) CALL_CONV;
-
-
-/**
- * @brief Map a physical address/region to a virtual address/region.
- *
- * @param vaddr Destination address in virtual memory. This will be rounded down
- *              to the target closest page bound.
- *              For example, passing 0x5000 here, would in fact trigger a
- *              remap of the page starting at 0x4000 on a target that has 16KB
- *              virtual pages.
- * @param paddr 32-bit physical address to map. If the target does not support
- *              the physical address given, an error will be returned.
- *              Similarly to the virtual address, the value may be rounded down
- *              to the closest page bound.
- *
- * @returns ERR_SUCCESS on success, error code else.
- */
-zos_err_t map(void* vaddr, uint32_t paddr) CALL_CONV;
