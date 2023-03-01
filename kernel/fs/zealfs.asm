@@ -87,9 +87,6 @@
     DEFC ARITH_OP = 0xcb
     DEFC RET_OP   = 0xc9
 
-    ; Used when opening files
-    DEFC O_FLAGS = O_TRUNC | O_APPEND | O_CREAT
-
     EXTERN _vfs_work_buffer
     EXTERN zos_date_getdate_kernel
 
@@ -338,9 +335,8 @@ zos_zealfs_open:
     jr nz, _zos_zealfs_error
     ; Check that the O_CREAT flag was given, if that's not the case, it's an error
     ld a, b
-    and O_FLAGS
-    cp O_CREAT
-    jr nz, _zos_zealfs_error_no_such_entry
+    and O_CREAT
+    jr z, _zos_zealfs_error_no_such_entry
     ; O_CREAT has been provided, we should create the file first.
     ; Get the driver address out of the stack, but keep it on the stack still.
     ; Ignore the context currently in DE.
@@ -372,12 +368,10 @@ _zos_zealfs_check_flags:
     ; Check if the flags include O_TRUNC
     ld a, b
     ; Check if O_TRUNC was passed, if that was the case, the size has to be shrunk to 0
-    and O_FLAGS
-    sub O_TRUNC
-    jr nz, _zos_zealfs_no_trunc
-    ; O_TRUNC was passed, the simplest solution is to set the size to 0, a is 0 already
-    ld h, a
-    ld l, a
+    and O_TRUNC
+    jr z, _zos_zealfs_no_trunc
+    ; O_TRUNC was passed, the simplest solution is to set the size to 0
+    ld hl, 0
     jp _zos_zealfs_open_load_hl
 _zos_zealfs_no_trunc:
     ld hl, (RAM_BUFFER + zealfs_entry_size)

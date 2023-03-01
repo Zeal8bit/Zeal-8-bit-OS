@@ -46,9 +46,9 @@
         DEFC O_RDWR   = 2
         DEFC O_TRUNC  = 1 << 2
         DEFC O_APPEND = 2 << 2
-        DEFC O_CREAT  = 3 << 2
+        DEFC O_CREAT  = 4 << 2
         ; Only makes sense for drivers, not files
-        DEFC O_NONBLOCK = 1 << 4
+        DEFC O_NONBLOCK = 1 << 5
 
         ; File stats structure, filled by zos_vfs_dstat and zos_vfs_stat
         DEFVARS 0 {

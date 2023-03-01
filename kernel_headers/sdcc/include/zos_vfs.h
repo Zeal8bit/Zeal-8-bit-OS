@@ -58,8 +58,8 @@
 #define O_RDWR       2
 #define O_TRUNC      1 << 2
 #define O_APPEND     2 << 2
-#define O_CREAT      3 << 2
-#define O_NONBLOCK   1 << 4 /*  Only makes sense for drivers, not files */
+#define O_CREAT      4 << 2
+#define O_NONBLOCK   1 << 5 /*  Only makes sense for drivers, not files */
 
 
 /**
