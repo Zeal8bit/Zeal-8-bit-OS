@@ -12,6 +12,15 @@
 
         EXTERN zos_sys_remap_de_page_2
 
+        MACRO DEFAULT_BG_COLOR _
+            DEFM "16"
+        ENDM
+
+
+        MACRO DEFAULT_FG_COLOR _
+            DEFM "15"
+        ENDM
+
         ; Default value for other pins than UART ones
         ; This is used to output a value on the UART without sending garbage
         ; on the other lines (mainly I2C)
@@ -45,6 +54,13 @@ uart_init:
         ld a, 'm'
         ld (_uart_esc_seq + 9), a
 
+        ; Initialize the screen by clearing it with the default background color
+        ; and setting the cursor to the top left
+        ld hl, _init_sequence
+        ld bc, _init_sequence_end - _init_sequence
+        ld d, UART_BAUDRATE_DEFAULT
+        call uart_send_bytes
+
         ; If the UART should be the standard output, set it at the default stdout
         ld hl, this_struct
         call zos_vfs_set_stdout
@@ -58,6 +74,21 @@ uart_deinit:
         ; Return ERR_SUCCESS
         xor a
         ret
+
+        ; At init, set the whole screen to black background and
+        ; and foreground color to white.
+_init_sequence:
+            IF CONFIG_TARGET_UART_SET_MONITOR_SIZE
+                DEFM 0x1b, "[8;40;80t" ; Set the host window size to 80x40 chars
+            ENDIF
+                DEFM 0x1b, "[48;5;"
+                DEFAULT_BG_COLOR()
+                DEFM "m"
+                DEFM 0x1b, "[38;5;"
+                DEFAULT_FG_COLOR()
+                DEFM "m", 0x1b, "[H", 0x1b, "[2J"
+_init_sequence_end:
+
 
         ; Perform an I/O requested by the user application.
         ; For the UART, the command number lets us set the baudrate for receiving and sending.
@@ -162,22 +193,22 @@ _uart_ioctl_set_ansi_color:
         jp uart_send_bytes
         ; It takes less bytes to use 2-byte strings than using BCD
 _colors_table:
-        DEFM "16"   ; 16 is darker than 0
-        DEFM "21"
-        DEFM "28"
-        DEFM "12"
-        DEFM "52"
-        DEFM "05"
-        DEFM "94"
-        DEFM "07"
-        DEFM "08"
-        DEFM "04"
-        DEFM "02"
-        DEFM "06"
-        DEFM "01"
-        DEFM "13"
-        DEFM "03"
-        DEFM "15"
+        DEFM "16"   ; Black
+        DEFM "21"   ; Dark blue
+        DEFM "28"   ; Dark green
+        DEFM "12"   ; Dark cyan
+        DEFM "52"   ; Dark red
+        DEFM "05"   ; Dark magenta
+        DEFM "94"   ; Brown
+        DEFM "07"   ; Light gray
+        DEFM "08"   ; Dark gray
+        DEFM "04"   ; Blue
+        DEFM "02"   ; Green
+        DEFM "06"   ; Cyan
+        DEFM "01"   ; Red
+        DEFM "13"   ; Magenta
+        DEFM "03"   ; Yellow
+        DEFM "15"   ; White
 
 
         ; Parameters:

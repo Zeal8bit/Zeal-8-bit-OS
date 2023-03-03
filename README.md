@@ -163,11 +163,16 @@ The kernel itself supports the following features:
 * File systems ("rawtable" and ZealFS implemented yet)
 * Modular build system, simplifying adding files and targets to the compilation
 
-The only supported target at the moment is *Zeal 8-bit computer*, the port is not complete yet, the (partially) implemented features are:
+The only supported target at the moment is *Zeal 8-bit computer*, the port is not complete yet, the implemented features are:
 * Video 640x480 text-mode
+* UART as video card replacement (text-mode)
+* UART for sending and receiving data
+* MMU
 * PS/2 keyboard
-* GPIO
-* Free space in ROM used as a read-only `romdisk`, for storing `init.bin` binary and user space programs.
+* I2C
+* EEPROM (I2C)
+* GPIO (partial)
+* Free space in ROM used as a read-only `romdisk`, storing `init.bin` binary
 * Linker script
 
 # TO DO

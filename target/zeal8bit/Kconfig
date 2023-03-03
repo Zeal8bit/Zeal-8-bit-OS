@@ -54,4 +54,13 @@ menu "Zeal 8-bit Computer configuration"
                 Use the UART driver as the standard output.
     endchoice
 
+    config TARGET_UART_SET_MONITOR_SIZE
+        bool
+        prompt "Resize host monitor to 80x40"
+        default y
+        depends on TARGET_STDOUT_UART
+        help
+            When enabled, the UART driver will sent a request to the host monitor to resize
+            its terminal to 80x40 characters mode on bootup.
+
 endmenu
