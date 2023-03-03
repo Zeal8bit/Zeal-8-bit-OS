@@ -8,6 +8,9 @@
         INCLUDE "pio_h.asm"
         INCLUDE "uart_h.asm"
         INCLUDE "interrupt_h.asm"
+        INCLUDE "utils_h.asm"
+
+        EXTERN zos_sys_remap_de_page_2
 
         ; Default value for other pins than UART ones
         ; This is used to output a value on the UART without sending garbage
@@ -20,7 +23,7 @@ uart_init:
         ld a, UART_BAUDRATE_DEFAULT
         ld (_uart_baudrate), a
 
-        IF CONFIG_TARGET_STDOUT_UART
+    IF CONFIG_TARGET_STDOUT_UART
         ; Initialize the PIO because UART is the first driver. It will initialize
         ; itself once more later, but that's not an issue.
         EXTERN pio_init
@@ -32,11 +35,21 @@ uart_init:
         ld a, 1
         ld (_uart_convert_lf), a
 
+        ; Initialize the escape sequence
+        ld hl, ('[' << 8) | 0x1b
+        ld (_uart_esc_seq), hl
+        ld hl, (';' << 8) |  '8'
+        ld (_uart_esc_seq + 3), hl
+        ld hl, (';' << 8) |  '5'
+        ld (_uart_esc_seq + 5), hl
+        ld a, 'm'
+        ld (_uart_esc_seq + 9), a
+
         ; If the UART should be the standard output, set it at the default stdout
         ld hl, this_struct
         call zos_vfs_set_stdout
 
-        ENDIF ; CONFIG_TARGET_STDOUT_UART
+    ENDIF ; CONFIG_TARGET_STDOUT_UART
 
         ; Currently, the driver doesn't need to do anything special for open, close or de-init
 uart_open:
@@ -65,25 +78,190 @@ uart_ioctl:
         ; Check that the command number is correct
         ld a, c
         cp UART_SET_BAUDRATE
-        jr nz, uart_ioctl_not_supported
+        jr z, _uart_ioctl_set_baud
+
+    IF CONFIG_TARGET_STDOUT_UART
+        cp CMD_GET_AREA
+        jr z, _uart_ioctl_get_area
+        cp CMD_SET_COLORS
+        jr z, _uart_ioctl_set_colors
+        cp CMD_SET_CURSOR_XY
+        jr z, _uart_ioctl_set_cursor
+    ENDIF ; CONFIG_TARGET_STDOUT_UART
+
+_uart_ioctl_not_supported:
+        ld a, ERR_NOT_SUPPORTED
+        ret
+_uart_ioctl_set_baud:
         ; Command is correct, check that the parameter is correct
         ld a, e
         cp UART_BAUDRATE_57600
-        jr z, uart_ioctl_valid
+        jr z, _uart_ioctl_valid
         cp UART_BAUDRATE_38400
-        jr z, uart_ioctl_valid
+        jr z, _uart_ioctl_valid
         cp UART_BAUDRATE_19200
-        jr z, uart_ioctl_valid
+        jr z, _uart_ioctl_valid
         cp UART_BAUDRATE_9600
-        jr z, uart_ioctl_valid
-uart_ioctl_not_supported:
-        ld a, ERR_NOT_SUPPORTED
-        ret
-uart_ioctl_valid:
+        jr nz, _uart_ioctl_not_supported
+_uart_ioctl_valid:
         ld (_uart_baudrate), a
         ; Optimization for success
         xor a
         ret
+
+    IF CONFIG_TARGET_STDOUT_UART
+
+_uart_ioctl_get_area:
+        ; Remap DE to page 2 if it was in page 3
+        call zos_sys_remap_de_page_2
+        ; Let's say that the text area is 80x40
+        ld hl, (80 << 8) | 40
+        ex de, hl
+        ld (hl), d
+        inc hl
+        ld (hl), e
+        inc hl
+        ld de, 80*40
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        xor a
+        ret
+
+
+        ; Parameters:
+        ;   D - Background color
+        ;   E - Foreground color
+_uart_ioctl_set_colors:
+        ld a, d
+        ld b, '4'
+        call _uart_ioctl_set_ansi_color
+        ; E is not altered by the routine above
+        ld a, e
+        ld b, '3'
+        jp _uart_ioctl_set_ansi_color
+        ; B - '4' for background, '3' for foreground
+_uart_ioctl_set_ansi_color:
+        ld hl, _uart_esc_seq + 2
+        ld (hl), b
+        ; Get the color from the table
+        and 0xf
+        rlca
+        ld hl, _colors_table
+        ADD_HL_A()
+        ld a, (hl)
+        inc hl
+        ld h, (hl)
+        ld l, a
+        ld (_uart_esc_seq + 7), hl
+        ; Send to sequence to the UART
+        ld a, (_uart_baudrate)
+        ld d, a
+        ld hl, _uart_esc_seq
+        ld bc, _uart_esc_seq_end - _uart_esc_seq
+        jp uart_send_bytes
+        ; It takes less bytes to use 2-byte strings than using BCD
+_colors_table:
+        DEFM "16"   ; 16 is darker than 0
+        DEFM "21"
+        DEFM "28"
+        DEFM "12"
+        DEFM "52"
+        DEFM "05"
+        DEFM "94"
+        DEFM "07"
+        DEFM "08"
+        DEFM "04"
+        DEFM "02"
+        DEFM "06"
+        DEFM "01"
+        DEFM "13"
+        DEFM "03"
+        DEFM "15"
+
+
+        ; Parameters:
+        ;   D - X coordinate
+        ;   E - Y coordinate
+        nop
+        nop
+_uart_ioctl_set_cursor:
+        ld a, d
+        cp 80
+        jr c, _uart_ioctl_set_cursor_x_valid
+        ld d, 79
+_uart_ioctl_set_cursor_x_valid:
+        ld a, e
+        cp 40
+        jr c, _uart_ioctl_set_cursor_y_valid
+        ld e, 39
+_uart_ioctl_set_cursor_y_valid:
+        ; Allocate 10 bytes on the stack
+        ld hl, -10
+        add hl, sp
+        ld sp, hl
+        push hl
+        ld (hl), 0x1b
+        inc hl
+        ld (hl), '['
+        inc hl
+        ; The ANSI sequence needs X and Y to actually starts at 1
+        inc d
+        inc e
+        ; Start with Y, convert it to decimal, divide by 10
+        ld a, e
+        call _uart_ioctl_a_to_ascii
+        ld (hl), ';'
+        inc hl
+        ; Same for X
+        ld a, d
+        call _uart_ioctl_a_to_ascii
+        ld (hl), 'f'
+        ; Write to the UART
+        pop hl
+        ld a, (_uart_baudrate)
+        ld d, a
+        ld bc, 8
+        call uart_send_bytes
+        ld hl, 10
+        add hl, sp
+        ld sp, hl
+        xor a
+        ret
+
+
+        ; Convert A to ASCII and store it in HL
+        ; Parameter:
+        ;   A - Value to convert to ASCII
+        ;   HL - Destination of ASCII value
+        ; Returns:
+        ;   HL - HL+2
+        ; Alters:
+        ;   A, BC, E, HL
+_uart_ioctl_a_to_ascii:
+        call _uart_ioctl_divide_a
+        ; B contains quotient, A contains remainder
+        add '0'
+        ld c, a
+        ld a, b
+        add '0'
+        ld (hl), a
+        inc hl
+        ld (hl), c
+        inc hl
+        ret
+_uart_ioctl_divide_a:
+        ld bc, 10
+_uart_ioctl_divide_a_loop:
+        cp c
+        ret c
+        ; No carry, subtract 10
+        sub c
+        inc b
+        jr _uart_ioctl_divide_a_loop
+
+
+    ENDIF ; CONFIG_TARGET_STDOUT_UART
 
 
         ; Read bytes from the UART.
@@ -394,7 +572,7 @@ wait_tstates_next_bit_87_tstates:
         ;================= S T D O U T     R O U T I N E S ====================;
         ;======================================================================;
 
-        IF CONFIG_TARGET_STDOUT_UART
+    IF CONFIG_TARGET_STDOUT_UART
 
         ; The following routines are used by other drivers to communicate with
         ; the standard output, check the file "stdout_h.asm" for more info about
@@ -405,6 +583,7 @@ stdout_op_start:
 stdout_op_end:
         ; Nothing special to do here
         ret
+
 
         PUBLIC stdout_show_cursor
 stdout_show_cursor:
@@ -424,6 +603,7 @@ _stdout_send_seq:
         ret
 _show_cursor_seq: DEFM 0x1b, "[?25h"
 _show_cursor_seq_end:
+
 
         PUBLIC stdout_hide_cursor
 stdout_hide_cursor:
@@ -449,6 +629,7 @@ stdout_print_char:
         ; Retrieve DE from HL and ret
         ex de, hl
         ret
+
 
         PUBLIC stdout_print_buffer
 stdout_print_buffer:
@@ -478,33 +659,15 @@ _stdout_save_restore_position:
         pop bc
         ret
 
+    ENDIF ; CONFIG_TARGET_STDOUT_UART
 
-        PUBLIC stdout_move_cursor
-stdout_move_cursor:
-        ; Add support for -1 and 1
-        inc a
-        jr z, _stdout_move_backward
-        cp 2    ; A has been incremented
-        ld hl, _esc_forward
-        jr z, _stdout_move_cursor_send_bytes
-        ret
-_stdout_move_backward:
-        ld hl, _esc_backward
-_stdout_move_cursor_send_bytes:
-        ld a, (_uart_baudrate)
-        ld d, a
-        ld bc, 4
-        jp uart_send_bytes
-_esc_backward: DEFM 0x1b, "[1D"
-_esc_forward:  DEFM 0x1b, "[1C"
-
-
-        ENDIF ; CONFIG_TARGET_STDOUT_UART
 
         SECTION DRIVER_BSS
 _uart_baudrate: DEFS 1
         ; When set to 1, LF will be convert to CRLF when sending bytes
 _uart_convert_lf: DEFS 1
+_uart_esc_seq: DEFS 10
+_uart_esc_seq_end:
 
         SECTION KERNEL_DRV_VECTORS
 this_struct:

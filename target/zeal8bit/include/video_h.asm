@@ -5,17 +5,37 @@
     IFNDEF VIDEO_H
     DEFINE VIDEO_H
 
-    ; Screen macros
-    DEFC SCREEN_SCROLL_ENABLED = 0x1
+    INCLUDE "drivers/video_text_h.asm"
+
+    MACRO LABEL_IF cond, lab
+        IF cond
+            PUBLIC lab
+            lab:
+        ENDIF
+    ENDM
+
+    ; Screen flags bit (maximum 8)
+    DEFC SCREEN_SCROLL_ENABLED = 0
+    DEFC SCREEN_CURSOR_VISIBLE = 1
+    DEFC SCREEN_TEXT_640       = 2
+    DEFC SCREEN_TEXT_320       = 3
+    DEFC SCREEN_TILE_640       = 4
+    DEFC SCREEN_TILE_320       = 5
+
+    ; Flag helpers
+    DEFC SCREEN_TEXT_MODE_MASK = (1 << SCREEN_TEXT_640) | (1 << SCREEN_TEXT_320)
 
     ; Colors used by default
     DEFC DEFAULT_CHARS_COLOR     = 0x0f ; Black background, white foreground
     DEFC DEFAULT_CHARS_COLOR_INV = 0xf0
-    
+
     ; Physical address of the FPGA video
     DEFC IO_VIDEO_PHYS_ADDR_START  = 0x100000
     DEFC IO_VIDEO_PHYS_ADDR_TEXT   = IO_VIDEO_PHYS_ADDR_START
     DEFC IO_VIDEO_PHYS_ADDR_COLORS = IO_VIDEO_PHYS_ADDR_TEXT + 0x2000
+
+    ; Virtual address of the text VRAM
+    DEFC IO_VIDEO_VIRT_TEXT_VRAM = 0x4000   ; Always mapped to page 1
 
     ; Macros for video chip I/O registers and memory mapping
     DEFC IO_VIDEO_SET_CHAR   = 0x80

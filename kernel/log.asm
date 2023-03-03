@@ -7,6 +7,8 @@
         INCLUDE "log_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "drivers_h.asm"
+        INCLUDE "drivers/video_text_h.asm"
+        INCLUDE "utils_h.asm"
         INCLUDE "strutils_h.asm"
 
         EXTERN zos_vfs_write
@@ -23,17 +25,18 @@
         PUBLIC zos_log_init
 zos_log_init:
         ; Initialize the prefix buffer with '( ) '
-        ld de, _log_esc
-        ld hl, _log_dummy_prefix
-        ld bc, _log_dummy_prefix_end - _log_dummy_prefix
-        ldir
+        ld hl, _log_prefix
+        ld (hl), '('
+        inc hl
+        inc hl
+        ld (hl), ')'
+        inc hl
+        ld (hl), ' '
         ; Set the logging to buffer first
         ld a, LOG_IN_BUFFER
         ld (_log_property), a
         ret
 
-_log_dummy_prefix: DEFM 0x1b, "[30m( ) "
-_log_dummy_prefix_end:
 
         ; Routine called as soon as stdout is set in the VFS
         ; In our case, we will print the system boilerplate
@@ -46,14 +49,20 @@ zos_log_stdout_ready:
         ; We are going to optimize this a bit. Instead of calling vfs function
         ; to write to the stdout, we will directly communicate with the driver.
         ; Get driver's write routine in HL
+        ld d, h
+        ld e, l
         GET_DRIVER_WRITE()
         ld (_log_write_fun), hl
-        ld a, (_log_plate_printed)
+        ; Also save ioctl function, for switching colors
+        ex de, hl
+        GET_DRIVER_IOCTL()
+        ld (_log_ioctl_fun), hl
+        ; Check if we have already printed the boilerplate. If not, print it now.
+        ld hl, _log_plate_printed
+        ld a, (hl)
         or a
         ret nz
-        ; If this is the first time we come here, print the boilerplate
-        inc a
-        ld (_log_plate_printed), a
+        inc (hl)
         ; Set the property to log on stdout now instead of buffer
         ; TODO: Flush the buffer
         ld a, LOG_ON_STDOUT
@@ -62,39 +71,64 @@ zos_log_stdout_ready:
         ld hl, zos_boilerplate
         jp zos_log_message
 
+
+        ; Use IOCTL to the video/text driver to switch colors
+        ; Parameters:
+        ;   A - Foreground color
+        ; Alters:
+        ;   A
+_zos_log_set_color:
+        push hl
+        push de
+        ; Background and foreground in D and E respectively
+        ld d, TEXT_COLOR_BLACK
+        ld e, a
+        ld hl, (_log_ioctl_fun)
+        ld a, h
+        or l
+        jr z, _zos_log_set_color_pop
+        push bc
+        ; STDOUT dev in B (0), set color command in C
+        ld bc, CMD_SET_COLORS
+        CALL_HL()
+        pop bc
+_zos_log_set_color_pop:
+        pop de
+        pop hl
+        ret
+
         ; Log an error message starting with (E) and in red color if supported.
+        ; Parameters:
+        ;       HL - Message to print
         PUBLIC zos_log_error
 zos_log_error:
-        IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
-        ; Set the color to red (31) in the escape sequence
-        ld a, '1'
-        ld (_log_esc + 3), a
-        ENDIF
+        ld a, TEXT_COLOR_RED
+        call _zos_log_set_color
         ld a, 'E'
-        jr zos_log_message
+        jr zos_log_message_current_color
+
 
         ; Same as above with prefix (W) and color yellow.
+        ; Parameters:
+        ;       HL - Message to print
         PUBLIC zos_log_warning
 zos_log_warning:
-        IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
-        ; Set the color to yellow (33) in the escape sequence
-        ld a, '3'
-        ld (_log_esc + 3), a
-        ENDIF
-
+        ld a, TEXT_COLOR_YELLOW
+        call _zos_log_set_color
         ld a, 'W'
-        jr zos_log_message
+        jr zos_log_message_current_color
 
+
+        ; Same as above but in green
+        ; Parameters:
+        ;       HL - Message to print
         PUBLIC zos_log_info
 zos_log_info:
-        IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
-        ; Set the color to green (32) in the escape sequence
-        ld a, '2'
-        ld (_log_esc + 3), a
-        ENDIF
-
+        ld a, TEXT_COLOR_GREEN
+        call _zos_log_set_color
         ld a, 'I'
-        ; Fallthrough
+        jr zos_log_message_current_color
+
 
         ; Log a message in the log buffer or STDOUT
         ; Parameters:
@@ -107,6 +141,12 @@ zos_log_info:
         ;       A
         PUBLIC zos_log_message
 zos_log_message:
+        push af
+        ; Use white a the default color
+        ld a, TEXT_COLOR_WHITE
+        call _zos_log_set_color
+        pop af
+zos_log_message_current_color:
         push bc
         ld b, a
         ld a, (_log_property)
@@ -115,59 +155,39 @@ zos_log_message:
         cp LOG_IN_BUFFER
         jr z, _zos_log_buffer
         ; Do not alter parameters
-        push hl
         push de
+        push hl
         ; Check if we need to print the prefix
         ld a, b
         or a
- IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
-        push af
- ENDIF
         jp z, _zos_log_no_prefix
         ; Set the letter to put in the ( )
-        ld (_log_prefix + 1), a
- IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
-        ld de, _log_esc
-        ld bc, _log_esc_end - _log_esc
- ELSE
-        ld de, _log_prefix
-        ld bc, _log_esc_end - _log_prefix
- ENDIF
-        push hl
+        ld de, _log_prefix + 1
+        ld (de), a
+        dec de
+        ld bc, _log_prefix_end - _log_prefix
         call _zos_log_call_write
+        ; Get the original HL to print, without altering the stack
         pop hl
+        push hl
 _zos_log_no_prefix:
         ; Calculate the length of the string in HL
         call strlen
         ex de, hl
         call _zos_log_call_write
- IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
-        ; If Z flag is NOT set, we had a prefix, we have to write
-        ; the end of the escape sequence
-        pop af
-        call nz, _zos_log_write_end_seq
- ENDIF
-        pop de
         pop hl
+        pop de
 _zos_log_popbc_ret:
-        pop bc
-        ret
 _zos_log_buffer:
         ; TODO: implement with a ringbuffer?
         pop bc
         ret
 
-        IF CONFIG_KERNEL_LOG_SUPPORT_ANSI_COLOR
-_zos_log_write_end_seq:
-        ld de, _log_postfix
-        ld bc, _log_postfix_end - _log_postfix
-        jp _zos_log_call_write
-        ENDIF
 
         ; Private routine to call the driver's write function
         ; Parameters:
         ;       DE - Buffer to print
-        ;       BC - Size
+        ;       BC - Size of the buffer
         ; Alters:
         ;       A, BC, DE, HL
 _zos_log_call_write:
@@ -181,6 +201,7 @@ _zos_log_call_write:
         ld a, DRIVER_OP_NO_OFFSET
         jp (hl)
 
+
         ; Modify logging properties. For example, this lets logging only append in the
         ; log buffer and not on the actual hardware.
         ; Parameters:
@@ -193,22 +214,14 @@ zos_log_set_property:
         ld (_log_property), a
         ret
 
-_zos_log_invalid_parameters:
-        ld a, ERR_INVALID_PARAMETER
-        ret
-
-_log_postfix: DEFB 0x1b, '[', '0', 'm' ; Escape sequence
-_log_postfix_end:
 
         SECTION KERNEL_BSS
 _log_plate_printed: DEFS 1
 _log_write_fun:     DEFS 2
+_log_ioctl_fun:     DEFS 2
 _log_property:      DEFS 1
-_log_esc:           DEFS 5 ; RAM for '\x1b[XYm'
-_log_prefix:        DEFS 4 ; RAM for '(W) ' where XY is escape sequence code (4 chars)
-_log_esc_end:
-
-        ASSERT(_log_dummy_prefix_end - _log_dummy_prefix == _log_esc_end - _log_esc)
+_log_prefix:        DEFS 4 ; RAM for '(W) '
+_log_prefix_end:
 
 
         IF CONFIG_LOG_BUFFER_SIZE > 0

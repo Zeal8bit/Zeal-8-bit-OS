@@ -122,7 +122,6 @@ keyboard_read_cooked:
         ; because it would still be possible to go back and remove some
         ; characters
 _keyboard_read_ignore:
-        call stdout_show_cursor
 _keyboard_read_ignore_no_update:
         call keyboard_next_pressed_key
         ; Optimize KB_EVT_RELEASED == 1 case
@@ -145,7 +144,7 @@ _keyboard_read_ignore_no_update:
         ; Check that the size has not reached the maximum
         ld a, (kb_buffer_size)
         cp KEYBOARD_INTERNAL_BUFFER_SIZE - 1    ; Keep space for the last \n
-        jp z, _keyboard_read_ignore     ; Ignore this character as the line is full already
+        jr z, _keyboard_read_ignore     ; Ignore this character as the line is full already
         ; Line not full, append the character to the buffer
         ld c, a                         ; c contains the size of the buffer
         ld a, (kb_buffer_cursor)
@@ -161,7 +160,6 @@ _keyboard_read_ignore_no_update:
         jp z, _keyboard_not_shift
         add c
         push bc
-        push hl
         ; We have to copy from the end to the cursor
         ; So let's make DE (destination) point to the end of the buffer
         ; DE = kb_internal_buffer (HL) + size (C)
@@ -175,26 +173,23 @@ _keyboard_read_ignore_no_update:
         ; We have to move (size - cursor) bytes
         neg
         add c
-        ;inc a
-        ; Put it into BC for ldrr instruction
-        ld b, 0
+        ; Put it into BC for ldrr instruction. (B is already 0)
         ld c, a
         ; Both HL and DE will be decremented
         lddr
-        pop hl
-        pop bc
-        ; Save the character in the buffer!
-        ld (hl), b
         ; We will have to tell the video driver to update the line
-        ; Characters moved count in a
+        ; Characters moved count in a.
         ld c, a
         inc c
+        ; Pop character to print in A, but keep it on the stack
+        pop af
+        push af
+        ; Save the character in the buffer!
+        ld (de), a
         ; Print the rest of the buffer on the screen.
-        ld b, 0 ; print_buffer takes 16-bit size
-        ex de, hl
         call stdout_print_buffer
-        ld a, 1
-        call stdout_move_cursor
+        pop af
+        call stdout_print_char
         jp _keyboard_increment_size_and_cursor
 _keyboard_not_shift:
         ; Save the character in the buffer!
@@ -262,8 +257,8 @@ _keyboard_ctrl_backspace:
         inc hl ; kb_buffer_cursor
         dec (hl)
         ; Move the video cursor left
-        ld a, -1
-        call stdout_move_cursor
+        ld a, '\b'
+        call stdout_print_char
         pop hl ; End last char of buffer to replace with 0
         pop bc
         pop de
@@ -273,13 +268,6 @@ _keyboard_ctrl_backspace:
         ld (hl), 0
         jp _keyboard_read_ignore
 _keyboard_ctrl_newline:
-        ; Move the cursor to the end of the buffer
-        ld a, (kb_buffer_cursor)
-        ld b, a
-        ld a, (kb_buffer_size)
-        sub b
-        ; If not 0, move the cursor to the end of the line
-        call nz, stdout_move_cursor
         ; Add new line character to the end of the buffer
         ld hl, kb_internal_buffer
         ld a, (kb_buffer_size)
@@ -310,6 +298,7 @@ _keyboard_extended_char:
         jr z, _keyboard_extended_toggle_shift
         cp KB_RIGHT_SHIFT
         jr z, _keyboard_extended_toggle_shift
+
         ld hl, kb_buffer_cursor
         cp KB_LEFT_ARROW
         jr z, _keyboard_extended_left_arrow
@@ -341,37 +330,29 @@ _keyboard_extended_left_arrow:
         or a
         jp z, _keyboard_read_ignore
         dec (hl)
-        ld a, -1
-        call stdout_move_cursor
+        ld a, '\b'
+        call stdout_print_char
         jp _keyboard_read_ignore
 _keyboard_extended_right_arrow:
         ; Shall not be at the end of the buffer
         ld a, (kb_buffer_size)
         cp (hl)
         jp z, _keyboard_read_ignore
-        ; Move the cursor forward
+        ; Get the cursor value and move it forward
+        ld c, (hl)
         inc (hl)
-        ld a, 1
-        call stdout_move_cursor
+        ; There is no equivalent for backspace, "space" would erase the character
+        ; under the cursor. The solution is to get the character underneath and print
+        ; it again.
+        ld hl, kb_internal_buffer
+        ld b, 0
+        add hl, bc
+        ld a, (hl)
+        call stdout_print_char
         jp _keyboard_read_ignore
 _keyboard_extended_up_arrow:
-        ; By default, go to the end of the line
-        ; TODO: Override this behavior ?
-        ld a, (kb_buffer_size)
-        ; We have to calculate size - cursor to get the delta
-        ld b, a
-        sub (hl)
-        ; Store the cursor new value first
-        ld (hl), b
-        call stdout_move_cursor
-        jp _keyboard_read_ignore
 _keyboard_extended_down_arrow:
-        ; By default, go to the beginning of the line
-        ; TODO: Override this behavior ?
-        ld a, (hl)      ; Current cursor value
-        ld (hl), 0
-        neg             ; Move the graphic (-cursor) units
-        call stdout_move_cursor
+        ; Need to override the behavior when other modes than "cooked" available
         jp _keyboard_read_ignore
 
 

@@ -512,6 +512,7 @@ zos_vfs_stat:
         ;            If this is an address, it must not cross a page boundary.
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
+        ;       DE - Driver dependent
         PUBLIC zos_vfs_ioctl
 zos_vfs_ioctl:
         push bc

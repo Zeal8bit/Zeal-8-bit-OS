@@ -83,7 +83,7 @@ _strcmp_compare:
     ; Check if both strings have reached the end
     ; If this is the case, or (hl) will reset in zero flag to be set
     ; In that case, no need to continue, we can return, with flag Z set
-    or (hl) 
+    or (hl)
     jr nz, _strcmp_compare
 _strcmp_end:
     pop de
@@ -144,7 +144,7 @@ _strncmp_compare:
     ; Check if both strings have reached the end
     ; If this is the case, or (hl) will reset in zero flag to be set
     ; In that case, no need to continue, we can return, with flag Z set
-    or (hl) 
+    or (hl)
     jr nz, _strncmp_compare
 _strncmp_end:
     pop bc
@@ -642,8 +642,8 @@ is_alpha_numeric:
     ; Subroutine checking that the byte contained in A
     ; is a letter [A-Za-z]
     ; Returns:
-    ;   carry flag - Is an alpha char
-    ;   not carry flag - Is not an alpha char
+    ;   carry flag - Not an alpha char
+    ;   not carry flag - Is an alpha char
 is_alpha:
     call is_lower
     ret nc   ; Return on success
@@ -762,7 +762,7 @@ _to_lower_not_char_ccf:
     ;       A - Value to convert
     ; Returns:
     ;       D - First character
-    ;       E - Second character 
+    ;       E - Second character
     ; Alters:
     ;       A
     PUBLIC byte_to_ascii

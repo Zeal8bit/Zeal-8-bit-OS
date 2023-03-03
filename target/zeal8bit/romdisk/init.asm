@@ -3,6 +3,11 @@
 ; SPDX-License-Identifier: Apache-2.0
 
         INCLUDE "zos_sys.asm"
+        INCLUDE "zos_video.asm"
+
+        DEFC BG_COLOR     = TEXT_COLOR_BLACK
+        DEFC CURDIR_COLOR = TEXT_COLOR_LIGHT_GRAY
+        DEFC TEXT_COLOR   = TEXT_COLOR_WHITE
 
         ; Designate the order of the sections before starting the code
         ; We can name the sections whatever we want, but it has to match
@@ -28,6 +33,9 @@
         EXTERN parse_exec_cmd
 
 next_command:
+        ; Set the STDOUT color before printing the directory
+        ld e, CURDIR_COLOR
+        call set_out_color
         ; Get and print the current directory (keep it in a variable)
         call get_current_dir
         ERR_CHECK(error_current_dir)
@@ -35,6 +43,9 @@ next_command:
         ld h, DEV_STDOUT
         WRITE()
         ERR_CHECK(error_printing_dir)
+        ; Reset the text color
+        ld e, TEXT_COLOR
+        call set_out_color
         ; Read from the stdin
         ld de, bigbuffer
         ld bc, bigbuffer_end - bigbuffer
@@ -91,6 +102,18 @@ str_rdstdin_err_end:
 err_loop:
         halt
         jr $
+
+
+        ; Set the current text color for the standard output
+        ; Parameters:
+        ;   E - Foreground color to use
+set_out_color:
+        ld h, DEV_STDOUT
+        ld c, CMD_SET_COLORS
+        ld d, BG_COLOR
+        IOCTL()
+        ret
+
 
         ; Get the current directory from the kernel, retrieve its size,
         ; append the PROMPT_CHAR and save the new length in curdir_len

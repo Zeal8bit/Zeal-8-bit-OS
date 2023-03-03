@@ -65,16 +65,6 @@
     EXTERN stdout_print_buffer
 
 
-    ; Move the cursor to a near value.
-    ; Parameters:
-    ;   A - signed 8-bit value representing the delta
-    ; Returns:
-    ;   None
-    ; Alters:
-    ;   A, BC, HL, DE
-    EXTERN stdout_move_cursor
-
-
     ; Needs to be called after the kernel drivers finish communicating
     ; with the stdout.
     EXTERN stdout_op_end
