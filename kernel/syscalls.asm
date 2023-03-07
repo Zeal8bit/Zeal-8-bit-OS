@@ -221,12 +221,12 @@ zos_sys_remap_user_pages:
         PUBLIC zos_sys_reserve_page_1
 zos_sys_reserve_page_1:
         ld hl, 0
-        ; Get the page index to where DE is located
+        ; Get the page index where DE is located
         MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(D, E)
         ; Result is in A
         or a
         ; If the page it is mapped to is 0, then we won't remap it
-        ; because it means the kernel is trying to print something.
+        ; because DE is a kernel address.
         ret z
         dec a
         jp z, _zos_sys_reserve_page_remap_1
@@ -234,9 +234,6 @@ zos_sys_reserve_page_1:
         ; or page index 3. Let's assume that, in that case, it's a kernel
         ; address, so no need to remap.
         xor a
-        ret
-_zos_sys_reserve_page_invalid:
-        ld a, ERR_INVALID_VIRT_PAGE
         ret
 _zos_sys_reserve_page_remap_1:
         ; The user buffer points to the page 1, which is the one we need to reserve

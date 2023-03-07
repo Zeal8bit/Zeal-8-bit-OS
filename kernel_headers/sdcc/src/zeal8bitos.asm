@@ -332,9 +332,19 @@ _exit:
 _exec:
     ; Syscall parameters:
     ;   BC - File to load and execute
-    ;   (argv unused yet)
+    ;   DE - Parameter to give to the new program, only one parameter is supported
+    ;        at the moment, so we need to dereference DE if it is not NULL.
     ld b, h
     ld c, l
+    ld a, d
+    or e
+    jr z, _exec_syscall
+    ; DE is not NULL, we have to dereference it
+    ex de, hl
+    ld e, (hl)
+    inc hl
+    ld d, (hl)
+_exec_syscall:
     syscall 16
     ret
 

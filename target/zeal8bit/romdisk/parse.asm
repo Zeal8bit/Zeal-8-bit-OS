@@ -28,6 +28,8 @@
         EXTERN uartsnd_main
         EXTERN uartrcv_main
 
+        EXTERN error_print
+
         ; Parse and execute the command line passed as a parameter.
         ; Parameters:
         ;       DE - Command line
@@ -57,6 +59,12 @@ parse_exec_cmd:
         ; in case we need the current length, save it
         push bc
         call memsep
+        push af
+        ; Check if the first characters are ./, which are special
+        ld a, (hl)
+        cp '.'
+        jr z, _parse_exec_cmd_dot
+        pop af
         ; Save the length of the string for prepare_argv_argc
         ; DE contains the address of the next string (token + 1)
         push bc
@@ -81,6 +89,38 @@ parse_exec_cmd:
         ; these functions do nothing special
         jp (ix)
 
+
+        ; Jump to this routine if the command starts with a '.'
+        ; If it is followed by /, it means we have to execute a program. Else, trigger and error
+        ; as we don't have any command starting with '.'
+        ; Parameters:
+        ;   HL - Command string
+        ;   DE - Parameter address
+        ;   BC - Length of the remaining string
+        ;   [SP] - AF, A 0 if no parameter
+_parse_exec_cmd_dot:
+        inc hl
+        ld a, (hl)
+        cp '/'
+        jr nz, _parse_exec_cmd_not_exec
+        inc hl
+        pop af
+        or a
+        ; If A is not 0, there was no parameter provided, set DE to 0
+        jr z, _parse_exec_cmd_dot_no_param
+        ld de, 0
+_parse_exec_cmd_dot_no_param:
+        ; Try to execute the binary in HL, with the parameter DE
+        ld b, h
+        ld c, l
+        EXEC()
+        ld de, 0
+        jp error_print
+
+
+        ; The command is invalid, print an error
+_parse_exec_cmd_not_exec:
+        pop af
         ; Print the command and an error saying we haven't found this command
         ; Parameters:
         ;       HL - String containing the command name
@@ -317,17 +357,28 @@ exec_main:
         ; Make sure there are exactly two parameters (ignore argc/v for the moment)
         ld a, c
         cp 2
-        ret nz
+        ret c
         ; Dereference filename and execute it
         inc hl
         inc hl
         ld c, (hl)
         inc hl
         ld b, (hl)
+        inc hl
         ; Set ARGV to 0
         ld de, 0
+        dec a
+        dec a
+        jr z, _exec_main_no_param
+        ; We do have an extra parameter!
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
+_exec_main_no_param:
         EXEC()
-        ret
+        ld de, 0
+        jp error_print
+
 
         ; Print all the commands available
 help_main:
@@ -361,6 +412,10 @@ help_msg_newline:
     DEFM "\n"
 help_msg_end:
 
+        ; Reset the board
+reset_main:
+        rst 0
+
         SECTION DATA
 system_commands_begin:
         DEFS MAX_COMMAND_NAME, "cd"
@@ -381,6 +436,8 @@ system_commands_begin:
         DEFW ls_main
         DEFS MAX_COMMAND_NAME, "mkdir"
         DEFW mkdir_main
+        DEFS MAX_COMMAND_NAME, "reset"
+        DEFW reset_main
         DEFS MAX_COMMAND_NAME, "rm"
         DEFW rm_main
         DEFS MAX_COMMAND_NAME, "uartrcv"
@@ -394,9 +451,6 @@ system_commands_begin:
 ;        DEFW i2cget_main
 ;        DEFS MAX_COMMAND_NAME, "i2cset"
 ;        DEFW i2cset_main
-        ; Command reset
-        ;DEFS MAX_COMMAND_NAME, "reset"
-        ;DEFW reset_main
 system_commands_count: DEFB (system_commands_count - system_commands_begin) / SIZE_COMMAND_ENTRY
         ; Arguments related
 command_argv:   DEFS MAX_COMMAND_ARGV * 2

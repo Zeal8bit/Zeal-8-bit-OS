@@ -32,7 +32,8 @@ void exit(void) CALL_CONV;
  *        The program will cover the current program, replacing it completely.
  *
  * @param name Name of the executable to execute
- * @param argv Arguments to give to the program to execute (**not implemented**)
+ * @param argv Arguments to give to the program to execute. Currently, only
+ *             the first one will be passed to the kernel. Can be NULL.
  *
  * @returns No return on success, the new program is executed.
  *          Returns error code on failure.

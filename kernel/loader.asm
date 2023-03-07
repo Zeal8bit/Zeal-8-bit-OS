@@ -6,6 +6,7 @@
         INCLUDE "osconfig.asm"
         INCLUDE "mmu_h.asm"
         INCLUDE "utils_h.asm"
+        INCLUDE "strutils_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "log_h.asm"
         INCLUDE "target_h.asm"
@@ -14,6 +15,7 @@
         EXTERN zos_vfs_read_internal
         EXTERN zos_vfs_dstat_internal
         EXTERN zos_sys_remap_bc_page_2
+        EXTERN zos_sys_remap_de_page_2
         EXTERN _zos_default_init
 
         DEFC TWO_PAGES_SIZE_UPPER_BYTE = (MMU_VIRT_PAGES_SIZE >> 8) * 2
@@ -46,23 +48,23 @@ zos_load_init_file_error:
         pop hl
         ret
 
-        ; Load binary file which is pointed by HL
+
+        ; Routine helper to open and check the size of a file.
+        ; If this routines returns success, then a load/exec of the file is possible
         ; Parameters:
-        ;   HL - Absolute path to the file
+        ;   BC - File path
         ; Returns:
-        ;   A - error code on failure, doesn't return on success
-        PUBLIC zos_load_file
-zos_load_file:
-        ; Put the file path in BC
-        ld b, h
-        ld c, l
+        ;   A - 0 on success, error code else
+        ;   Z flag - Set on success
+        ;   BC - Size of the file
+        ;   D - Dev of the opened file
+_zos_load_open_and_check_size:
         ; Set flags to read-only
         ld h, O_RDONLY
         call zos_vfs_open_internal
-        ; File descriptor in A
-        ; Error if the descriptor is less than 0
+        ; File descriptor in A, error if the descriptor is less than 0
         or a
-        ret m
+        jp m, zos_load_and_open_error
         ; No error, let's check the file size, it must not exceed 48KB
         ; (the system is in the first bank, so we have 3 free banks)
         ld de, _file_stats
@@ -97,6 +99,43 @@ zos_load_file:
         inc hl
         or (hl)
         jr nz, _zos_load_failed
+        ; Success, A already contains 0
+        ret
+zos_load_and_open_error:
+        neg
+        ret
+_zos_load_failed:
+        ; Close the opened dev (in D register)
+        ld h, d
+        call zos_vfs_close
+        ld a, ERR_FAILURE
+        ret
+
+
+        ; Load binary file which is pointed by HL
+        ; Parameters:
+        ;   HL - Absolute path to the file
+        ; Returns:
+        ;   A - error code on failure, doesn't return on success
+        PUBLIC zos_load_file
+zos_load_file:
+        ; Put the file path in BC
+        ld b, h
+        ld c, l
+zos_load_file_bc:
+        call _zos_load_open_and_check_size
+        ret nz
+        ; Reuse stat structure to fil the program parameters
+        ld hl, CONFIG_KERNEL_STACK_ADDR
+        ld (_file_stats), hl
+        ld hl, 0
+        ld (_file_stats + 2), hl
+        ; Parameters:
+        ;   D - Opened dev
+        ;   BC - Size of the file
+        ;   [SP] - Address of the parameter
+        ;   [SP + 2] - Length of the parameter
+_zos_load_file_checked:
         ; BC contains the size of the file to copy, D contains the dev number.
         ; Only support program loading on 0x4000 at the moment
         ASSERT(CONFIG_KERNEL_INIT_EXECUTABLE_ADDR == 0x4000)
@@ -134,13 +173,23 @@ zos_load_file:
         or a
         ; On error, close the opened file and return
         jp nz, _zos_load_failed_h_dev
+        ; Put the opened dev in D again
+        ld d, h
 _zos_load_read_finish:
+        ; The program is ready, close the file as we don't need it anymore
+        ld h, d
+        call zos_vfs_close
+        ; Get the parameters out of the stack before mapping the user program stack
+        ld hl, (_file_stats)
+        ld sp, hl
+        ; Put HL in DE
+        ex de, hl
+        ld bc, (_file_stats + 2)
         ; The stack may not be clean, but there is no need to pop the value as it won't be used:
         ; we are going to set the user stack and jump to the program.
         ; User program is loaded in RAM, allocate one last page for stack.
         ld a, (_allocate_pages + 2)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
-        ld sp, CONFIG_KERNEL_STACK_ADDR
         ; ============================================================================== ;
         ; KERNEL STACK CANNOT BE ACCESSED ANYMORE FROM NOW ON, JUST JUMP TO THE USER CODE!
         ; ============================================================================== ;
@@ -149,19 +198,18 @@ _zos_load_failed_h_dev:
         push af ; Save error value
         call zos_vfs_close
         pop af
+        ; Pop the parameters out of the stack
+        pop hl
+        pop hl
         ret
-_zos_load_failed:
-        ; Close the opened dev (in D register)
-        ld h, d
-        call zos_vfs_close
-        ld a, ERR_FAILURE
-        ret
+
 
         ; Load and execute a program from a file name given as a parameter.
         ; The program will cover the current program.
         ; Parameters:
         ;       BC - File to load and execute
-        ;       (B - Save the current program in RAM?)
+        ;       DE - String parameter, can be NULL
+        ;       (TODO: H - Save the current program in RAM?)
         ; Returns:
         ;       A - Nothing on success, the new program is executed.
         ;           ERR_FAILURE on failure.
@@ -170,18 +218,55 @@ _zos_load_failed:
         PUBLIC zos_loader_exec
 zos_loader_exec:
         push bc
+        push de
         call zos_sys_remap_bc_page_2
         call zos_loader_exec_internal
+        pop de
         pop bc
         ret
 zos_loader_exec_internal:
-        ; DE is reachable for sure here, put the filename in HL.
-        ; In case of a success, the stack will be discarded as the SP value
-        ; will be overwritten and the memory pages reused. This behavior will
-        ; change when saving current program context will be supported.
-        ld h, b
-        ld l, c
-        jp zos_load_file
+        ld a, d
+        or e
+        jp z, zos_load_file_bc
+        push de
+        ; Check if the file is reachable and the size is correct
+        call _zos_load_open_and_check_size
+        ; Get back DE parameter but in HL
+        pop hl
+        ret nz
+        ; Save the size of the binary as we will need it later
+        push bc
+        ; Parameter was given, we have to copy it to the program stack
+        ; D contains the opened dev, we should not alter it
+        push de
+        ex de, hl
+        call zos_sys_remap_de_page_2
+        ex de, hl
+        ; HL - String parameter
+        call strlen
+        ; Keep the size of the string, we will need to pass it to the program
+        ASSERT(CONFIG_KERNEL_STACK_ADDR > 0xC000 && CONFIG_KERNEL_STACK_ADDR <= 0xFFFF)
+        ; Calculate the address of destination: bottom_of_stack - parameter_length - 1
+        ex de, hl   ; Switch the address of the parameter to DE again
+        xor a
+        ld hl, CONFIG_KERNEL_STACK_ADDR
+        sbc hl, bc
+        ex de, hl
+        ; Re-use the file stat RAM area to store the parameters before remapping the last page
+        inc bc
+        ld (_file_stats), de
+        ld (_file_stats + 2), bc
+        ; Map the program at the same location as the Kernel RAM, DO NOT ACCESS RAM NOW
+        ld a, (_allocate_pages + 2)
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
+        ldir
+        MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
+        ; The parameters to send to the program have already been saved,
+        ; Clean our stack and execute the program
+        pop de  ; D contains the opened dev
+        pop bc  ; Program size in BC
+        jp _zos_load_file_checked
+
 
         ; Exit the current process and load back the init.bin file
         ; Parameters:

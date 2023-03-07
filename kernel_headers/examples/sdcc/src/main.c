@@ -17,15 +17,20 @@ zos_err_t print_string(const char* s);
  * This example will list all the files and directories in the current directory.
  * print_string is not from a library, it is defined in `str.c`.
  */
-void main(void) {
+void main(int argc, char** argv) {
     zos_dir_entry_t entry;
     zos_err_t ret;
+
+    if (argc == 1) {
+        printf("Parameter: %s\n", argv[0]);
+    }
 
     /* Open the current directory */
     zos_dev_t dev = opendir(".");
 
     /* Check if it was a success, abort else */
     if (dev < 0) {
+        ret = -dev;
         goto error;
     }
 
@@ -52,5 +57,5 @@ void main(void) {
     close(dev);
     return;
 error:
-    print_string("An error occurred\n");
+    printf("error %d occurred\n", ret);
 }

@@ -436,7 +436,7 @@
     ;
     ; Parameters:
     ;   BC - File to load and execute. The string must be NULL-terminated and must not cross boundaries.
-    ;   DE - Arguments to give to the program to execute (**not implemented yet**)
+    ;   DE - Argument to give to the program to execute
     ; Returns:
     ;   A - On success, the new program is executed. ERR_FAILURE on failure.
     MACRO  EXEC  _
