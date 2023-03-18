@@ -151,7 +151,7 @@ _zos_zealfs_check_name_next_dir:
 _zos_zealfs_check_next_name_nested:
     push hl
     ; Look for the next '/' or '\0' in the string, maximum length is FS_NAME_LENGTH
-    ld b, FS_NAME_LENGTH
+    ld b, FS_NAME_LENGTH + 1
 _zos_zealfs_next_char:
     ld a, (hl)
     or a
@@ -162,7 +162,7 @@ _zos_zealfs_next_char:
     inc hl
     djnz _zos_zealfs_next_char
     ; The entry name is longer than FS_NAME_LENGTH, no need to continue, it's an error
-    ld a, ERR_NO_SUCH_ENTRY
+    ld a, ERR_INVALID_NAME
     ; B is 0, we can return safely after cleaning the stack
     pop hl
     ret
@@ -1619,4 +1619,3 @@ free_page:
     add 0x86
     ld (RAM_EXE_PAGE_0 + 1), a
     jp RAM_EXE_PAGE_0
-zealfs_end:
