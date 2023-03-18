@@ -8,7 +8,7 @@
 
     ; Trim leading space character from a string pointed by HL
     ; Parameters:
-    ;   HL - NULL-terminated string to trim leading spaces from
+    ;   HL - String to trim leading spaces from
     ;   BC - Length of the string
     ; Returns:
     ;   HL - Address of the non-space character from the string
@@ -33,7 +33,7 @@ _strltrim_loop:
 
     ; Trim trailing space character from a string pointed by HL
     ; Parameters:
-    ;   HL - NULL-terminated string to trim leading spaces from
+    ;   HL - String to trim leading spaces from
     ;   BC - Length of the string
     ; Returns:
     ;   HL - Address of the non-space character from the string
@@ -61,11 +61,14 @@ _strrtrim_end:
     pop hl
     ret
 
-    ; Compare two NULL-terminated strings pointed by HL and DE.
-    ; If they are identical, A will be 0
-    ; If DE is greater than HL, A will be positive
-    ; If HL is greater than DE, A will be negative
-    ;
+    ; Compare two NULL-terminated strings.
+    ; Parameters:
+    ;   HL - First NULL-terminated string address
+    ;   DE - Second NULL-terminated string address
+    ; Returns:
+    ;   A - 0 if strings are identical
+    ;       > 0 if DE is greater than HL
+    ;       < 0 if HL is greater than DE
     ; Alters:
     ;       A
     PUBLIC strcmp
@@ -90,37 +93,16 @@ _strcmp_end:
     pop hl
     ret
 
-    ; Look for a character in a NULL-terminated string.
-    ; Parameter:
-    ;   HL - Source string (must NOT be NULL)
-    ;   A - Delimiter
+
+    ; Same as strcmp, but at most BC bytes will be read.
+    ; Parameters:
+    ;   HL - First NULL-terminated string address
+    ;   DE - Second NULL-terminated string address
+    ;   BC - Maximum number of char to compare
     ; Returns:
-    ;   A - Delimiter if found, 0 if not found
-    ;   HL - Address of the delimiter byte if found, or NULL byte if not found
-    ; Alters:
-    ;   A, HL
-    PUBLIC strchrnul
-strchrnul:
-    push bc
-    ld b, a
-_strchr_loop:
-    ld a, (hl)
-    or a
-    jr z, _strchr_ret
-    cp b
-    inc hl
-    jr nz, _strchr_loop
-_strchr_ret:
-    pop bc
-    ret
-
-
-    ; Compare two NULL-terminated strings pointed by HL and DE.
-    ; At most BC bytes will be read.
-    ; If they are identical, A will be 0
-    ; If DE is greater than HL, A will be positive
-    ; If HL is greater than DE, A will be negative
-    ;
+    ;   A - 0 if strings are identical
+    ;       > 0 if DE is greater than HL
+    ;       < 0 if HL is greater than DE
     ; Alters:
     ;       A
     PUBLIC strncmp
@@ -152,8 +134,34 @@ _strncmp_end:
     pop hl
     ret
 
+
+    ; Look for a character in a NULL-terminated string
+    ; Parameter:
+    ;   HL - Source string address, must NOT be NULL
+    ;   A  - Delimiter
+    ; Returns:
+    ;   A  - Delimiter if found, 0 if not found
+    ;   HL - Address of the delimiter byte if found, or NULL byte if not found
+    ; Alters:
+    ;   A, HL
+    PUBLIC strchrnul
+strchrnul:
+    push bc
+    ld b, a
+_strchr_loop:
+    ld a, (hl)
+    or a
+    jr z, _strchr_ret
+    cp b
+    inc hl
+    jr nz, _strchr_loop
+_strchr_ret:
+    pop bc
+    ret
+
+
     ; Look for the delimiter A in the string pointed by HL
-    ; Once it finds it, the token is replace by \0.
+    ; Once it finds it, the token is replace by \0
     ; Parameters:
     ;       HL - Address of the string
     ;       BC - Size of the string
@@ -164,19 +172,9 @@ _strncmp_end:
     ;       BC - Length of the remaining string
     ;       A - 0 if the delimiter was found, non-null value else
     ; Alters:
-    ;       DE, BC, A
+    ;       A, DE, BC
     PUBLIC memsep
 memsep:
-    IF 0
-    ; BC shall NOT be 0!
-    ; Save A before erasing it
-    ld e, a
-    ld a, b
-    or c
-    ld a, e
-    ret z
-    ENDIF
-
     ld de, hl
     cpir
     ; Regardless whether BC is 0 is not, we have to check the last character
@@ -192,8 +190,9 @@ _memsep_not_set:
     ex de, hl
     ret
 
+
     ; Look for the delimiter A in the string pointed by HL
-    ; Once it finds it, the token is replace by \0.
+    ; Once it finds it, the token is replace by \0
     ; Parameters:
     ;       HL - Address of the string
     ;       A  - Delimiter
@@ -210,6 +209,7 @@ strsep:
     call memsep
     pop bc
     ret
+
 
     ; Calculate the length of a NULL-terminated string
     ; Parameters:
@@ -234,10 +234,10 @@ _strlen_end:
     pop hl
     ret
 
-    ; Function copying src string into dest, including the terminating null byte
+    ; Copy a NULL-terminated string into a given address, including the terminating NULL-byte.
     ; Parameters:
-    ;       HL - src string
-    ;       DE - dst string
+    ;       HL - Source string address
+    ;       DE - Destination address
     ; Alters
     ;       A
     PUBLIC strcpy
@@ -258,6 +258,7 @@ _strcpy_loop:
     pop hl
     ret
 
+
     PUBLIC strcpy_unsaved
 strcpy_unsaved:
     ld a, (hl)
@@ -268,12 +269,12 @@ strcpy_unsaved:
     jp nz, strcpy_unsaved
     ret
 
-    ; Same as strcpy but if src is smaller than the given size,
-    ; the destination buffer will be filled with 0
+    ; Same as strcpy but if the source address is smaller than the given size,
+    ; the destination buffer will be filled with NULL (\0) byte.
     ; Parameters:
-    ;       HL - src string
-    ;       DE - dst string
-    ;       BC - maximum bytes to write
+    ;       HL - Source string address
+    ;       DE - Destination string address
+    ;       BC - Maximum number of bytes to write
     ; Alters:
     ;       A
     PUBLIC strncpy
@@ -314,6 +315,7 @@ _strncpy_zero:
     ; Perform the copy
     ldir
     jp _strncpy_end
+
 
     ; Concatenate two strings by writing at most BC bytes, including NULL byte.
     ; This function will add NULL-terminating byte.
@@ -365,6 +367,7 @@ _strncat_src_null:
     pop hl
     ret
 
+
     ; Convert all characters of the given string to lowercase
     ; Parameters:
     ;       HL - Address of the string to convert
@@ -405,7 +408,8 @@ _strtoupper_end:
     pop hl
     ret
 
-    ; Initialize the memory pointed by HL with the byte passed in A
+
+    ; Initialize the memory pointed by HL with the byte given in E.
     ; Parameters:
     ;       HL - Memory address to initialize
     ;       BC - Size of the memory to initialize
@@ -440,11 +444,11 @@ memset:
     pop hl
     ret
 
+
     ; Parse string into a 16-bit integer. Hexadecimal string can start with
-    ; 0x or $, decimal number start with any
-    ; valid digit
+    ; 0x or $, decimal number start with any valid digit
     ; Parameters:
-    ;       HL - String to parse
+    ;       HL - NULL-terminated string to parse
     ; Returns:
     ;       HL - Parsed value
     ;       A - 0 if the string was parsed successfully
@@ -613,8 +617,7 @@ _parse_not_hex_digit:
 
 
     ;;;;;;;;;;;;;;;;;;; Characters utils ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    ; Subroutine checking that the byte contained in A
-    ; is printable
+    ; Check if character in A is printable
     ; Parameters:
     ;   A - ASCII character
     ; Returns:
@@ -629,8 +632,11 @@ is_print:
     ccf
     ret
 
-    ; Subroutine checking that the byte contained in A
-    ; is alpha numeric [A-Za-z0-9]
+
+    ; Check if character in A is alpha numeric [A-Za-z0-9]
+    ; Parameters:
+    ;   A - ASCII character
+    ; Returns:
     ;   carry flag - Not an alpha numeric
     ;   not carry flag - Is an alpha numeric
     PUBLIC is_alpha_numeric
@@ -639,8 +645,9 @@ is_alpha_numeric:
     ret nc  ; Return on success
     jr is_digit
 
-    ; Subroutine checking that the byte contained in A
-    ; is a letter [A-Za-z]
+    ; Check if character in A is a letter [A-Za-z]
+    ; Parameters:
+    ;   A - ASCII character
     ; Returns:
     ;   carry flag - Not an alpha char
     ;   not carry flag - Is an alpha char
@@ -649,8 +656,10 @@ is_alpha:
     ret nc   ; Return on success
     jr is_upper
 
-    ; Subroutine checking that the byte contained in A
-    ; is a lower case letter [a-z]
+
+    ; Check if character in A is a lower case letter [a-z]
+    ; Parameters:
+    ;   A - ASCII character
     ; Returns:
     ;   carry flag - Not a lower char
     ;   not carry flag - Is a lower char
@@ -661,8 +670,9 @@ is_lower:
     ccf
     ret
 
-    ; Subroutine checking that the byte contained in A
-    ; is an upper case letter [A-Z]
+    ; Check if character in A is an upper case letter [A-Z]
+    ; Parameters:
+    ;   A - ASCII character
     ; Returns:
     ;   carry flag - Not an upper char
     ;   not carry flag - Is an upper char
@@ -673,8 +683,10 @@ is_upper:
     ccf
     ret
 
-    ; Subroutine checking that the byte contained in A
-    ; is a digit [0-9]
+
+    ; Check if character in A is a digit [0-9]
+    ; Parameters:
+    ;   A - ASCII character
     ; Returns:
     ;   carry flag - Not a digit
     ;   not carry flag - Is a digit
@@ -686,8 +698,10 @@ is_digit:
     ccf
     ret
 
-    ; Subroutine checking that the byte contained in A
-    ; is a hex digit [0-9a-fA-F]
+
+    ; Check if character in A is a hex digit [0-9a-fA-F]
+    ; Parameters:
+    ;   A - ASCII character
     ; Returns:
     ;   carry flag - Not a hex digit
     ;   not carry flag - Is a hex digit
@@ -705,8 +719,11 @@ _hex_digit:
     ccf
     ret
 
-    ; Subroutine checking that the byte contained in A
-    ; is a whitespace
+
+    ; Check if character in A is a whitespace
+    ; Parameters:
+    ;   A - ASCII character
+    ; Returns:
     ;   carry flag - Not a whitespace
     ;   not carry flag - Is a whitespace
 is_whitespace:
@@ -721,9 +738,12 @@ is_whitespace:
     scf
     ret
 
+
     ; Subroutine converting a character to a lower case
-    ; Parameter:
-    ;   A - Character to convert
+    ; Parameters:
+    ;   A - ASCII character
+    ; Returns:
+    ;   A - Lower case character on success, same character else
     PUBLIC to_lower
 to_lower:
     cp 'A'
@@ -735,10 +755,12 @@ to_lower:
 _to_lower_not_char:
     ret
 
-    ; Subroutine converting a character to an upper case
+
+    ; Convert an ASCII character to upper case
     ; Parameter:
-    ;   A - Character to convert
+    ;   A - ASCII character
     ; Returns:
+    ;   A - Upper case character on success, same character else
     ;   carry flag - Invalid parameter
     ;   not carry flag - Success
     PUBLIC to_upper
@@ -761,8 +783,8 @@ _to_lower_not_char_ccf:
     ; Parameters:
     ;       A - Value to convert
     ; Returns:
-    ;       D - First character
-    ;       E - Second character
+    ;       D - First ASCII character
+    ;       E - Second ASCII character
     ; Alters:
     ;       A
     PUBLIC byte_to_ascii
