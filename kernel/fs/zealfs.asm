@@ -227,7 +227,8 @@ _zos_zealfs_check_name_driver_read_loop:
     bit FS_OCCUPIED_BIT, a
     jr z, _zos_zealfs_check_name_next_offset
     ld de, RAM_BUFFER  + zealfs_entry_name
-    call strcmp
+    ld bc, FS_NAME_LENGTH
+    call strncmp
     or a
     jr z, _zos_zealfs_check_name_entry_found
 _zos_zealfs_check_name_next_offset:
