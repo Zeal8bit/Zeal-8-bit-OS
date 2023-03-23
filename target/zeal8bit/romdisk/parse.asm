@@ -49,6 +49,10 @@ parse_exec_cmd:
         ld a, ' '
         cp (hl)
         call z, strltrim
+        ; If the remaining length is 0, return directly
+        ld a, b
+        or c
+        ret z
         ; TODO: RTRIM
         ; Store the command in the 1-command history
         ; call save_command_in_history
