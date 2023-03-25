@@ -3,8 +3,8 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
-    IFNDEF VIDEO_TEXT_H
-    DEFINE VIDEO_TEXT__H
+    IFNDEF ZOS_VIDEO_H
+    DEFINE ZOS_VIDEO_H
 
     ; This file represents the minimal interface for a video driver that supports
     ; text mode. It is not mandatory to support all the IOCTL commands presented
@@ -84,4 +84,4 @@
     }
 
 
-    ENDIF ; VIDEO_TEXT_H
+    ENDIF ; ZOS_VIDEO_H
