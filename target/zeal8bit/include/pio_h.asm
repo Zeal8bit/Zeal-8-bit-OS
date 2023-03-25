@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2022 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -12,7 +12,7 @@
     DEFC IO_PIO_DATA_B = 0xd1
     DEFC IO_PIO_CTRL_A = 0xd2
     DEFC IO_PIO_CTRL_B = 0xd3
- 
+
     ; PIO Modes
     DEFC IO_PIO_MODE0 = 0x0f
     DEFC IO_PIO_MODE1 = 0x4f

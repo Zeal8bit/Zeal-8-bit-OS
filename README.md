@@ -20,6 +20,8 @@
   - [Configuring Zeal 8-bit OS](#configuring-zeal-8-bit-os)
   - [Building](#building)
   - [Flashing](#flashing)
+    - [Zeal 8-bit Computer](#zeal-8-bit-computer)
+    - [Generic targets](#generic-targets)
 - [Features overview](#features-overview)
 - [TO DO](#to-do)
 - [Implementation details](#implementation-details)
@@ -38,7 +40,7 @@
   - [File systems](#file-systems)
 - [Supported targets](#supported-targets)
   - [Relation with the kernel](#relation-with-the-kernel)
-  - [Zeal 8-bit Computer](#zeal-8-bit-computer)
+  - [Zeal 8-bit Computer](#zeal-8-bit-computer-1)
   - [Porting to another machine](#porting-to-another-machine)
 - [Version history](#version-history)
 - [Contributing](#contributing)
@@ -85,7 +87,7 @@ The OS is designed to work with an MMU, thus, the target must have 4 swappable v
 
 ## Requirements
 
-At the moment, the project has only been assembled on Linux (Ubuntu 20.04), it should be compatible with Mac OS and Windows as long as you have:
+At the moment, the project has only been assembled on Linux (Ubuntu 20.04 and 22.04), it should be compatible with Mac OS and Windows as long as you have:
 
 * bash
 * git (to clone this repo)
@@ -129,16 +131,31 @@ After compiling, you should see the line:
 OS binary: build/os.bin
 ```
 
-Indicating that the final binary has been created. This binary includes the kernel code, the drivers, and the `romdisk` (more about this below)
+Indicating that the final binary has been created. This binary only includes the kernel code and the drivers.
+
+The file named `os_with_romdisk.img` contains the OS binary with the generated `romdisk` (more about this below)
 
 ## Flashing
 
+### Zeal 8-bit Computer
+
+On Zeal 8-bit Computer, the file to flash is `os_with_romdisk.img` as it also contains the initial program that is executed after the OS finishes booting.
+
+To flash this file, you can use Zeal 8-bit Bootloader, if your board is equipped with it. Check the [bootloader repository](https://github.com/Zeal8bit/Zeal-Bootloader) for more info about it.
+
+Or, you can flash it directly on the 256KB NOR Flash, referenced SST39SF020, thanks to an external flasher, such as the TL866. In that case, you can use [minipro](https://gitlab.com/DavidGriffith/minipro/) program and the following command:
+```
+minipro -w -S -p sst39sf020 build/os_with_romdisk.img
+```
+
+### Generic targets
+
 The binary can be directly flashed to a ROM, to a NOR flash, or any other storage the target computer is using. It can also be used to boot an emulator.
 
-For example, to flash it on an W27C020 (256KB) EEPROM, you can use a TL866xx programmer with `minipro` (https://gitlab.com/DavidGriffith/minipro/) and the following command:
+For example, to flash it on an W27C020 (256KB) EEPROM, you can still use a TL866xx programmer with [minipro](https://gitlab.com/DavidGriffith/minipro/) and the following command:
 
 ```
-minipro -w -S -p w27c020 build/os.bin
+minipro -w -S -p w27c020 build/os_with_romdisk.img
 ```
 
 Of course, this is completely dependent on the target computer.
@@ -180,15 +197,19 @@ The only supported target at the moment is *Zeal 8-bit computer*, the port is no
 There are still some work to do in the project. Some features needs to be development on the kernel side, some things needs to be documented in the project, here is a non-exhaustive list:
 * <s>Generate header files usable by user programs for: syscalls, file entries, directories entries, opening flags, etc..</s> **Done, header files are available in `kernel_headers` directory.**
 * <s>Document clearly what each syscall does</s> **Done, check ASM header file.**
-* <s>A writable file system. Currently, only `rawtable` (more about it below) file system is implemented, which is read-only.</s> ZealFS file system has been implemented, it supports files and directories, and is writable!
+* <s>A writable file system. Currently, only `rawtable` (more about it below) file system is implemented, which is read-only.</s> **ZealFS file system has been implemented, it supports files and directories, and is writable!**
+* Come up with ABI and API for video, TTY, GPIO drivers, etc...
+  * <s>Keyboard API</s> **Done**
+  * <s>Video text API</s> **Done**
+  * GPIO API
+  * Video graphic API
+* Relocatable user programs. It is already possible to generate a relocation table when assembling a program with `z88dk-z80asm`.
+* Refactor the kernel code to have a proper memory module, with better names for the required macros.
+* Make it work with MMU-less targets, and add a configuration option for this.
+* Process all the `TODO` and `FIXME` left in the code.
+* Lift some restrictions that can be avoided, such as having the user's program stack pointer in the last virtual page.
 * List the loaded drivers from a user program.
 * List the available disks from a user program.
-* Refactor the kernel code to have a proper memory module, with better names for the required macros.
-* Come up with ABI and API for video, TTY, GPIO drivers, etc...
-* Relocatable user programs. It is already possible to generate a relocation table when assembling a program with `z88dk-z80asm`.
-* Lift some restrictions that can be avoided, such as having the user's program stack pointer in the last virtual page.
-* Process all the `TODO` and `FIXME` left in the code.
-* Make it work with MMU-less targets, and add a configuration option for this.
 * Implement a software breakpoint with a reset vector.
 * Optimize the code to be smaller and faster.
 * *More things I am forgetting...*
@@ -470,15 +491,16 @@ That script will compile the `init.bin` program and embed it inside a romdisk th
 
 What still needs to be implemented, in no particular order:
 * <s>UART driver</s> **Done**
-* I2C driver (**partially done**)
-  * EEPROM driver (needs ZealFS)
-  * RTC driver
-* GPIO user interface/API
-* Video graphics mode
+* <s>I2C driver</s> **Done**
+  * <s>EEPROM driver</s>
+  * <s>RTC driver</s>
 * Video API
-* SD card support
+  * <s>Text mode</s> **Done** (ABI/API implemented)
+  * Graphic mode
+* GPIO user interface/API
 * Sound support
-* Hardware timers (based on V-blank and H-blank signals)
+* Hardware timers, based on V-blank and H-blank signals
+* *SD card support* (Not implemented in hardware yet)
 
 ## Porting to another machine
 
