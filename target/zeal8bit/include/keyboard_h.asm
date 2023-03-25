@@ -5,6 +5,8 @@
     IFNDEF KEYBOARD_H
     DEFINE KEYBOARD_H
 
+    INCLUDE "drivers/keyboard_h.asm"
+
     ; Macros for keyboard
     DEFC KB_IO_ADDRESS = 0xE8
 
@@ -38,60 +40,6 @@
     DEFC KB_FLAG_CTRL_BIT  = 0x4
     DEFC KB_FLAG_ALT_BIT   = 0x3
     DEFC KB_FLAG_SHIFT_BIT = 0x2
-    DEFC KB_FLAG_BLOCK_BIT = 0x1 ; 1 = non-blocking, 0 = blocking
-    DEFC KB_FLAG_MODE_BIT  = 0x0 ; 1 = raw mode, 0 = cooked mode
-
-    ; Keyboard keycode
-    DEFC KB_NUMPAD_0	  = 0x80
-    DEFC KB_NUMPAD_1	  = 0x81
-    DEFC KB_NUMPAD_2	  = 0x82
-    DEFC KB_NUMPAD_3	  = 0x83
-    DEFC KB_NUMPAD_4	  = 0x84
-    DEFC KB_NUMPAD_5	  = 0x85
-    DEFC KB_NUMPAD_6	  = 0x86
-    DEFC KB_NUMPAD_7	  = 0x87
-    DEFC KB_NUMPAD_8	  = 0x88
-    DEFC KB_NUMPAD_9	  = 0x89
-    DEFC KB_NUMPAD_DOT	  = 0x8a
-    DEFC KB_NUMPAD_ENTER  = 0x8b
-    DEFC KB_NUMPAD_PLUS	  = 0x8c
-    DEFC KB_NUMPAD_MINUS  = 0x8d
-    DEFC KB_NUMPAD_MUL    = 0x8e
-    DEFC KB_NUMPAD_DIV    = 0x8f
-    DEFC KB_NUMPAD_LOCK   = 0x90
-    DEFC KB_SCROLL_LOCK	  = 0x91
-    DEFC KB_CAPS_LOCK	  = 0x92
-    DEFC KB_LEFT_SHIFT	  = 0x93
-    DEFC KB_LEFT_ALT	  = 0x94
-    DEFC KB_LEFT_CTRL	  = 0x95
-    DEFC KB_RIGHT_SHIFT	  = 0x96
-    DEFC KB_RIGHT_ALT	  = 0x97
-    DEFC KB_RIGHT_CTRL	  = 0x98
-    DEFC KB_HOME          = 0x99
-    DEFC KB_END           = 0x9a
-    DEFC KB_INSERT        = 0x9b
-    DEFC KB_DELETE        = 0x9c
-    DEFC KB_PG_DOWN       = 0x9d
-    DEFc KB_PG_UP         = 0x9e
-    DEFC KB_PRINT_SCREEN  = 0x9f
-    DEFC KB_UP_ARROW      = 0xa0
-    DEFC KB_DOWN_ARROW    = 0xa1
-    DEFC KB_LEFT_ARROW    = 0xa2
-    DEFC KB_RIGHT_ARROW   = 0xa3
-    DEFC KB_LEFT_SPECIAL  = 0xa4
-    DEFC KB_ESC		  	  = 0xf0
-    DEFC KB_F1		  	  = 0xf1
-    DEFC KB_F2		  	  = 0xf2
-    DEFC KB_F3		  	  = 0xf3
-    DEFC KB_F4		  	  = 0xf4
-    DEFC KB_F5		  	  = 0xf5
-    DEFC KB_F6		  	  = 0xf6
-    DEFC KB_F7		  	  = 0xf7
-    DEFC KB_F8		  	  = 0xf8
-    DEFC KB_F9		  	  = 0xf9
-    DEFC KB_F10		  	  = 0xfa
-    DEFC KB_F11		  	  = 0xfb
-    DEFC KB_F12		  	  = 0xfc
-    DEFC KB_UNKNOWN		  = 0xff
+    DEFC KB_FLAG_MODE_MASK = 0x3
 
     ENDIF

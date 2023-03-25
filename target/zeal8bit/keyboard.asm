@@ -35,9 +35,40 @@ keyboard_open:
 
 keyboard_write:
 keyboard_seek:
-keyboard_ioctl:
         ld a, ERR_NOT_SUPPORTED
         ret
+
+
+        ; Perform an I/O requested by the user application.
+        ; Parameters:
+        ;       B - Dev number the I/O request is performed on.
+        ;       C - Command number. Driver-dependent.
+        ;       DE - 16-bit parameter, also driver-dependent.
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        ;       DE - Driver dependent, NOT PRESERVED
+        ; Alters:
+        ;       A, BC, DE, HL
+keyboard_ioctl:
+        ld a, c
+        cp KB_CMD_SET_MODE
+        jr nz, _keyboard_invalid_parameter
+        ; Check if the given mode is a valid mode
+        ld a, e
+        cp KB_MODE_COUNT
+        jr nc, _keyboard_invalid_parameter
+        ; Update the flags
+        ld a, (kb_flags)
+        and ~KB_FLAG_MODE_MASK
+        or e
+        ld (kb_flags), a
+        ; Return success
+        xor a
+        ret
+_keyboard_invalid_parameter:
+        ld a, ERR_INVALID_PARAMETER
+        ret
+
 
         ; Read characters from the keyboard
         ; Parameters:
@@ -54,22 +85,16 @@ keyboard_read:
         ld a, b
         or c
         ret z
-        ; Call the right function according to the mode, make the assumption the
-        ; mode is bit 0. If that's not the case, modify the code below
-        ASSERT(KB_FLAG_MODE_BIT == 0)
         ld a, (kb_flags)
-        rrca
+        and KB_FLAG_MODE_MASK
+        cp KB_MODE_RAW
+        jp z, keyboard_read_raw
         ; Read into the internal buffer first
         push de
         push bc
-        jr nc, _keyboard_read_internal_cooked
-        call keyboard_read_raw
-        jr _keyboard_end_copy
-_keyboard_read_internal_cooked:
         call stdout_op_start
         call keyboard_read_cooked
         call stdout_op_end
-_keyboard_end_copy:
         ; Copy the internal buffer to the user buffer
         ; BC contains the size of the filled internal buffer.
         ; DE contains the address of the internal buffer to copy from.
@@ -356,14 +381,61 @@ _keyboard_extended_down_arrow:
         jp _keyboard_read_ignore
 
 
+        ; Read from the keyboard FIFO directly and return the numbers of bytes
+        ; written.
+        ; Parameters:
+        ;       DE - Destination buffer.
+        ;       BC - Size to read in bytes. Guaranteed to be equal to or smaller than 16KB.
+        ;            Bigger than 0.
+        ; Returns:
+        ;       A  - ERR_SUCCESS if success, error code else
+        ;       BC - Number of bytes read.
+        ; Alters:
+        ;       This function can alter any register.
 keyboard_read_raw:
-        ; If we are in blocked mode, we have to fill the FIFO until either
-        ; \n is pressed, either the user's buffer is full.
-        ; In non-blocking mode, it's the same except that if there are no
-        ; more bytes in the FIFO, we can return directly.
-        ; Returns the key pressed in A, B the even (pressed/1 or released/1)
-        ; In cooked mode, we can ignore the released keys, in raw mode,
-        ; we will send them to the user too.
+        call wait_for_character
+        ; To speed up the loop, if B is not 0, set C to 0xff. The keyboard FIFO
+        ; is not that big.
+        ld a, b
+        or b
+        jr z, _keyboard_read_raw_loop
+        ld c, 0xff
+        ; Remaining buffer size is C, written bytes is B
+_keyboard_read_raw_loop:
+        ; There is at least one character in the FIFO, retrieve it
+        push bc
+        call keyboard_next_pressed_key
+        ex de, hl
+        ; Check if it's a release event, if so, we have to add one more character
+        ; in the user buffer.
+        dec b
+        ; Restore original infos
+        pop bc
+        jr nz, _keyboard_read_raw_pressed
+        ld (hl), KB_RELEASED
+        inc hl
+        inc b   ; Increment the number of bytes received
+        dec c   ; Decrement the remaining buffer size
+        jr z, _keyboard_read_raw_loop_end
+_keyboard_read_raw_pressed:
+        ld (hl), a
+        inc hl
+        ; Put back the user buffer in DE as it won't be altered by keyboard_next_pressed_key
+        ex de, hl
+        inc b   ; Increment the number of bytes received
+        ; Check if we still have some bytes in the keyboard FIFO
+        ld a, (kb_fifo_size)
+        or a
+        jr z, _keyboard_read_raw_loop_end
+        dec c   ; Decrement the remaining buffer size
+        jr nz, _keyboard_read_raw_loop
+_keyboard_read_raw_loop_end:
+        ; End of the loop, either because the FIFO is now empty or because the user
+        ; buffer is full.
+        ; Return the size written (B) in BC
+        ld c, b
+        ld b, 0
+        xor a
         ret
 
 
@@ -636,9 +708,6 @@ _keyboard_dequeue_notempty:
 kb_fifo_wr: DEFS 2
 kb_fifo_rd: DEFS 2
 kb_fifo_size: DEFS 1
-        ; Flags for the FIFO, by default, all to 0:
-        ;       Bit 0 - Cooked mode (0) / Raw mode (1)
-        ;       Bit 1 - Blocking (0) / Non-blocking (1)
         ; Check `keyboard_h.asm` file for all flags
 kb_flags: DEFS 1
 kb_internal_buffer: DEFS KEYBOARD_INTERNAL_BUFFER_SIZE

@@ -4,6 +4,7 @@
 
         INCLUDE "zos_sys.asm"
         INCLUDE "zos_video.asm"
+        INCLUDE "zos_keyboard.asm"
 
         DEFC BG_COLOR     = TEXT_COLOR_BLACK
         DEFC CURDIR_COLOR = TEXT_COLOR_LIGHT_GRAY
@@ -33,6 +34,8 @@
         EXTERN parse_exec_cmd
 
 next_command:
+        ; Set STDIN mode to cooked
+        call set_stdin_mode
         ; Set the STDOUT color before printing the directory
         ld e, CURDIR_COLOR
         call set_out_color
@@ -75,8 +78,7 @@ next_command:
 error_current_dir:
         ld de, str_curdir_err
         ld bc, str_curdir_err_end - str_curdir_err
-        call error_print
-        jr err_loop
+        jr call_err_loop
 str_curdir_err:
         DEFM "error getting curdir: "
 str_curdir_err_end:
@@ -84,8 +86,7 @@ str_curdir_err_end:
 error_printing_dir:
         ld de, str_print_err
         ld bc, str_print_err_end - str_print_err
-        call error_print
-        jr err_loop
+        jr call_err_loop
 str_print_err:
         DEFM "error printing: "
 str_print_err_end:
@@ -93,6 +94,7 @@ str_print_err_end:
 error_reading_stdin:
         ld de, str_rdstdin_err
         ld bc, str_rdstdin_err_end - str_rdstdin_err
+call_err_loop:
         call error_print
         jr err_loop
 str_rdstdin_err:
@@ -102,6 +104,22 @@ str_rdstdin_err_end:
 err_loop:
         halt
         jr $
+
+
+        ; Set STDIN mode to cooked
+set_stdin_mode:
+        ld h, DEV_STDIN
+        ld c, KB_CMD_SET_MODE
+        ld e, KB_MODE_COOKED
+        IOCTL()
+        or a
+        ret z
+        ; Error, the target doesn't support RAW mode
+        ld de, _set_stdin_err
+        ld bc, _set_stdin_err_end - _set_stdin_err
+        jr call_err_loop
+_set_stdin_err: DEFM "error stdin mode: "
+_set_stdin_err_end:
 
 
         ; Set the current text color for the standard output

@@ -34,6 +34,7 @@
                 ERR_NOT_A_FILE,
                 ERR_ENTRY_CORRUPTED,
                 ERR_DIR_NOT_EMPTY,
+                ERR_SPECIAL_STATE,  ; Used when a special key is received on the keyboard
                 ; This error code is a special value that can only be used
                 ; by the drivers. It can be returned by the driver's init
                 ; routine in order to tell the kernel to NOT register the
