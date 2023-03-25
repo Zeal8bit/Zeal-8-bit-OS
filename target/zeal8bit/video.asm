@@ -179,6 +179,11 @@ _video_ioctl_get_cursor_xy_no_reset:
         ; Alters:
         ;   A, BC, DE, HL
 _video_ioctl_set_cursor_xy:
+        push de
+        ; Hide the cursor as it is going be to repositioned
+        call video_map_start
+        call video_hide_cursor
+        pop de
         ; Load the maximum Y possible
         ld bc, IO_VIDEO_X_MAX << 8 | IO_VIDEO_Y_MAX
         ; If Y is bigger than IO_VIDEO_Y_MAX, set it to IO_VIDEO_Y_MAX - 1
@@ -227,6 +232,8 @@ _video_ioctl_set_cursor_x_valid:
         ld e, a
         add hl, de
         ld (cursor_pos), hl
+        call video_show_cursor
+        call video_map_end
         ; Success, return 0
         xor a
         ret
@@ -735,8 +742,7 @@ _video_force_adjust_cursor:
         ld hl, IO_VIDEO_VIRT_TEXT_VRAM
         ld (cursor_pos), hl
 _video_scroll_if_needed:
-        call scroll_screen_if_needed
-        jp erase_line
+        jp scroll_screen_if_needed
 
 
         ; Scroll the screen vertically by 1 line if necessary,
@@ -762,7 +768,7 @@ scroll_screen_if_needed:
 _scroll_screen_no_roll:
         ld (scroll_count), a
         out (IO_VIDEO_SCROLL_Y), a
-        ret
+        jp erase_line
 
 
         ; Set the screen scrolling to a particular value
