@@ -175,8 +175,6 @@ _zos_driver_find_by_name_loop:
         jp z, _zos_driver_find_by_name_already_exists
         ; Not the same, try the next one which is on the stack
         ex (sp), hl
-        inc hl
-        inc hl
         ld a, _loaded_drivers_end & 0xff
         cp l
         jp nz, _zos_driver_find_by_name_loop
