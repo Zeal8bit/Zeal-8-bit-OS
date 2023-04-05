@@ -24,7 +24,7 @@
         EXTERN __DRIVER_BSS_size
 
         SECTION KERNEL_TEXT
-        
+
         PUBLIC zos_entry
 zos_entry:
         ; Before setting up the stack, we need to configure the MMU
@@ -124,7 +124,7 @@ _zos_default_init:
 zos_boilerplate:
         INCBIN "version.txt"
         DEFB "\n", 0
-zos_time_warning: DEFM "Time unavailable\n", 0
+zos_time_warning: DEFM "Timer unavailable\n", 0
 zos_date_warning: DEFM "Date unavailable\n", 0
 zos_kernel_ready:
         DEFM "Kernel ready.\nLoading "
