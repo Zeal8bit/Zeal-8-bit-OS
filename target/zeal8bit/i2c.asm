@@ -7,6 +7,7 @@
         INCLUDE "pio_h.asm"
         INCLUDE "i2c_h.asm"
         INCLUDE "interrupt_h.asm"
+        INCLUDE "time_h.asm"
 
         EXTERN zos_sys_remap_de_page_2
         EXTERN zos_date_init
@@ -25,7 +26,7 @@
         ; PIO has been initialized before-hand
 i2c_init:
         ; Initialize the getdate routine, which will communicate with the I2C RTC
-        ld hl, 0        ; No setdate routine at the moment
+        ld hl, i2c_setdate
         ld de, i2c_getdate
         call zos_date_init
 i2c_open:
@@ -214,6 +215,50 @@ _getdate_no_adjust:
         xor a
         ret
 
+
+        ; Set the current date
+        ; Parameters:
+        ;       DE - Address of the date structure to set. Guaranteed not NULL and mapped.
+i2c_setdate:
+        ; Save the user's buffer first
+        push de
+        ; Make it point to the 'seconds'
+        ex de, hl
+        ld bc, DATE_STRUCT_SIZE - 1
+        add hl, bc
+        ex de, hl
+        ; The work buffer is bigger than the date structure, let's use it.
+        ld hl, _driver_buffer
+        ld (hl), 0
+        inc hl
+        ; Get the seconds, remove the highest bit and store it in the buffer
+        ld a, (de)
+        and 0x7f
+        ld (hl), a
+        ; For the rest, do not check anything to simplify the code
+        ld b, c
+        dec b
+_i2c_setdate_loop:
+        inc hl
+        dec de
+        ld a, (de)
+        ld (hl), a
+        djnz _i2c_setdate_loop
+        ; Write bytes on the bus to the specified device
+        ;   A - 7-bit device address
+        ;   HL - Buffer to write on the bus
+        ;   B - Size of the buffer
+        ; Returns:
+        ;   A - 0: Success
+        ;       1: No device responded
+        ;       2: Device stopped responding during transmission (NACK received)
+        ld a, I2C_RTC_ADDRESS
+        ld b, DATE_STRUCT_SIZE + 1
+        ld hl, _driver_buffer
+        call i2c_write_device
+        pop de
+        ret
+
         ; Read bytes from the I2C.
         ; Parameters:
         ;       DE - Destination buffer, smaller than 16KB, not cross-boundary, guaranteed to be mapped.
@@ -252,7 +297,6 @@ i2c_write:
         or e
         jp z, i2c_invalid_param
         ; Write bytes on the bus to the specified device
-        ; Parameters:
         ;   A - 7-bit device address
         ;   HL - Buffer to write on the bus
         ;   B - Size of the buffer
