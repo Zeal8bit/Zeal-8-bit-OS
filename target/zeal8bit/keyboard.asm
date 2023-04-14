@@ -397,7 +397,7 @@ keyboard_read_raw:
         ; To speed up the loop, if B is not 0, set C to 0xff. The keyboard FIFO
         ; is not that big.
         ld a, b
-        or b
+        or a
         jr z, _keyboard_read_raw_loop
         ld c, 0xff
         ; Remaining buffer size is C, written bytes is B
@@ -627,9 +627,15 @@ extended_scan:
         ; Returns:
         ;       None
         ; Alters:
-        ;       A, HL
+        ;       A, D, HL
         PUBLIC keyboard_interrupt_handler
 keyboard_interrupt_handler:
+        ; The kernel RAM may NOT BE MAPPED, we have to map it here
+        MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
+        ; Save former page in D, we need it to restore it
+        ld d, a
+        MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
+        ; Kernel RAM is now available!
         ; In the keyboard interrupt handler, we will retrieve the key that has just been
         ; pressed and put it in our FIFO
         in a, (KB_IO_ADDRESS)
@@ -656,10 +662,18 @@ keyboard_enqueue:
         ; Else, simply increment the size
         inc a
         ld (kb_fifo_size), a
+        ; Restore the original virtual page
+        ld a, d
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
         ret
 _keyboard_queue_next_read:
         ld a, l
         ld (kb_fifo_rd), a
+        ; It is also possible to jump to the snipper of code above that
+        ; does the same thing, but it will only save us 1 or 2 bytes, not worth it
+        ; compared to the time we waste.
+        ld a, d
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
         ret
 
 
