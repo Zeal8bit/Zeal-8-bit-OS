@@ -101,7 +101,8 @@ parse_exec_cmd:
         ;   HL - Command string
         ;   DE - Parameter address
         ;   BC - Length of the remaining string
-        ;   [SP] - AF, A 0 if no parameter
+        ;   [SP]   - AF, A 0 if parameter given, must be popped
+        ;   [SP+2] - Length of the original string, must be popped
 _parse_exec_cmd_dot:
         inc hl
         ld a, (hl)
@@ -111,13 +112,15 @@ _parse_exec_cmd_dot:
         pop af
         or a
         ; If A is not 0, there was no parameter provided, set DE to 0
-        jr z, _parse_exec_cmd_dot_no_param
+        jr z, _parse_exec_cmd_dot_has_param
         ld de, 0
-_parse_exec_cmd_dot_no_param:
+_parse_exec_cmd_dot_has_param:
         ; Try to execute the binary in HL, with the parameter DE
         ld b, h
         ld c, l
         EXEC()
+        ; Pop the original size from the stack
+        pop bc
         ld de, 0
         jp error_print
 
