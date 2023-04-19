@@ -7,27 +7,21 @@
         SECTION TEXT
 
         ; Commands related
+
         DEFC SIZE_COMMAND_ENTRY = 16
         DEFC ENTRYPOINT_SIZE    = 2
         DEFC MAX_COMMAND_NAME   = (SIZE_COMMAND_ENTRY - ENTRYPOINT_SIZE)
-        DEFC MAX_COMMAND_ARGV   = 16  ; Let's fix that we will have at most 50 parameters
+        DEFC MAX_COMMAND_ARGV   = 16
+        MACRO NEW_COMMAND name, entrypoint
+            EXTERN entrypoint
+            DEFS MAX_COMMAND_NAME, name
+            DEFW entrypoint
+        ENDM
 
         EXTERN strlen
         EXTERN strltrim
         EXTERN memsep
         EXTERN strcmp
-
-        EXTERN cd_main
-        EXTERN cp_main
-        EXTERN date_main
-        EXTERN ls_main
-        EXTERN less_main
-        EXTERN mkdir_main
-        EXTERN rm_main
-        EXTERN load_main
-        EXTERN uartsnd_main
-        EXTERN uartrcv_main
-
         EXTERN error_print
 
         ; Parse and execute the command line passed as a parameter.
@@ -354,40 +348,8 @@ save_command_in_history:
         pop hl
         ret
 
-        ; "exec" command main function
-        ; Parameters:
-        ;       HL - ARGV
-        ;       BC - ARGC
-        ; Returns:
-        ;       A - 0 on success
-exec_main:
-        ; Make sure there are exactly two parameters (ignore argc/v for the moment)
-        ld a, c
-        cp 2
-        ret c
-        ; Dereference filename and execute it
-        inc hl
-        inc hl
-        ld c, (hl)
-        inc hl
-        ld b, (hl)
-        inc hl
-        ; Set ARGV to 0
-        ld de, 0
-        dec a
-        dec a
-        jr z, _exec_main_no_param
-        ; We do have an extra parameter!
-        ld e, (hl)
-        inc hl
-        ld d, (hl)
-_exec_main_no_param:
-        EXEC()
-        ld de, 0
-        jp error_print
-
-
         ; Print all the commands available
+        PUBLIC help_main
 help_main:
         S_WRITE3(DEV_STDOUT, help_msg, help_msg_end - help_msg)
         ld a, (system_commands_count)
@@ -419,38 +381,22 @@ help_msg_newline:
     DEFM "\n"
 help_msg_end:
 
-        ; Reset the board
-reset_main:
-        rst 0
-
         SECTION DATA
 system_commands_begin:
-        DEFS MAX_COMMAND_NAME, "cd"
-        DEFW cd_main
-        DEFS MAX_COMMAND_NAME, "cp"
-        DEFW cp_main
-        DEFS MAX_COMMAND_NAME, "date"
-        DEFW date_main
-        DEFS MAX_COMMAND_NAME, "exec"
-        DEFW exec_main
-        DEFS MAX_COMMAND_NAME, "help"
-        DEFW help_main
-        DEFS MAX_COMMAND_NAME, "less"
-        DEFW less_main
-        DEFS MAX_COMMAND_NAME, "load"
-        DEFW load_main
-        DEFS MAX_COMMAND_NAME, "ls"
-        DEFW ls_main
-        DEFS MAX_COMMAND_NAME, "mkdir"
-        DEFW mkdir_main
-        DEFS MAX_COMMAND_NAME, "reset"
-        DEFW reset_main
-        DEFS MAX_COMMAND_NAME, "rm"
-        DEFW rm_main
-        DEFS MAX_COMMAND_NAME, "uartrcv"
-        DEFW uartrcv_main
-        DEFS MAX_COMMAND_NAME, "uartsnd"
-        DEFW uartsnd_main
+        NEW_COMMAND("cd", cd_main)
+        NEW_COMMAND("clear", clear_main)
+        NEW_COMMAND("cp", cp_main)
+        NEW_COMMAND("date", date_main)
+        NEW_COMMAND("exec", exec_main)
+        NEW_COMMAND("help", help_main)
+        NEW_COMMAND("less", less_main)
+        NEW_COMMAND("load", load_main)
+        NEW_COMMAND("ls", ls_main)
+        NEW_COMMAND("mkdir", mkdir_main)
+        NEW_COMMAND("reset", reset_main)
+        NEW_COMMAND("rm", rm_main)
+        NEW_COMMAND("uartrcv", uartrcv_main)
+        NEW_COMMAND("uartsnd", uartsnd_main)
         ; Commands related to I2C
 ;        DEFS MAX_COMMAND_NAME, "i2cdetect"
 ;        DEFW i2cdetect_main
