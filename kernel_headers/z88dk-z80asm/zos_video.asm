@@ -51,6 +51,9 @@
         ;   E - Foreground color
         CMD_SET_COLORS,
 
+        ; Clear the screen and reposition the cursor at the top left.
+        CMD_CLEAR_SCREEN,
+
         ; Number of commands above
         CMD_COUNT
     }

@@ -36,6 +36,9 @@ typedef enum {
      * Check the color enumeration below. */
     CMD_SET_COLORS,
 
+    /* Clear the screen and reposition the cursor at the top left. */
+    CMD_CLEAR_SCREEN,
+
     CMD_COUNT
 } zos_video_cmd_t;
 

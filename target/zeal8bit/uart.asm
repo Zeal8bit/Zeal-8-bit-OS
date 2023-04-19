@@ -118,6 +118,8 @@ uart_ioctl:
         jr z, _uart_ioctl_set_colors
         cp CMD_SET_CURSOR_XY
         jr z, _uart_ioctl_set_cursor
+        cp CMD_CLEAR_SCREEN
+        jp z, _uart_clear_screen
     ENDIF ; CONFIG_TARGET_STDOUT_UART
 
 _uart_ioctl_not_supported:
@@ -186,11 +188,9 @@ _uart_ioctl_set_ansi_color:
         ld l, a
         ld (_uart_esc_seq + 7), hl
         ; Send to sequence to the UART
-        ld a, (_uart_baudrate)
-        ld d, a
         ld hl, _uart_esc_seq
         ld bc, _uart_esc_seq_end - _uart_esc_seq
-        jp uart_send_bytes
+        jp uart_write_hl
         ; It takes less bytes to use 2-byte strings than using BCD
 _colors_table:
         DEFM "16"   ; Black
@@ -250,10 +250,8 @@ _uart_ioctl_set_cursor_y_valid:
         ld (hl), 'f'
         ; Write to the UART
         pop hl
-        ld a, (_uart_baudrate)
-        ld d, a
         ld bc, 8
-        call uart_send_bytes
+        call uart_write_hl
         ld hl, 10
         add hl, sp
         ld sp, hl
@@ -292,6 +290,15 @@ _uart_ioctl_divide_a_loop:
         jr _uart_ioctl_divide_a_loop
 
 
+        ; Clear the screen and reposition the cursor at the top left
+_uart_clear_screen:
+        ; Backup previous escape sequence content
+        ld hl, _uart_clear_str
+        ld bc, _uart_clear_str_end - _uart_clear_str
+        jp uart_write_hl
+_uart_clear_str: DEFM 0x1b, "[2J", 0x1b, "[H"
+_uart_clear_str_end:
+
     ENDIF ; CONFIG_TARGET_STDOUT_UART
 
 
@@ -316,6 +323,7 @@ uart_read:
 uart_write:
         ; Prepare the buffer to send in HL
         ex de, hl
+uart_write_hl:
         ; Put the baudrate in D
         ld a, (_uart_baudrate)
         ld d, a
@@ -625,9 +633,7 @@ stdout_show_cursor:
 _stdout_send_seq:
         push de
         ld bc, _show_cursor_seq_end - _show_cursor_seq
-        ld a, (_uart_baudrate)
-        ld d, a
-        call uart_send_bytes
+        call uart_write_hl
         pop de
         pop bc
         pop hl

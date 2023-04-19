@@ -282,6 +282,63 @@ _video_ioctl_set_colors:
         ret
 
 
+        ; Clear the screen (with current color) and reposition the cursor.
+        ; Parameters:
+        ;   None
+        ; Returns:
+        ;   A - 0 on success
+        ; Alters:
+        ;   A, BC, DE, HL
+_video_ioctl_clear_screen:
+        call video_map_start
+        call video_hide_cursor
+        ; Clear the screen characters by writing 0 to the VRAM text part
+        ld hl, IO_VIDEO_VIRT_TEXT_VRAM
+        ld bc, IO_VIDEO_MAX_CHAR
+        xor a
+        push bc
+        call _video_vram_set
+        ; Clear the attributes/colors part
+        ld a, (chars_color)
+        ld hl, IO_VIDEO_VIRT_TEXT_VRAM + 0x2000
+        pop bc
+        call _video_vram_set
+        ; Screen has been cleared, reset the scrolling value
+        xor a
+        ld (scroll_count), a
+        out (IO_VIDEO_SCROLL_Y), a
+        ; Reset the absolute cursor to position 0
+        ld hl, IO_VIDEO_VIRT_TEXT_VRAM
+        ld (cursor_pos), hl
+        ; Show the cursor
+        ld a, (invert_color)
+        set 5, h
+        ld (hl), a
+        ; Save the new (X,Y) position
+        ld hl, 0
+        ld (cursor_x), hl
+        ; Show the cursor at its new position
+        call video_map_end
+        xor a
+        ret
+
+
+        ; Parameters:
+        ;   HL - Address of the memory to set
+        ;   BC - Size of the memory
+        ;   A - Data to write to it
+_video_vram_set:
+        ld d, a
+_video_vram_set_loop:
+        ld (hl), d
+        inc hl
+        dec bc
+        ld a, b
+        or c
+        jp nz, _video_vram_set_loop
+        ret
+
+
 _video_ioctl_cmd_table:
         DEFW _video_ioctl_get_attr
         DEFW _video_ioctl_get_area
@@ -289,6 +346,7 @@ _video_ioctl_cmd_table:
         DEFW _video_ioctl_set_attr
         DEFW _video_ioctl_set_cursor_xy
         DEFW _video_ioctl_set_colors
+        DEFW _video_ioctl_clear_screen
 
 
         ; Write function, called every time user application needs to output chars
