@@ -74,11 +74,66 @@ typedef enum {
 
 
 /**
- * The following codes represent the special keys of a 104-key keyboard.
- * When the input mode is not set to COOKED, the following keys can be sent to the
- * user program to mark which special keys were pressed (or released).
+ * The following codes represent the keys of a 104-key keyboard that can be detected by
+ * the keyboard driver.
  */
 typedef enum {
+    /* When the input mode is set to RAW, the following keys can be sent to the
+     * user program to mark which keys were pressed (or released). */
+    KB_KEY_A = 'a',
+    KB_KEY_B = 'b',
+    KB_KEY_C = 'c',
+    KB_KEY_D = 'd',
+    KB_KEY_E = 'e',
+    KB_KEY_F = 'f',
+    KB_KEY_G = 'g',
+    KB_KEY_H = 'h',
+    KB_KEY_I = 'i',
+    KB_KEY_J = 'j',
+    KB_KEY_K = 'k',
+    KB_KEY_L = 'l',
+    KB_KEY_M = 'm',
+    KB_KEY_N = 'n',
+    KB_KEY_O = 'o',
+    KB_KEY_P = 'p',
+    KB_KEY_Q = 'q',
+    KB_KEY_R = 'r',
+    KB_KEY_S = 's',
+    KB_KEY_T = 't',
+    KB_KEY_U = 'u',
+    KB_KEY_V = 'v',
+    KB_KEY_W = 'w',
+    KB_KEY_X = 'x',
+    KB_KEY_Y = 'y',
+    KB_KEY_Z = 'z',
+    KB_KEY_0 = '0',
+    KB_KEY_1 = '1',
+    KB_KEY_2 = '2',
+    KB_KEY_3 = '3',
+    KB_KEY_4 = '4',
+    KB_KEY_5 = '5',
+    KB_KEY_6 = '6',
+    KB_KEY_7 = '7',
+    KB_KEY_8 = '8',
+    KB_KEY_9 = '9',
+    KB_KEY_BACKQUOTE = '`',
+    KB_KEY_MINUS = '-',
+    KB_KEY_EQUAL = '=',
+    KB_KEY_BACKSPACE = '\b',
+    KB_KEY_SPACE  = ' ',
+    KB_KEY_ENTER  = '\n',
+    KB_KEY_TAB    = '\t',
+    KB_KEY_COMMA  = ',',
+    KB_KEY_PERIOD = '.',
+    KB_KEY_SLASH  = '/',
+    KB_KEY_SEMICOLON = ';',
+    KB_KEY_QUOTE = 0x27,
+    KB_KEY_LEFT_BRACKET  = '[',
+    KB_KEY_RIGHT_BRACKET = ']',
+    KB_KEY_BACKSLASH = 0x5c,
+
+    /* When the input mode is set to RAW or HALFCOOKED, the following keys can be sent to the
+     * user program to mark which special keys were pressed (or released). */
     KB_NUMPAD_0      = 0x80,
     KB_NUMPAD_1      = 0x81,
     KB_NUMPAD_2      = 0x82,

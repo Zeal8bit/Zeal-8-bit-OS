@@ -56,9 +56,65 @@
     }
 
 
-    ; The following codes represent the special keys of a 104-key keyboard.
-    ; When the input mode is not set to COOKED, the following keys can be sent to the
-    ; user program to mark which special keys were pressed (or released)
+    ; The following codes represent the keys of a 104-key keyboard that can be detected by
+    ; the keyboard driver.
+
+    ; When the input mode is set to RAW, the following keys can be sent to the
+    ; user program to mark which keys were pressed (or released).
+    DEFC KB_KEY_A = 'a'
+    DEFC KB_KEY_B = 'b'
+    DEFC KB_KEY_C = 'c'
+    DEFC KB_KEY_D = 'd'
+    DEFC KB_KEY_E = 'e'
+    DEFC KB_KEY_F = 'f'
+    DEFC KB_KEY_G = 'g'
+    DEFC KB_KEY_H = 'h'
+    DEFC KB_KEY_I = 'i'
+    DEFC KB_KEY_J = 'j'
+    DEFC KB_KEY_K = 'k'
+    DEFC KB_KEY_L = 'l'
+    DEFC KB_KEY_M = 'm'
+    DEFC KB_KEY_N = 'n'
+    DEFC KB_KEY_O = 'o'
+    DEFC KB_KEY_P = 'p'
+    DEFC KB_KEY_Q = 'q'
+    DEFC KB_KEY_R = 'r'
+    DEFC KB_KEY_S = 's'
+    DEFC KB_KEY_T = 't'
+    DEFC KB_KEY_U = 'u'
+    DEFC KB_KEY_V = 'v'
+    DEFC KB_KEY_W = 'w'
+    DEFC KB_KEY_X = 'x'
+    DEFC KB_KEY_Y = 'y'
+    DEFC KB_KEY_Z = 'z'
+    DEFC KB_KEY_0 = '0'
+    DEFC KB_KEY_1 = '1'
+    DEFC KB_KEY_2 = '2'
+    DEFC KB_KEY_3 = '3'
+    DEFC KB_KEY_4 = '4'
+    DEFC KB_KEY_5 = '5'
+    DEFC KB_KEY_6 = '6'
+    DEFC KB_KEY_7 = '7'
+    DEFC KB_KEY_8 = '8'
+    DEFC KB_KEY_9 = '9'
+    DEFC KB_KEY_BACKQUOTE = '`'
+    DEFC KB_KEY_MINUS = '-'
+    DEFC KB_KEY_EQUAL = '='
+    DEFC KB_KEY_BACKSPACE = '\b'
+    DEFc KB_KEY_SPACE  = ' '
+    DEFC KB_KEY_ENTER  = '\n'
+    DEFC KB_KEY_TAB    = '\t'
+    DEFC KB_KEY_COMMA  = ','
+    DEFC KB_KEY_PERIOD = '.'
+    DEFC KB_KEY_SLASH  = '/'
+    DEFC KB_KEY_SEMICOLON = ';'
+    DEFC KB_KEY_QUOTE = 0x27
+    DEFC KB_KEY_LEFT_BRACKET  = '['
+    DEFC KB_KEY_RIGHT_BRACKET = ']'
+    DEFC KB_KEY_BACKSLASH = 0x5c
+
+    ; When the input mode is set to RAW or HALFCOOKED, the following keys can be sent to the
+    ; user program to mark which special keys were pressed (or released).
     DEFC KB_NUMPAD_0      = 0x80
     DEFC KB_NUMPAD_1      = 0x81
     DEFC KB_NUMPAD_2      = 0x82
