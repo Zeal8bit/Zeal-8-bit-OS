@@ -490,3 +490,19 @@ _date_to_ascii_digits:
         inc hl
         inc bc
         ret
+
+
+        ; Check if character in A is printable
+        ; Parameters:
+        ;   A - ASCII character
+        ; Returns:
+        ;   carry flag - Not printable char
+        ;   not carry flag - Is a printable char
+        PUBLIC is_print
+is_print:
+        ; Printable characters are above 0x20 (space) and below 0x7F
+        cp ' '
+        ret c
+        cp 0x7F
+        ccf
+        ret

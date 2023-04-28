@@ -389,6 +389,7 @@ system_commands_begin:
         NEW_COMMAND("date", date_main)
         NEW_COMMAND("exec", exec_main)
         NEW_COMMAND("help", help_main)
+        NEW_COMMAND("hexdump", hexdump_main)
         NEW_COMMAND("less", less_main)
         NEW_COMMAND("load", load_main)
         NEW_COMMAND("ls", ls_main)
