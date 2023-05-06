@@ -22,7 +22,9 @@
         EXTERN strltrim
         EXTERN memsep
         EXTERN strcmp
+        EXTERN strcpy
         EXTERN error_print
+        EXTERN init_static_buffer
 
         ; Parse and execute the command line passed as a parameter.
         ; Parameters:
@@ -75,10 +77,10 @@ parse_exec_cmd:
         pop de
         pop bc
         or a
-        jp z, _process_command_not_found
+        jr z, _process_command_not_found
         ; Prepare the argv (HL) and argc (BC)
         call prepare_argv_argc
-        or a    ; A is not null if an error occurred
+        or a    ; A is not 0 if an error occurred
         jr nz, _process_command_argument_error
         ; Clean the stack
         inc sp
@@ -86,6 +88,10 @@ parse_exec_cmd:
         ; Tail call, for systems commands, no need to have a trampoline,
         ; these functions do nothing special
         jp (ix)
+_process_command_argument_error:
+        pop bc  ; Clean the stack
+        S_WRITE3(DEV_STDOUT, err_msg_parameter, err_msg_parameter_end - err_msg_parameter)
+        ret
 
 
         ; Jump to this routine if the command starts with a '.'
@@ -117,31 +123,78 @@ _parse_exec_cmd_dot_has_param:
         pop bc
         ld de, 0
         jp error_print
-
-
         ; The command is invalid, print an error
 _parse_exec_cmd_not_exec:
         pop af
+        jr _process_command_not_found_error
+
+
+        ; Jump to this label if the command was not found.
+        ; In that case, check if the given command is an absolute path. If not, check if the default driver (A:/),
+        ; which acts as the PATH, contains such binary.
+        ; Parameters:
+        ;       HL   - String containing the command name
+        ;       DE   - Parameter address
+        ;       BC   - Length of the remaining string (parameters)
+        ;       [SP] - Whole command length, including parameters, must be popped
+_process_command_not_found:
+        push hl
+        push bc
+        push de
+        ; Check if the command is already an absolute path
+        ld d, h
+        ld e, l
+        inc de
+        ld a, (de)
+        cp ':'
+        jr nz, _process_command_not_path
+        inc de
+        ld a, (de)
+        cp '/'
+        jr nz, _process_command_not_path
+        ; HL is an absolute path! Try to execute it directly
+        ld b, h
+        ld c, l
+        jp _process_command_try_exec
+_process_command_not_path:
+        ; Try to execute A:/command_name, HL contains the command string
+        ex de, hl
+        ld hl, init_static_buffer
+        ld (hl), 'A'
+        inc hl
+        ld (hl), ':'
+        inc hl
+        ld (hl), '/'
+        inc hl
+        ex de, hl
+        call strcpy
+        ld bc, init_static_buffer
+_process_command_try_exec:
+        pop de  ; pop parameters from the stack
+        EXEC()
+        ; If we return from this syscall, an error occurred, get back the parameters and
+        ; print the first error
+        pop bc
+        pop hl
+        ; Fall-through
+
         ; Print the command and an error saying we haven't found this command
         ; Parameters:
-        ;       HL - String containing the command name
-        ;       BC - Length of the string
-_process_command_not_found:
+        ;       HL   - String containing the command name
+        ;       BC   - Length of the remaining string (parameters)
+        ;       [SP] - Whole command length, including parameters, must be popped
+_process_command_not_found_error:
         ; Retrieve the length of the whole command line from the stack, only get
         ; the length of the command name
         ex de, hl ; name in DE
         pop hl    ; whole command length
-        ; Carry flag is always 0 when entering this branch
+        or a
         sbc hl, bc
         ; Put the length in BC
         ld b, h
         ld c, l
         S_WRITE1(DEV_STDOUT)
         S_WRITE3(DEV_STDOUT, err_msg_not_found, err_msg_not_found_end - err_msg_not_found)
-        ret
-_process_command_argument_error:
-        pop bc  ; Clean the stack
-        S_WRITE3(DEV_STDOUT, err_msg_parameter, err_msg_parameter_end - err_msg_parameter)
         ret
 
 

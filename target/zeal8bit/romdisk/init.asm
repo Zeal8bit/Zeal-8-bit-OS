@@ -28,7 +28,7 @@
 
         MACRO ERR_CHECK goto_label
                 or a
-                jp nz, goto_label
+                jr nz, goto_label
         ENDM
 
         EXTERN parse_exec_cmd
