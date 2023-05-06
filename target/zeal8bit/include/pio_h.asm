@@ -73,7 +73,7 @@
     ; Only H_BLANK, V_BLANK and KEYBOARD pins are monitored, but let's keep
     ; h_blank interrupts disabled, else, it would be too frequent.
     ; NOTE: 0 means monitored!
-    DEFC IO_PIO_SYSTEM_INT_MASK = ~((1 << IO_KEYBOARD_PIN) | (1 << IO_VBLANK_PIN)) & 0xff
-    ; DEFC IO_PIO_SYSTEM_INT_MASK = ~(1 << IO_KEYBOARD_PIN) & 0xff
+    ; DEFC IO_PIO_SYSTEM_INT_MASK = ~((1 << IO_KEYBOARD_PIN) | (1 << IO_VBLANK_PIN)) & 0xff
+    DEFC IO_PIO_SYSTEM_INT_MASK = ~(1 << IO_KEYBOARD_PIN) & 0xff
 
     ENDIF
