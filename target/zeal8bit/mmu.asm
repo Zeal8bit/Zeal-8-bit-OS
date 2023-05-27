@@ -27,6 +27,7 @@
     ;   B - Number of the newly allocated page (which can be passed to MMU_SET_PAGE_NUMBER)
     ; Alters:
     ;   A, HL, BC
+    ; Must not alter DE!
     PUBLIC  mmu_alloc_page
 mmu_alloc_page:
     xor a   ; If bitmask is 0, then all pages are allocated
@@ -122,7 +123,7 @@ mmu_mark_page_free:
     ; Parameters:
     ;   A - RAM page index/number to change state
     ;   C - 0x86 = Reset bit (allocated)
-    ;       0xC6 = Set bit (freed) 
+    ;       0xC6 = Set bit (freed)
 mmu_mark_page:
     ld b, a
     ; Divide A by 8
@@ -155,7 +156,7 @@ mmu_mark_page_fast:
     ; The other opcodes have been initialized already.
     or c
     ld (mmu_ram_code_bit), a
-    ; TODO: Check that the bit has the opposite value, i.e. free when allocating it 
+    ; TODO: Check that the bit has the opposite value, i.e. free when allocating it
     ;       and allocated when freeing it
     ; Tail-call, prepare the A = ERR_SUCCESS
     xor a

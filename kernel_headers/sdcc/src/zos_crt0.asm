@@ -45,6 +45,8 @@ init:
 _init_parameter_no_parameter:
     ; If HL is 0, it means argc will be 0, no need to care about DE
     call _main
+    ; Main returns an int (16-bit) in DE, but `_exit` expects a byte (8-bit) in A
+    ld a, e
     jp _exit
 
 

@@ -89,7 +89,7 @@
         and 3
     ENDM
 
-    ; Macro used to map the kernel RAM into the specified virtual page 
+    ; Macro used to map the kernel RAM into the specified virtual page
     MACRO MMU_MAP_KERNEL_RAM page
         ASSERT(page >= MMU_PAGE_0 && page <= MMU_PAGE_3)
         ; For some reasons, z88dk doesn't allow us to call another macro is a macro...
@@ -105,9 +105,13 @@
     ENDM
 
     ; Free a previously allocated page
-    ; Must not alter HL, DE
-    MACRO MMU_FREE_PAGE page
-        ld a, page
+    ; Parameters:
+    ;   A - Page to free (abstract value returned by MMU_ALLOC_PAGE)
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    ; Alters:
+    ;   Must not alter DE
+    MACRO MMU_FREE_PAGE _
         call mmu_free_page
     ENDM
 

@@ -17,9 +17,18 @@ zos_err_t print_string(const char* s);
  * This example will list all the files and directories in the current directory.
  * print_string is not from a library, it is defined in `str.c`.
  */
-void main(int argc, char** argv) {
+int main(int argc, char** argv) {
     zos_dir_entry_t entry;
     zos_err_t ret;
+
+    uint8_t retval = 0;
+    const char* arg[] = { "A:/code.asm B:/code.bin", NULL };
+    ret = exec(EXEC_PRESERVE_PROGRAM, "A:/zealasm.bin", arg, NULL);
+    if (ret != ERR_SUCCESS) {
+        printf("Error occurred in exec\n");
+    } else {
+        printf("Value returned: %d\n", retval);
+    }
 
     if (argc == 1) {
         printf("Parameter: %s\n", argv[0]);
@@ -55,7 +64,9 @@ void main(int argc, char** argv) {
 
     /* Close the opened directory */
     close(dev);
-    return;
+    return 0;
+
 error:
     printf("error %d occurred\n", ret);
+    return 1;
 }
