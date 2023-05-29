@@ -3,14 +3,19 @@ SHELL := /bin/bash
 # Specify the files to compile and the name of the final binary
 SRCS=main.c str.c
 BIN=example.bin
+
 # Directory where source files are and where the binaries will be put
 INPUT_DIR=src
 OUTPUT_DIR=bin
+
 # Include directory containing Zeal 8-bit OS header files.
-ZOS_INCLUDE=../../sdcc/include/
+ifndef ZOS_PATH
+$(error "Please define ZOS_PATH environment variable. It must point to Zeal 8-bit OS source code path.")
+endif
+ZOS_INCLUDE=$(ZOS_PATH)/kernel_headers/sdcc/include/
 # Regarding the linking process, we will need to specify the path to the crt0 REL file.
 # It contains the boot code for C programs as well as all the C functions performing syscalls.
-CRT_REL=../../sdcc/bin/zos_crt0.rel
+CRT_REL=$(ZOS_PATH)/kernel_headers/sdcc/bin/zos_crt0.rel
 
 
 # Compiler, linker and flags related variables
@@ -20,7 +25,7 @@ CC=sdcc
 CFLAGS=-mz80 -c --codeseg TEXT -I$(ZOS_INCLUDE)
 LD=sdldz80
 # Make sure the whole program is relocated at 0x4000 as request by Zeal 8-bit OS.
-LDFLAGS=-n -mjwx -i -b _HEADER=0x4000 $(SDLD_FLAGS) -k ../../sdcc/lib -l z80
+LDFLAGS=-n -mjwx -i -b _HEADER=0x4000 $(SDLD_FLAGS) -k $(ZOS_PATH)/kernel_headers/sdcc/lib -l z80
 # Binary used to convert ihex to binary
 OBJCOPY=objcopy
 
