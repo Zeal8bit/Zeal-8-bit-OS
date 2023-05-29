@@ -8,6 +8,7 @@
     ; This file MUST be the first one when compiling any C file for Zeal 8-bit OS.
     .module crt0
     .globl _main
+    .globl _fflush_stdout
     .globl _exit
     .globl l__DATA
     .globl s__DATA
@@ -45,6 +46,11 @@ init:
 _init_parameter_no_parameter:
     ; If HL is 0, it means argc will be 0, no need to care about DE
     call _main
+    ; DE is main's returned value, save it to pass it to _exit routine
+    ; Flush the output buffer before exiting
+    push de
+    call _fflush_stdout
+    pop de
     jp _exit
 
 

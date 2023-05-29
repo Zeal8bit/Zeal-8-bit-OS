@@ -579,6 +579,27 @@ _putchar_error:
     ret
 
 
+    ; int fflush_stdout(void);
+    ; Flush stdout if its buffer is not empty.
+    ; Parameters:
+    ;   None
+    ; Returns:
+    ;   DE - 0 upon completion, EOF in case of error
+_fflush_stdout:
+    ; If we have nothing in the buffer, there is nothing to flush
+    ld a, (#_putchar_idx)
+    or a
+    ret z
+    ; Set BC to the size of the buffer while setting A to the new index: 0
+    ld c, a
+    xor a
+    ld b, a
+    ; Return value in DE will be kept, set it to 0
+    ld d, a
+    ld e, a
+    jr _putchar_flush
+
+
     .area _BSS
 _getchar_idx:
     .ds 1

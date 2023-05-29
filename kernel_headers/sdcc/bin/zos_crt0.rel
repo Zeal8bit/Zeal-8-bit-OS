@@ -1,5 +1,5 @@
 XL3
-H D areas 23 global symbols
+H D areas 24 global symbols
 M crt0
 S l__DATA Ref000000
 S _main Ref000000
@@ -11,12 +11,12 @@ S s__INITIALIZED Ref000000
 S l__INITIALIZER Ref000000
 S s__INITIALIZER Ref000000
 A _CODE size 0 flags 0 addr 0
-A _HEADER size 1A flags 0 addr 0
+A _HEADER size 1F flags 0 addr 0
 A _GSINIT size 30 flags 0 addr 0
 A _GSFINAL size 1 flags 0 addr 0
 A _INITIALIZER size 0 flags 0 addr 0
 A _HOME size 0 flags 0 addr 0
-A _SYSTEM size 12F flags 0 addr 0
+A _SYSTEM size 13B flags 0 addr 0
 S _exec Def00008F
 S _seek Def00003B
 S _setdate Def0000BF
@@ -34,6 +34,7 @@ S _msleep Def0000A3
 S _dup Def00009D
 S _curdir Def00006C
 S _chdir Def000067
+S _fflush_stdout Def00012F
 S _close Def00002B
 S _mkdir Def000062
 S _readdir Def000076
@@ -57,8 +58,8 @@ T 0D 00 00 00 00 39 11 01 00 EB
 R 00 00 01 00
 T 14 00 00
 R 00 00 01 00
-T 14 00 00 CD 00 00 C3 8B 00
-R 00 00 01 00 02 04 01 00 00 07 06 00
+T 14 00 00 CD 00 00 D5 CD 2F 01 D1 C3 8B 00
+R 00 00 01 00 02 04 01 00 00 08 06 00 00 0C 06 00
 T 00 00 00
 R 00 00 02 00
 T 00 00 00 78 B1 C8 36 00 0B 78 B1 C8 54 5D 13 ED
@@ -223,6 +224,10 @@ T 2B 01 00
 R 00 00 06 00
 T 2B 01 00 11 FF FF C9
 R 00 00 06 00
+T 2F 01 00
+R 00 00 06 00
+T 2F 01 00 3A 52 00 B7 C8 4F AF 47 57 5F 18 E2
+R 00 00 06 00 00 04 0A 00
 T 00 00 00
 R 00 00 0A 00
 T 00 00 00
