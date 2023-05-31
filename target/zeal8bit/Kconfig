@@ -54,6 +54,27 @@ menu "Zeal 8-bit Computer configuration"
                 Use the UART driver as the standard output.
     endchoice
 
+
+    choice TARGET_KEYBOARD_LAYOUT
+        prompt "PS/2 Keyboard layout"
+        default TARGET_KEYBOARD_QWERTY
+        help
+            Choose the layout for the PS/2 keyboard.
+
+        config TARGET_KEYBOARD_QWERTY
+            bool
+            prompt "Qwerty"
+            help
+                Use standard QWERTY layout.
+
+        config TARGET_KEYBOARD_DVORAK
+            bool
+            prompt "Dvorak"
+            help
+                Use Dvorak layout.
+    endchoice
+
+
     config TARGET_UART_SET_MONITOR_SIZE
         bool
         prompt "Resize host monitor to 80x40"
