@@ -25,7 +25,7 @@
     ; program space is accessible in Read/Write/Execute.
     .area _HEADER
 init:
-    ; The kernel fills DE and BC with a parameter address and its size respectively.
+    ; The kernel fills DE and BC with a NULL-terminated string address and its size respectively.
     push de
     push bc
     call init_globals

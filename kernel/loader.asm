@@ -253,12 +253,12 @@ zos_loader_exec_internal:
         sbc hl, bc
         ex de, hl
         ; Re-use the file stat RAM area to store the parameters before remapping the last page
-        inc bc
         ld (_file_stats), de
         ld (_file_stats + 2), bc
         ; Map the program at the same location as the Kernel RAM, DO NOT ACCESS RAM NOW
         ld a, (_allocate_pages + 2)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
+        inc bc ; Copy NULL-byte too
         ldir
         MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
         ; The parameters to send to the program have already been saved,

@@ -31,7 +31,7 @@ void exit(void) CALL_CONV;
  * @brief Load and execute a program from a file name given as a parameter.
  *        The program will cover the current program, replacing it completely.
  *
- * @param name Name of the executable to execute
+ * @param name Name of the binary to execute.
  * @param argv Arguments to give to the program to execute. Currently, only
  *             the first one will be passed to the kernel. Can be NULL.
  *
