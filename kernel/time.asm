@@ -213,7 +213,9 @@ _zos_date_check_bc_call_hl:
         ret z
         ; DE should be remapped if pointing to user's stack area
         push de
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_de_page_2
+    ENDIF
         ; Save the registers that shall not be modified
         push bc
         CALL_HL()

@@ -25,10 +25,18 @@ menu "Zeal 8-bit Computer configuration"
             the kernel and the romdisk. For example, if kernel is meant to be flashed at 0x4000 and the romdisk at 0x8000,
             the latter will be at a distance of <romdisk_address> - <kernel_entry> = 0x4000 bytes from the kernel entry.
 
+    config KERNEL_TARGET_HAS_MMU
+        bool "Enable MMU support in the kernel"
+        help
+            Let the kernel be aware that an MMU is present or not. This value must be enabled to have full support for Zeal 8-bit
+            Computer target.
+            Disable this option to test no-MMU kernel. Video driver will be disabled, standard output will be done through UART.
+
     config TARGET_ENABLE_VIDEO
         bool
-        prompt "Enable video driver"
-        default "y"
+        prompt "Enable video driver" if KERNEL_TARGET_HAS_MMU
+        default "y" if KERNEL_TARGET_HAS_MMU
+        default "n" if !KERNEL_TARGET_HAS_MMU
         help
             Import the video driver in the kernel compilation. If this option is disabled, the UART will become the default
             standard output.

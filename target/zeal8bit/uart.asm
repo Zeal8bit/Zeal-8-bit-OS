@@ -65,6 +65,12 @@ uart_init:
         ld hl, this_struct
         call zos_vfs_set_stdout
 
+      IF !CONFIG_KERNEL_TARGET_HAS_MMU
+        EXTERN zos_log_warning
+        ld hl, _no_mmu_msg
+        call zos_log_warning
+      ENDIF
+
     ENDIF ; CONFIG_TARGET_STDOUT_UART
 
         ; Currently, the driver doesn't need to do anything special for open, close or de-init
@@ -75,6 +81,8 @@ uart_deinit:
         xor a
         ret
 
+
+    IF CONFIG_TARGET_STDOUT_UART
         ; At init, set the whole screen to black background and
         ; and foreground color to white.
 _init_sequence:
@@ -89,6 +97,11 @@ _init_sequence:
                 DEFM "m", 0x1b, "[H", 0x1b, "[2J"
 _init_sequence_end:
 
+      IF !CONFIG_KERNEL_TARGET_HAS_MMU
+_no_mmu_msg: DEFM "no-MMU Kernel build\n", 0
+      ENDIF ; !CONFIG_KERNEL_TARGET_HAS_MMU
+
+    ENDIF ; CONFIG_TARGET_STDOUT_UART
 
         ; Perform an I/O requested by the user application.
         ; For the UART, the command number lets us set the baudrate for receiving and sending.
@@ -145,8 +158,10 @@ _uart_ioctl_valid:
     IF CONFIG_TARGET_STDOUT_UART
 
 _uart_ioctl_get_area:
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; Remap DE to page 2 if it was in page 3
         call zos_sys_remap_de_page_2
+    ENDIF
         ; Let's say that the text area is 80x40
         ld hl, (80 << 8) | 40
         ex de, hl

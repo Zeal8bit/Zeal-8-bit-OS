@@ -27,21 +27,24 @@
 
         PUBLIC zos_entry
 zos_entry:
-        ; Before setting up the stack, we need to configure the MMU
-        ; this must be a macro and not a function as the SP has not been set up yet
+        ; Before setting up the stack, we need to configure the MMU.
+        ; This must be a macro and not a function as the SP has not been set up yet.
+        ; This is also valid for no-MMU target that need to set up the memory beforehand.
+        ; Let's keep the same macro name to simplify things.
         MMU_INIT()
 
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; Map the kernel RAM to the last virtual page
         MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
+    ENDIF
 
         ; Set up the stack pointer
         ld sp, CONFIG_KERNEL_STACK_ADDR
 
         ; If a hook has been installed for cold boot, call it
-        IF CONFIG_KERNEL_COLDBOOT_HOOK
-        EXTERN target_coldboot
+    IF CONFIG_KERNEL_COLDBOOT_HOOK
         call target_coldboot
-        ENDIF
+    ENDIF
 
         ; Kernel RAM BSS shall be wiped now
         ld hl, __KERNEL_BSS_head

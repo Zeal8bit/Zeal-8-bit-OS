@@ -1,5 +1,14 @@
 menu "Kernel configuration"
 
+        config KERNEL_TARGET_HAS_MMU
+                bool "Enable MMU support in the kernel"
+                default n
+                help
+                        Boolean to mark whether the target has an MMU/Memory Mapper. If this option is selected,
+                        the target needs to have a memory mapping organized as 4 pages of 16KB. Each page can be
+                        mapped to any 16KB of physical address space.
+                        As such, when enabled, the target must implement an `mmu_h.asm` interface.
+
         config KERNEL_REPRODUCIBLE_BUILD
                 bool "Generate a reproducible binary"
                 default n
@@ -9,13 +18,27 @@ menu "Kernel configuration"
                         like build time will be excluded from the binary.
 
         config KERNEL_STACK_ADDR
-                hex "Kernel Stack virtual address"
+                hex "Kernel stack virtual address"
                 default 0xFFFF
                 range 0x0000 0xFFFF
                 help
                         After initializing the MMU, the kernel will set the Stack Pointer (SP).
-                        This value defines the top of the stack in the virtual memory.
-                        This address must point to RAM.
+                        This value defines the top of the stack in the virtual memory. It is highly
+                        advised to use the top of the usable RAM.
+                        If the kernel has MMU support, this value will also be the user stack address.
+                        Else, the user stack address will be KERNEL_BSS address minus 1.
+
+        config KERNEL_RAM_START
+                hex
+                prompt "Kernel RAM start address" if !KERNEL_TARGET_HAS_MMU
+                default 0xC000
+                range 0x0000 0xFFFF
+                help
+                        When the kernel has no MMU support, this value must be set to beginning of the kernel usable RAM.
+                        This space ends at KERNEL_STACK_ADDR. It will containt he BSS, drivers RAM and kernel stack.
+                        The user programs stack will be set the the KERNEL_RAM_START - 1.
+                        When the kernel has MMU support, this is not required as the kernel will take a whole a whole
+                        virtual page: 16KB.
 
         config KERNEL_COLDBOOT_HOOK
                 bool "Hook routine at coldboot"

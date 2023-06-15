@@ -1,6 +1,7 @@
 ; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
 ;
 ; SPDX-License-Identifier: Apache-2.0
+        INCLUDE "osconfig.asm"
 
         ; Code and read-only data
         SECTION RST_VECTORS
@@ -24,7 +25,7 @@
 
         ; RAM data
         SECTION KERNEL_BSS
-        ORG 0xC000
+        ORG CONFIG_KERNEL_RAM_START
         SECTION DRIVER_BSS
         SECTION DRIVER_BSS_ALIGN16
         ; MMU is initialized before the kernel erases the BSS, thus we cannot

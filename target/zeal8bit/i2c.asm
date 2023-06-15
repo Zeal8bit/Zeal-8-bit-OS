@@ -77,11 +77,13 @@ _i2c_ioctl_set_addr:
         ret
 
 _i2c_ioctl_write_read:
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; In the case of ioctl, we know that after returning, we will almost directly
         ; return to the user space, where its virtual pages will be reset. As such, we
         ; don't need to save the current MMU pages here and restore them.
         ; Let's just map the parameter address (DE)
         call zos_sys_remap_de_page_2
+    ENDIF
         ; Now DE is accessible for sure
         ; Dereference the size of the write and read buffers respectively
         ex de, hl

@@ -58,6 +58,7 @@ romdisk_close:
         ;            DRIVER_OP_NO_OFFSET  (1) if the stack is clean, nothing to pop.
         ;       DE - Destination buffer.
         ;       BC - Size to read in bytes. Guaranteed to be equal to or smaller than 16KB.
+        ;            TODO: Not guaranteed in the case of no-MMU configuration anymore...
         ;
         ;       ! IF AND ONLY IF A IS 0: !
         ;       Top of stack: 32-bit offset. MUST BE POPPED IN THIS FUNCTION.

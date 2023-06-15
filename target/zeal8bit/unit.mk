@@ -1,6 +1,13 @@
 INCLUDES := ./ ./include
 
-SRCS := pio.asm i2c.asm keyboard.asm romdisk.asm mmu.asm interrupt_vect.asm eeprom.asm
+# Let's make zeal8bit target compatible with no-mmu. It will still use the MMU but the kernel will not be
+# aware of it, it will only be used within the drivers
+ifdef CONFIG_KERNEL_TARGET_HAS_MMU
+	MMU_FILE = mmu.asm
+endif
+
+# Add the source files that are common to MMU and no-MMU configuration
+SRCS := pio.asm i2c.asm keyboard.asm romdisk.asm $(MMU_FILE) interrupt_vect.asm eeprom.asm
 
 # Add the suffix "_romdisk" to the full binary name
 FULLBIN_W_ROMDISK = $(basename $(FULLBIN))_with_romdisk.img

@@ -11,9 +11,12 @@
         INCLUDE "utils_h.asm"
         INCLUDE "strutils_h.asm"
 
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         EXTERN zos_sys_remap_bc_page_2
         EXTERN zos_sys_remap_de_page_2
         EXTERN zos_sys_remap_user_pages
+    ENDIF
+
         EXTERN zos_driver_find_by_name
         EXTERN zos_log_stdout_ready
 
@@ -155,7 +158,9 @@ _zos_vfs_invalid_parameter:
 zos_vfs_open:
         push bc
         push de
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_bc_page_2
+    ENDIF
         call zos_vfs_open_internal
         pop de
         pop bc
@@ -300,7 +305,9 @@ _zos_vfs_open_driver:
         PUBLIC zos_vfs_read_internal
 zos_vfs_read:
         push de
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_de_page_2
+    ENDIF
         call zos_vfs_read_internal
         pop de
         ret
@@ -309,11 +316,13 @@ zos_vfs_read:
 zos_vfs_read_internal:
         call zos_vfs_get_entry
         ret nz
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; Check if the buffer and the size are valid, in other words, check that the
         ; size is less or equal to a page size and BC+size doesn't cross page boundary
         call zos_check_buffer_size
         or a
         ret nz
+    ENDIF
         ; Check if the opened dev is a file/directory
         call zos_disk_is_opn_filedir
         ; HL, DE and BC are valid, tail-call to zos_disk_read
@@ -343,7 +352,9 @@ zos_vfs_read_internal:
         PUBLIC zos_vfs_write
 zos_vfs_write:
         push de
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_de_page_2
+    ENDIF
         call zos_vfs_write_internal
         pop de
         ret
@@ -351,9 +362,11 @@ zos_vfs_write_internal:
         ; We use the same flow as the one for the read function
         call zos_vfs_get_entry
         ret nz
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_check_buffer_size
         or a
         ret nz
+    ENDIF
         ; Check if the opened dev is a file or a driver
         call zos_disk_is_opn_filedir
         ; Tail-call to zos_disk_write as the stack is clean
@@ -434,7 +447,9 @@ zos_vfs_dstat:
         ; Parameter is valid, remap if necessary, and stat
         push de
         push bc
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_de_page_2
+    ENDIF
         call zos_vfs_dstat_internal
         pop bc
         pop de
@@ -471,9 +486,11 @@ zos_vfs_stat:
         ; File dev in H, save it on the stack
         ld h, a
         push hl
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; Open may have moved MMU pages around (if BC was in the last virt page)
         ; So we must restore the second and third page first
         call zos_sys_remap_user_pages
+    ENDIF
         call zos_vfs_dstat
         pop hl
         ; No matter what the return value is, we have to save it to return it
@@ -603,7 +620,9 @@ zos_vfs_chdir:
         push de
         push bc
         ; Remap the user's buffer if necessary.
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_de_page_2
+    ENDIF
         call _zos_vfs_chdir_internal
         pop bc
         pop de
@@ -698,7 +717,9 @@ zos_vfs_curdir:
         push de
         push bc
         ; Remap the user buffer if necessary
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_de_page_2
+    ENDIF
         ; Copy the current dir to the buffer
         ld hl, _vfs_current_dir
         ld bc, CONFIG_KERNEL_PATH_MAX
@@ -726,7 +747,9 @@ zos_vfs_curdir:
 zos_vfs_opendir:
         push de
         push bc
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_de_page_2
+    ENDIF
         call zos_vfs_opendir_internal
         pop bc
         pop de
@@ -822,7 +845,9 @@ _zos_vfs_neg_ret:
 zos_vfs_readdir:
         push de
         push bc
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_de_page_2
+    ENDIF
         call _zos_vfs_readdir_internal
         pop bc
         pop de
@@ -831,12 +856,14 @@ _zos_vfs_readdir_internal:
         ; Get the opened dev address out of the H dev descriptor
         call zos_vfs_get_entry
         ret nz
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; Check if the buffer and the size are valid, in other words, check that the
         ; size is less or equal to a page size and BC+size doesn't cross page boundary
         ld bc, DISKS_DIR_ENTRY_SIZE
         call zos_check_buffer_size
         or a
         ret nz
+    ENDIF
         ; Check if the opened dev is a dir or not
         call zos_disk_is_opndir
         ret nz
@@ -948,7 +975,9 @@ zos_call_disk_with_realpath:
         push de
         push bc
         ; Remap the user's buffer if necessary.
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_sys_remap_de_page_2
+    ENDIF
         call _zos_call_disk_realpath
         pop bc
         pop de
@@ -1132,6 +1161,11 @@ _zos_vfs_invalid_flags:
         ld a, ERR_BAD_MODE
         ret
 
+
+    ; TODO: Should no-MMU targets react the same way to parameters crossing boundaries?
+    ;       If yes, all user programs will be compatible on both MMU/no-MMU kernels,
+    ;       if no, some user programs may only work on MMU-less targets...
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; Check that a buffer address and its size are valid.
         ; They are valid if the size is less or equal to an MMU page size, and if
         ; the buffer doesn't cross the page-boundary
@@ -1170,6 +1204,7 @@ zos_check_buffer_size_invalidparam:
         pop hl
         ld a, ERR_INVALID_PARAMETER
         ret
+    ENDIF ; CONFIG_KERNEL_TARGET_HAS_MMU
 
         ; Find an empty entry in the _dev_table
         ; Parameters:

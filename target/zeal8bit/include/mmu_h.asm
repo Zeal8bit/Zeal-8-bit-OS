@@ -89,7 +89,7 @@
         and 3
     ENDM
 
-    ; Macro used to map the kernel RAM into the specified virtual page 
+    ; Macro used to map the kernel RAM into the specified virtual page
     MACRO MMU_MAP_KERNEL_RAM page
         ASSERT(page >= MMU_PAGE_0 && page <= MMU_PAGE_3)
         ; For some reasons, z88dk doesn't allow us to call another macro is a macro...
@@ -111,6 +111,8 @@
         call mmu_free_page
     ENDM
 
+ IF CONFIG_KERNEL_TARGET_HAS_MMU
+
     MACRO MMU_INIT _
         ; Map Kernel RAM now and initialize the allocation bitmap
         ; z88dk doesn't support using a macro in a macro, when it will be supported,
@@ -130,16 +132,31 @@
         ; Mark kernel RAM page as allocated (page number in A, subtract RAM start index)
         ld a, MMU_KERNEL_RAM_PAGE_INDEX
         call mmu_mark_page_allocated
-        ; Check if the kernel is running in RAM, if that's the case, the page it is
+        ; Check if the kernel is running in RAM, if that's the case, mark the page it is
         ; running in as allocated
         xor a   ; 2 top bits to 0
         in a, (MMU_PAGE_0) ; Kernel is running from page 0
         sub MMU_RAM_PHYS_START_IDX
         ; Kernel is in RAM if there is no carry
         call nc, mmu_mark_page_allocated
-        ; TODO: If support for RAMDISK is added, loaded by a bootloader, mark its pages
-        ;       as allocated.
+        ; TODO: If support for RAMDISK is added, loaded by a bootloader, mark its pages as allocated
     ENDM
+
+ ELSE ; !CONFIG_KERNEL_TARGET_HAS_MMU
+
+    ; In case the kernel is in no-MMU mode, define a macro to initialize the memory (map some RAM)
+    MACRO MMU_INIT _
+        ; Set RAM page 0, 1, 2 to virtual pages 1, 2, 3 respectively
+        ld a, MMU_RAM_PHYS_START_IDX
+        out (MMU_PAGE_1), a
+        inc a
+        out (MMU_PAGE_2), a
+        inc a
+        out (MMU_PAGE_3), a
+    ENDM
+
+ ENDIF ; CONFIG_KERNEL_TARGET_HAS_MMU
+
 
     ; Macro to map the physical address pointed by HBC to the page pointed by A.
     ; If the physical address is not a multiple of the page size, it shall be
