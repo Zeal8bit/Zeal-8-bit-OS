@@ -26,6 +26,8 @@
 - [TO DO](#to-do)
 - [Implementation details](#implementation-details)
   - [Memory Mapping](#memory-mapping)
+    - [Kernel configured with MMU](#kernel-configured-with-mmu)
+    - [Kernel configured as no-MMU](#kernel-configured-as-no-mmu)
   - [Kernel](#kernel)
     - [Used registers](#used-registers)
     - [Reset vectors](#reset-vectors)
@@ -35,6 +37,7 @@
   - [Syscalls](#syscalls)
     - [Syscall table](#syscall-table)
     - [Syscall parameters](#syscall-parameters)
+    - [Syscall parameters constraints](#syscall-parameters-constraints)
   - [Drivers](#drivers)
   - [Virtual File System](#virtual-file-system)
     - [Architecture of the VFS](#architecture-of-the-vfs)
@@ -173,7 +176,7 @@ The kernel itself supports the following features:
 * Abstract opened "dev" which can represent an opened file, directory, or driver
 * Real-Time Clock
 * Timer (can be hardware or software timer)
-* Up to 16MB physical address space divided as 256 banks of 16KB
+* Up to 16MB physical address space divided as 256 banks of 16KB (for MMU kernel)
 * Open, read, write seek, close, ioctl drivers
 * Open, read, write, seek, close, remove files
 * Open, browse, close, remove directories
@@ -186,7 +189,7 @@ The only supported target at the moment is *Zeal 8-bit computer*, the port is no
 * Video 640x480 text-mode
 * UART as video card replacement (text-mode)
 * UART for sending and receiving data
-* MMU
+* MMU and no-MMU build, configurable in the `menuconfig`
 * PS/2 keyboard
 * I2C
 * EEPROM (I2C)
@@ -200,6 +203,7 @@ There are still some work to do in the project. Some features needs to be develo
 * <s>Generate header files usable by user programs for: syscalls, file entries, directories entries, opening flags, etc..</s> **Done, header files are available in `kernel_headers` directory.**
 * <s>Document clearly what each syscall does</s> **Done, check ASM header file.**
 * <s>A writable file system. Currently, only `rawtable` (more about it below) file system is implemented, which is read-only.</s> **ZealFS file system has been implemented, it supports files and directories, and is writable!**
+* <s>Make it work with MMU-less targets, and add a configuration option for this</s> **Done, kernel is now compatible with MMU-less targets!**
 * Come up with ABI and API for video, TTY, GPIO drivers, etc...
   * <s>Keyboard API</s> **Done**
   * <s>Video text API</s> **Done**
@@ -207,7 +211,6 @@ There are still some work to do in the project. Some features needs to be develo
   * Video graphic API
 * Relocatable user programs. It is already possible to generate a relocation table when assembling a program with `z88dk-z80asm`.
 * Refactor the kernel code to have a proper memory module, with better names for the required macros.
-* Make it work with MMU-less targets, and add a configuration option for this.
 * Process all the `TODO` and `FIXME` left in the code.
 * Lift some restrictions that can be avoided, such as having the user's program stack pointer in the last virtual page.
 * List the loaded drivers from a user program.
@@ -226,6 +229,8 @@ In the sections below, the word "program", also referred to as "users programs",
 
 ## Memory Mapping
 
+### Kernel configured with MMU
+
 Zeal 8-bit OS can separate kernel RAM and user's program thanks to virtual pages. Indeed, as it is currently implemented, the kernel is aware of 4 virtual pages of 16KB.
 
 The first page, page 0, shall not be switched as it contains the kernel code. This means that the OS binary is limited to 16KB, it must never exceed this size. When a user's program is being execute, any `syscall` will result in jumping in the first bank where the OS code resides. So if this page is switched for another purpose, no syscall, no interrupt nor communication with the kernel must happen, else, undefined behavior will occur.
@@ -238,6 +243,30 @@ To sum up, here is a diagram to show the usage of the memory:
 <img src="md_images/mapping.svg" alt="Memory mapping diagram"/>
 
 *If the user program's parameters are pointed to a portion of memory in page 3 (last page), there is a conflict as the kernel will always remap its RAM page inside in that exact same page. This is why it will remap page 2 (third page) to let it contain the user parameter. Of course, the parameter will be decremented by 16KB to let it now point to the page 2.
+
+### Kernel configured as no-MMU
+
+To be able to port Zeal 8-bit OS to Z80-based computers that don't have an MMU/Memory mapper organized as shown above, the kernel has a new mode that can be chosen through the `menuconfig`: no-MMU.
+
+In this mode, the OS code is still expected to be mapped in the first 16KB of the memory, from `0x0000` to `0x3FFF` and the rest is expected to be RAM.
+
+Ideally, 48KB of RAM should be mapped starting at `0x4000` and would go up to `0xFFFF`, but in practice, it is possible to configure the kernel to expect less than that. To do so, two entries in the `menuconfig` must be configured appropriately:
+
+* `KERNEL_STACK_ADDR`: this marks the end of the kernel RAM area, and, as its name states, will be the bottom of the kernel stack.
+* `KERNEL_RAM_START`: this marks the start address of the kernel RAM where the stack, all the variables used by the kernel AND drivers will be stored. Of course, it must be big enough to store all of these data. For information, the current kernel `BSS` section size is around 1KB. The stack depth depends on the target drivers' implementation. Allocating 1KB for the stack should be more than enough as long as no (big) buffers are stored on it. Overall allocating at least 3KB for the kernel RAM should be safe and future-proof.
+
+To sum up, here is a diagram to show the usage of the memory:
+<img src="md_images/mapping_nommu.svg" alt="Memory mapping diagram"/>
+
+Regarding the user programs, the stack address will always be set to `KERNEL_RAM_START - 1` by the kernel before execution. It also corresponds to the address of its last byte available in its usable address space. This means that a program can determine the size of the available RAM by performing `SP - 0x4000`, which gives, in assembly:
+
+```
+ld hl, 0
+add hl, sp
+ld bc, -0x4000
+add hl, bc
+; HL contains the size of the available RAM for the program, which includes the program's code and its stack.
+```
 
 ## Kernel
 
@@ -366,6 +395,19 @@ In order to perform a syscall, the operation number must be stored in register `
 And finally, the code must perform a `RST $08` instruction (please check [Reset vectors](#reset-vectors)).
 
 The returned value is placed in A. The meaning of that value is specific to each call, please check the documentation of the concerned routines for more information.
+
+### Syscall parameters constraints
+
+To maximize user programs compatibility with Zeal 8-bit OS kernel, regardless of whether the kernel was compiled in MMU or no-MMU mode, the syscalls parameters constraints are the same:
+
+<b>Any buffer passed to a syscall shall **not** cross a 16KB virtual pages</b>
+
+In other words, if a buffer `buf` of size `n` is located in virtual page `i`, its last byte, pointed by `buf + n - 1`, must also be located on the exact same page `i`.
+
+For example, if `read` syscall is called with:
+* `DE = 0x4000` and `BC = 0x1000`, the parameters are **correct**, because the buffer pointed by `DE` fits into page 1 (from `0x4000` to `0x7FFF`)
+* `DE = 0x4000` and `BC = 0x4000`, the parameters are **correct**, because the buffer pointed by `DE` fits into page 1 (from `0x4000` to `0x7FFF`)
+* `DE = 0x7FFF` and `BC = 0x2`, the parameters are **incorrect**, because the buffer pointed by DE is in-between page 1 and page2.
 
 ## Drivers
 

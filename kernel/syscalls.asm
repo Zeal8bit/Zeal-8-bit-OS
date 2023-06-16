@@ -6,6 +6,7 @@
         INCLUDE "errors_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "time_h.asm"
+        INCLUDE "kern_mmu_h.asm"
         INCLUDE "mmu_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "syscalls_h.asm"
@@ -42,10 +43,9 @@ zos_sys_map:
         ; Get the register H value.
         pop hl
         ; Get the page index out of the virtual address pointed by DE
-        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(D, E)
+        KERNEL_MMU_PAGE_OF_VIRT_ADDR(D)
         ; If the destination address is the first page (where the current code lies), return
-        ; an error
-        or a
+        ; an error. Z flag was set by the macro if A is 0.
         jr z, _zos_sys_map_error
         ; Pass the 24-bit address to the MMU.
         ; Can only alter A, but can use the stack to save other registers.
@@ -103,16 +103,16 @@ zos_sys_perform_syscall:
         ; Both the kernel RAM and the user's RAM (stack) are available. HOWEVER, any kernel RAM operation
         ; needs to be accompagnied by an offset, as it not mapped where it should be (page 3).
         ld a, h
-        ld (_zos_user_a - MMU_VIRT_PAGES_SIZE), a       ; Save original A parameter from the user
+        ld (_zos_user_a - KERN_MMU_VIRT_PAGES_SIZE), a       ; Save original A parameter from the user
         ; Get and save the last page number too as this is where the kernel RAM will be mapped
         MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
-        ld (_zos_user_page_3 - MMU_VIRT_PAGES_SIZE), a
+        ld (_zos_user_page_3 - KERN_MMU_VIRT_PAGES_SIZE), a
         ; Let's save page 1 here, it may be useful
         MMU_GET_PAGE_NUMBER(MMU_PAGE_1)
-        ld (_zos_user_page_1 - MMU_VIRT_PAGES_SIZE), a
+        ld (_zos_user_page_1 - KERN_MMU_VIRT_PAGES_SIZE), a
         ; Restore the original page 2 (but save it still in kernel RAM)
         ld a, l
-        ld (_zos_user_page_2 - MMU_VIRT_PAGES_SIZE), a
+        ld (_zos_user_page_2 - KERN_MMU_VIRT_PAGES_SIZE), a
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ; Retrieve the original HL, but keep it on the stack. Map the kernel RAM in the last virtual page.
         pop hl
@@ -169,20 +169,16 @@ _zos_sys_invalid_syscall:
         PUBLIC zos_sys_remap_bc_page_2
         PUBLIC zos_sys_remap_de_page_2
 zos_sys_remap_bc_page_2:
-        ld a, b
         ; In practice the pages are (at least) aligned on 8-bit, no need for
         ; the lowest byte.
-        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(A, A)
+        KERNEL_MMU_PAGE_OF_VIRT_ADDR(B)
         cp 3
         ret nz
         ; TODO: Have an API for this (BC - PAGE_SIZE)
         res 6, b        ; BC - 16KB
         jr zos_sys_remap_page_2
 zos_sys_remap_de_page_2:
-        ld a, d
-        ; In practice the pages are (at least) aligned on 8-bit, no need for
-        ; the lowest byte.
-        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(A, A)
+        KERNEL_MMU_PAGE_OF_VIRT_ADDR(D)
         cp 3
         ret nz
         ; TODO: Have an API for this (DE - PAGE_SIZE)
@@ -223,9 +219,8 @@ zos_sys_remap_user_pages:
 zos_sys_reserve_page_1:
         ld hl, 0
         ; Get the page index where DE is located
-        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(D, E)
-        ; Result is in A
-        or a
+        KERNEL_MMU_PAGE_OF_VIRT_ADDR(D)
+        ; Result is in A, Z flag is set if A is 0.
         ; If the page it is mapped to is 0, then we won't remap it
         ; because DE is a kernel address.
         ret z

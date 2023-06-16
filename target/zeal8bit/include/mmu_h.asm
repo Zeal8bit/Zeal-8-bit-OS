@@ -2,14 +2,12 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
+    INCLUDE "kern_mmu_h.asm"
     INCLUDE "romdisk_info_h.asm"
     INCLUDE "osconfig.asm"
 
     IFNDEF MMU_H
     DEFINE MMU_H
-
-    ; Virtual page size is 16KB (so we have 4 pages)
-    DEFC MMU_VIRT_PAGES_SIZE = 0x4000
 
     ; Size of the RAM in bytes
     DEFC MMU_RAM_SIZE = 512 * 1024
@@ -17,9 +15,9 @@
     ; RAM physical address
     DEFC MMU_RAM_PHYS_ADDR = 0x80000 ; 512KB
     ; Index of the first RAM page
-    DEFC MMU_RAM_PHYS_START_IDX = MMU_RAM_PHYS_ADDR / MMU_VIRT_PAGES_SIZE
+    DEFC MMU_RAM_PHYS_START_IDX = MMU_RAM_PHYS_ADDR / KERN_MMU_VIRT_PAGES_SIZE
     ; Number of 16KB pages for the RAM: 512KB/16KB
-    DEFC MMU_RAM_PHYS_PAGES = MMU_RAM_SIZE / MMU_VIRT_PAGES_SIZE
+    DEFC MMU_RAM_PHYS_PAGES = MMU_RAM_SIZE / KERN_MMU_VIRT_PAGES_SIZE
     ; RAM page index of kernel RAM
     DEFC MMU_KERNEL_RAM_PAGE_INDEX = (CONFIG_KERNEL_RAM_PHYS_ADDRESS >> 14) - MMU_RAM_PHYS_START_IDX
 
@@ -29,11 +27,6 @@
     DEFC MMU_PAGE_2 = 0xF2
     DEFC MMU_PAGE_3 = 0xF3
 
-    ; Virtual Pages Addresses
-    DEFC MMU_PAGE0_VIRT_ADDR = 0x0000
-    DEFC MMU_PAGE1_VIRT_ADDR = 0x4000
-    DEFC MMU_PAGE2_VIRT_ADDR = 0x8000
-    DEFC MMU_PAGE3_VIRT_ADDR = 0xC000
 
     ; Routines implemented in `mmu.asm` source file
     EXTERN mmu_init_ram_code
@@ -69,25 +62,6 @@
         in a, (MMU_PAGE_0) ; when reading, only 0xF_ matters
     ENDM
 
-    ; Get the page index out of a virtual address.
-    ; For example:
-    ; 0x0000-0x3fff returns 0 (page 0)
-    ; 0x4000-0x7fff returns 1 (page 1)
-    ; 0x8000-0xbfff returns 2 (page 2)
-    ; 0xc000-0xffff returns 3 (page 3)
-    ; Parameters:
-    ;   HIGH,LOW - 16-bit virtual address
-    ;   Where HIGH and LOW are two registers
-    ; Returns:
-    ;   A - Page index
-    ; Alters:
-    ;   A
-    MACRO MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS HIGH, LOW
-        ld a, HIGH
-        rlca
-        rlca
-        and 3
-    ENDM
 
     ; Macro used to map the kernel RAM into the specified virtual page
     MACRO MMU_MAP_KERNEL_RAM page
@@ -163,7 +137,7 @@
     ; rounded down.
     ; Parameters:
     ;   HBC - 24-bit physical address to map
-    ;   A - Page index to map it to. Considered valid as got after calling MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS
+    ;   A - Page index to map it to. Considered valid.
     ; Returns*:
     ;   A - ERR_SUCCESS on success, error code else.
     ; Alters:

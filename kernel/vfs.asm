@@ -3,15 +3,17 @@
 ; SPDX-License-Identifier: Apache-2.0
 
         INCLUDE "osconfig.asm"
-        INCLUDE "mmu_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "errors_h.asm"
         INCLUDE "disks_h.asm"
         INCLUDE "drivers_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "strutils_h.asm"
+        INCLUDE "kern_mmu_h.asm"
 
     IF CONFIG_KERNEL_TARGET_HAS_MMU
+        INCLUDE "mmu_h.asm"
+
         EXTERN zos_sys_remap_bc_page_2
         EXTERN zos_sys_remap_de_page_2
         EXTERN zos_sys_remap_user_pages
@@ -316,13 +318,11 @@ zos_vfs_read:
 zos_vfs_read_internal:
         call zos_vfs_get_entry
         ret nz
-    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; Check if the buffer and the size are valid, in other words, check that the
         ; size is less or equal to a page size and BC+size doesn't cross page boundary
         call zos_check_buffer_size
         or a
         ret nz
-    ENDIF
         ; Check if the opened dev is a file/directory
         call zos_disk_is_opn_filedir
         ; HL, DE and BC are valid, tail-call to zos_disk_read
@@ -362,11 +362,9 @@ zos_vfs_write_internal:
         ; We use the same flow as the one for the read function
         call zos_vfs_get_entry
         ret nz
-    IF CONFIG_KERNEL_TARGET_HAS_MMU
         call zos_check_buffer_size
         or a
         ret nz
-    ENDIF
         ; Check if the opened dev is a file or a driver
         call zos_disk_is_opn_filedir
         ; Tail-call to zos_disk_write as the stack is clean
@@ -856,14 +854,12 @@ _zos_vfs_readdir_internal:
         ; Get the opened dev address out of the H dev descriptor
         call zos_vfs_get_entry
         ret nz
-    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; Check if the buffer and the size are valid, in other words, check that the
         ; size is less or equal to a page size and BC+size doesn't cross page boundary
         ld bc, DISKS_DIR_ENTRY_SIZE
         call zos_check_buffer_size
         or a
         ret nz
-    ENDIF
         ; Check if the opened dev is a dir or not
         call zos_disk_is_opndir
         ret nz
@@ -1162,10 +1158,6 @@ _zos_vfs_invalid_flags:
         ret
 
 
-    ; TODO: Should no-MMU targets react the same way to parameters crossing boundaries?
-    ;       If yes, all user programs will be compatible on both MMU/no-MMU kernels,
-    ;       if no, some user programs may only work on MMU-less targets...
-    IF CONFIG_KERNEL_TARGET_HAS_MMU
         ; Check that a buffer address and its size are valid.
         ; They are valid if the size is less or equal to an MMU page size, and if
         ; the buffer doesn't cross the page-boundary
@@ -1179,12 +1171,12 @@ _zos_vfs_invalid_flags:
 zos_check_buffer_size:
         push hl
         xor a
-        ld hl, MMU_VIRT_PAGES_SIZE
+        ld hl, KERN_MMU_VIRT_PAGES_SIZE
         sbc hl, bc
         jr c, zos_check_buffer_size_invalidparam
         push de
         ; BC is less than a page size, get the page number of DE
-        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(D, E)
+        KERNEL_MMU_PAGE_OF_VIRT_ADDR(D)
         ; Page index of DE in A, calculate page index for the last buffer address:
         ; DE+BC-1
         ld h, d
@@ -1192,7 +1184,7 @@ zos_check_buffer_size:
         add hl, bc
         dec hl
         ld d, a ; Save the page index in D
-        MMU_GET_PAGE_INDEX_FROM_VIRT_ADDRESS(H, L)
+        KERNEL_MMU_PAGE_OF_VIRT_ADDR(H)
         ; Compare D and A, they must be equal
         sub d
         pop de
@@ -1204,7 +1196,7 @@ zos_check_buffer_size_invalidparam:
         pop hl
         ld a, ERR_INVALID_PARAMETER
         ret
-    ENDIF ; CONFIG_KERNEL_TARGET_HAS_MMU
+
 
         ; Find an empty entry in the _dev_table
         ; Parameters:

@@ -6,7 +6,6 @@
         INCLUDE "errors_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "time_h.asm"
-        INCLUDE "mmu_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "syscalls_h.asm"
 

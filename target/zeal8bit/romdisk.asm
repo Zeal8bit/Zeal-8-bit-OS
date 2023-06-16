@@ -127,7 +127,7 @@ _romdisk_read_to_page1:
         ; Now A contains bits 0,0,0,18,17,16,15,14
         ; However, ROMDISK doesn't start at page 0 of flash,
         ; thus, we have to add to A the start page index
-        add CONFIG_ROMDISK_ADDRESS / MMU_VIRT_PAGES_SIZE
+        add CONFIG_ROMDISK_ADDRESS / KERN_MMU_VIRT_PAGES_SIZE
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ; Page is mapped! Restore HL to an actual address between 0 and 16KB
         ld a, h
@@ -136,7 +136,7 @@ _romdisk_read_to_page1:
         and 0x3f ; Keep 6 bits only
         ; AL now defines a 8+6 = 14-bit address
         ; Add to A the index of the third page
-        or MMU_PAGE2_VIRT_ADDR >> 8
+        or KERN_MMU_PAGE2_VIRT_ADDR >> 8
         ld h, a
         ; HL is now our source buffer!
         push bc
@@ -175,13 +175,13 @@ _romdisk_read_to_page2:
         rla
         rlc h
         rla
-        add CONFIG_ROMDISK_ADDRESS / MMU_VIRT_PAGES_SIZE
+        add CONFIG_ROMDISK_ADDRESS / KERN_MMU_VIRT_PAGES_SIZE
         MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
         ld a, h
         rrca
         rrca
         and 0x3f ; Keep 6 bits only
-        or MMU_PAGE1_VIRT_ADDR >> 8
+        or KERN_MMU_PAGE1_VIRT_ADDR >> 8
         ld h, a
         push bc
         ; Same as above, check the comment.

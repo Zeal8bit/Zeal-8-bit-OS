@@ -18,7 +18,7 @@
         EXTERN zos_sys_remap_de_page_2
         EXTERN _zos_default_init
 
-        DEFC TWO_PAGES_SIZE_UPPER_BYTE = (MMU_VIRT_PAGES_SIZE >> 8) * 2
+        DEFC TWO_PAGES_SIZE_UPPER_BYTE = (KERN_MMU_VIRT_PAGES_SIZE >> 8) * 2
 
         SECTION KERNEL_TEXT
 
@@ -139,17 +139,17 @@ _zos_load_file_checked:
         ; BC contains the size of the file to copy, D contains the dev number.
         ; Only support program loading on 0x4000 at the moment
         ASSERT(CONFIG_KERNEL_INIT_EXECUTABLE_ADDR == 0x4000)
-        ASSERT(MMU_PAGE1_VIRT_ADDR == 0x4000)
+        ASSERT(KERN_MMU_PAGE1_VIRT_ADDR == 0x4000)
         ; Map the user memory
         ld a, (_allocate_pages)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
         ld a, (_allocate_pages + 1)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
-        ; Perform a read of a page size until we read less bytes than than MMU_VIRT_PAGES_SIZE
+        ; Perform a read of a page size until we read less bytes than than KERN_MMU_VIRT_PAGES_SIZE
         push bc
-        ld bc, MMU_VIRT_PAGES_SIZE
+        ld bc, KERN_MMU_VIRT_PAGES_SIZE
         ld h, d
-        ld de, MMU_PAGE1_VIRT_ADDR
+        ld de, KERN_MMU_PAGE1_VIRT_ADDR
         push hl
         call zos_vfs_read_internal
         pop hl
@@ -168,7 +168,7 @@ _zos_load_file_checked:
         ld b, h
         ld c, l
         ld h, d
-        ld de, MMU_PAGE2_VIRT_ADDR
+        ld de, KERN_MMU_PAGE2_VIRT_ADDR
         call zos_vfs_read_internal
         or a
         ; On error, close the opened file and return

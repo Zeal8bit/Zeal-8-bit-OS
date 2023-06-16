@@ -4,12 +4,12 @@
 
         INCLUDE "errors_h.asm"
         INCLUDE "osconfig.asm"
-        INCLUDE "mmu_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "strutils_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "log_h.asm"
         INCLUDE "target_h.asm"
+        INCLUDE "kern_mmu_h.asm"
 
         EXTERN zos_vfs_open_internal
         EXTERN zos_vfs_read_internal
@@ -121,33 +121,50 @@ zos_load_file_bc:
         ;   D - Opened dev
         ;   BC - Size of the file
 _zos_load_file_checked:
-        ; BC contains the size of the file to copy, D contains the dev number.
+        ; BC contains the size of the file to copy, D contains the dev number, put it in H
+        ld h, d
         ; Only support program loading on 0x4000 at the moment
         ASSERT(CONFIG_KERNEL_INIT_EXECUTABLE_ADDR == 0x4000)
-        ; Perform a read of a page size until we read less bytes than than MMU_VIRT_PAGES_SIZE
-        push bc
-        ld h, d
+        ; Perform a read of a page size until we read less bytes than than KERN_MMU_VIRT_PAGES_SIZE
         ld de, CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
+        ld bc, KERN_MMU_VIRT_PAGES_SIZE
+_zos_load_file_loop:
+        ; Without an MMU, parameter won't be remapped, using zos_vfs_read is safe
         push hl
-        call zos_vfs_read_internal
+        call zos_vfs_read
         pop hl
-        ; In any case, pop the file size in DE
-        pop de
-        ; And close the file (regardless of `read` result)
-        push af
-        call zos_vfs_close
-        ; Check if previous read returned an error
-        pop af
         or a
-        ret nz
+        jr nz, _zos_load_file_error
+        ; If the size read is not KERN_MMU_VIRT_PAGES_SIZE, we finished reading
+        ld a, KERN_MMU_VIRT_PAGES_SIZE >> 8
+        cp b
+        jr nz, _zos_load_file_loaded
+        ; Prepare the next buffer if we haven't reached the limit
+        ; A is already 0x40 because of KERN_MMU_VIRT_PAGES_SIZE
+        add d
+        ld d, a
+        ; No overflow, DE is still a valid address, BC still contains the size of a page, no need
+        ; to reload it.
+        jp nc, _zos_load_file_loop
+        ; If D overflows, no need to continue the loop, load failed
+        jr _zos_load_file_error
+
+_zos_load_file_loaded:
+        ; Close the file as we won't need it anymore
+        call zos_vfs_close
         ; Set user stack which points to the program parameter
         ld hl, (_file_stats)
         ld sp, hl
-        ; Put HL in DE (user program)
+        ; Put HL in DE (program parameter)
         ex de, hl
         ld bc, (_file_stats + 2)
         jp CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
 
+_zos_load_file_error:
+        push af
+        call zos_vfs_close
+        pop af
+        ret
 
         ; Load and execute a program from a file name given as a parameter.
         ; The program will cover the current program.
