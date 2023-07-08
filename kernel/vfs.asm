@@ -31,23 +31,6 @@ zos_vfs_init:
         ld (_vfs_current_dir + 2), hl
         ret
 
-        ; Routine saving the current working directory. It will have no effect if a backup
-        ; is already there.
-        ; This must be called from the first execvp (from a terminal/console).
-        ; Parameter:
-        ;       None
-        ; Returns:
-        ;       None
-        ; Alters:
-        ;       A, BC, DE, HL
-zos_vfs_backup_dir:
-        ld a, (_vfs_current_dir_backup)
-        ret nz
-        ld hl, _vfs_current_dir
-        ld de, _vfs_current_dir_backup
-        ld bc, CONFIG_KERNEL_PATH_MAX
-        ldir
-        ret
 
         ; Routine called after a program exited, all the opened devs need to be closed
         ; The default stdout and stdin need to be restored in the array.
@@ -1479,7 +1462,6 @@ _dev_default_stdin: DEFS 2
 _dev_table_empty_entry: DEFS 1 ; Only used to temporarily store the index of an empty entry
         ; Each entry takes 2 bytes as these are memory addresses
 _dev_table: DEFS CONFIG_KERNEL_MAX_OPENED_DEVICES * 2
-_vfs_current_dir_backup: DEFS CONFIG_KERNEL_PATH_MAX + 1
         ; As the following will also be used as a temporary buffer to calculate the realpath
         ; of file/directories (in zos_get_full_path), it must be able to handle 2 paths
         ; concatenated +1 for the potential NULL character added by the string library.

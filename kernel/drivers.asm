@@ -332,5 +332,3 @@ _loaded_drivers_count: DEFS 1
 ; Allocate 2 bytes per cell, each cell contains a pointer to the driver structure.
 _loaded_drivers: DEFS CONFIG_KERNEL_MAX_LOADED_DRIVERS * 2
 _loaded_drivers_end:
-; Log message
-_driver_log_msg: DEFS 16
