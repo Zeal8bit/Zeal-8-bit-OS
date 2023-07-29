@@ -351,6 +351,8 @@ uart_send_bytes:
         ld a, b
         or c
         ret z
+        ; Save the total number of bytes to send (and return)
+        push bc
 _uart_send_next_byte:
         ld a, (hl)
         push bc
@@ -366,7 +368,8 @@ _uart_send_next_byte:
         ld a, b
         or c
         jp nz, _uart_send_next_byte
-        ; Finished sending
+        ; Finished sending, return the total amount of bytes sent
+        pop bc
         ret
 
         ; Send a single byte on the UART
@@ -469,6 +472,7 @@ uart_receive_bytes:
         ; At the moment, block until we receive everything.
         ENTER_CRITICAL()
         ; Length is not 0, we can continue
+        push bc
 _uart_receive_next_byte:
         push bc
         call uart_receive_byte
@@ -479,7 +483,8 @@ _uart_receive_next_byte:
         ld a, b
         or c
         jp nz, _uart_receive_next_byte
-        ; Finished receiving, return
+        ; Finished receiving all bytes, pop the total number of bytes and return
+        pop bc
         EXIT_CRITICAL()
         ret
 
