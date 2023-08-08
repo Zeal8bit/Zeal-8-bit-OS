@@ -106,6 +106,7 @@ _romdisk_read_to_page1:
         pop hl
         ; Check offset
         ld a, h
+        or a
         ; H must be 0, L's highest 5 bit must be 0. In other words, L must be 7 or lower.
         jp nz, _romdisk_read_offset_error
         or l
