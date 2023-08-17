@@ -1,5 +1,9 @@
 menu "Zeal 8-bit Computer configuration"
 
+    config TARGET_HAS_MMU
+        bool
+        default y
+
     config KERNEL_RAM_PHYS_ADDRESS
         hex "Kernel RAM physical address"
         default 0x88000

@@ -1,7 +1,8 @@
 menu "Kernel configuration"
 
         config KERNEL_TARGET_HAS_MMU
-                bool "Enable MMU support in the kernel"
+                bool
+                prompt "Enable MMU support in the kernel" if TARGET_HAS_MMU
                 default n
                 help
                         Boolean to mark whether the target has an MMU/Memory Mapper. If this option is selected,
