@@ -46,6 +46,7 @@
 - [Supported targets](#supported-targets)
   - [Relation with the kernel](#relation-with-the-kernel)
   - [Zeal 8-bit Computer](#zeal-8-bit-computer-1)
+  - [TRS-80 Model-I](#trs-80-model-i)
   - [Porting to another machine](#porting-to-another-machine)
 - [Version history](#version-history)
 - [Contributing](#contributing)
@@ -559,10 +560,24 @@ What still needs to be implemented, in no particular order:
 * Hardware timers, based on V-blank and H-blank signals
 * *SD card support* (Not implemented in hardware yet)
 
+## TRS-80 Model-I
+
+A quick port to TRS-80 Model-I computer has been made to show how to port and configure Zeal 8-bit OS to targets that don't have an MMU.
+
+This port is rather simple as it simply shows the boot banner on screen, nothing more. To do so, only a video driver for text mode is implemented.
+
+To have a more interesting port, the following features would need to be implemented:
+* Keyboard
+* A disk to store the `init.bin`/romdisk, can be read-only, so can be stored on the ROM
+* A read-write disk to store data, can be a floppy disk driver using ZealFS filesystem
+
 ## Porting to another machine
 
-In order to port Zeal 8-bit OS to another machine, make sure you have an MMU first which divides the Z80's 64KB address space into 4 pages of 16KB. That's the main requirement, if that's the case, you can proceed.
+To port Zeal 8-bit OS MMU version to another machine, make sure you have a memory mapper first that divides the Z80's 64KB address space into 4 pages of 16KB for the MMU version.
 
+To port no-MMU Zeal 8-bit OS, make sure RAM is available from virtual address `0x4000` and above. The most ideal case being having ROM is the first 16KB for the OS and RAM in the remaining 48KB for the user programs and kernel RAM.
+
+If your target is compatible, follow the instructions:
 * Open the `Kconfig` file at the root of this repo, add an entry to the `config TARGET` and `config COMPILATION_TARGET` options. Take example on the ones that are already present.
 * Create a new directory in `target/` for your target, the name **must** be the same as the one specified in the new `config TARGET` option.
 * Inside this new directory, create a new `unit.mk` file. This is the file that shall contain all the source files to assemble or the ones to include.
