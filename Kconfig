@@ -10,7 +10,7 @@ mainmenu "Zeal 8-bit OS Configuration"
     config TARGET
         string
         default "zeal8bit" if TARGET_ZEAL_8_BIT
-        default "example" if TARGET_EXAMPLE
+        default "trs80" if TARGET_TRS_80
 
     choice COMPILATION_TARGET
         prompt "Target board"
@@ -23,16 +23,20 @@ mainmenu "Zeal 8-bit OS Configuration"
             help
                 Compile for Zeal 8-bit computer.
 
-        config TARGET_EXAMPLE
+        config TARGET_TRS_80
             bool
-            prompt "Example target"
+            prompt "TRS-80 Model I"
             help
-                Compile for example board.
+                Compile for TRS-80 Model I.
     endchoice
 
     # Configuration options depending on the target
     if TARGET_ZEAL_8_BIT
         source "target/zeal8bit/Kconfig"
+    endif
+
+    if TARGET_TRS_80
+        source "target/trs80/Kconfig"
     endif
 
     source "kernel/Kconfig"
