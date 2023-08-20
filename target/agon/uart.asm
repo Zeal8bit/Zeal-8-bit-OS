@@ -25,6 +25,7 @@ UART_LSR_RDY            EQU     001h             ; Data ready
 
 cr:                     EQU     0Dh
 lf:                     EQU     0Ah
+esc:                    EQU     01Bh
 
 ; Get a GPIO register
 ; Parameters:
@@ -64,6 +65,9 @@ uart_init:
         ; Configure the UART to convert LF to CRLF when sending bytes
         ld a, 1
         ld (_uart_convert_lf), a
+
+;        xor     a
+;        ld      (uart_stdin_mode),a
 
         ; Initialize the screen by clearing it with the default background color
         ; and setting the cursor to the top left
@@ -130,8 +134,12 @@ uart_in_ioctl:
     ld a, c
     cp KB_CMD_SET_MODE
     jr z, uart_mode_set
+        cp CMD_GET_AREA
+        jr z, _uart_ioctl_get_area
         cp CMD_SET_COLORS
         jr z, _uart_ioctl_set_colors
+        cp CMD_SET_CURSOR_XY
+        jr z, _uart_ioctl_set_cursor
         cp CMD_CLEAR_SCREEN
         jp z, _uart_clear_screen
     jr  uart_in_ioctl_invalid
@@ -173,7 +181,7 @@ _uart_ioctl_get_area:
 _uart_ioctl_set_colors:
         ld      b,d
         ld      d,0
-        ld      a,01bh       ;Set up ANSI esc sequence <ESC>[
+        ld      a,esc       ;Set up ANSI esc sequence <ESC>[
         call    UART0_serial_TX
         ld      a,'['
         call    UART0_serial_TX
@@ -325,6 +333,9 @@ uart_read:
         ld a, b
         or c
         ret z
+        ld      a,(uart_stdin_mode)
+        or      a
+        jp      z,uart_read_raw
         ; Prepare the buffer to receive in HL
         ex de, hl
         ld      de,0
@@ -381,6 +392,99 @@ _uart_read_BS:
         ld      a,8
         call    UART0_serial_TX
         jr      _uart_receive_next_byte
+
+; Let's fake the full key sequence for CTRL (except tab, BS, CR, LF)
+uart_read_raw:
+        ex de, hl
+         ENTER_CRITICAL()
+        push    bc
+_uart_receive_next_raw_byte:
+        call UART0_serial_RX
+        jr      nc,_uart_receive_next_raw_byte
+        or      a
+        jr      z,_uart_receive_next_raw_byte
+        pop     bc
+        cp      ' '
+        ld      (hl),a  ;store in buffer
+        jr      c, _uart_receved_raw_ctrl
+_uart_receved_raw_noroom:
+_uart_receved_raw_noconv:
+        ld      bc,1    ; only 1 character read
+        xor     a       ;success
+        ret
+_uart_receved_raw_crlf:
+        ld      (hl),KB_KEY_ENTER
+        jr      _uart_receved_raw_noconv
+_uart_receved_raw_ctrl:
+        ld      a,(hl)
+        cp      KB_KEY_TAB
+        jr      z,_uart_receved_raw_noconv      ;don't convert
+        cp      KB_KEY_BACKSPACE
+        jr      z,_uart_receved_raw_noconv      ;don't convert
+        cp      esc
+        jr      z,_uart_receved_esc
+        cp      KB_KEY_ENTER
+        jr      z,_uart_receved_raw_noconv      ;don't convert
+        cp      '\r'
+        jr      z,_uart_receved_raw_crlf    
+        ld      a,b
+        or      a
+        jr      nz,_uart_receved_raw_goodspace
+        ld      a,c
+        cp      7
+        jr      c,_uart_receved_raw_noroom      ;no space for the full sequence so send as is
+_uart_receved_raw_goodspace:
+        ld      a,(hl)
+        ld      (hl),KB_LEFT_CTRL
+        inc     hl
+        or      0x60            ;convert to lower case ASCII
+        ld      (hl),a
+        inc     hl
+        ld      (hl),KB_RELEASED
+        inc     hl
+        ld      (hl),a
+        inc     hl
+        ld      (hl),KB_RELEASED
+        inc     hl
+        ld      (hl),KB_LEFT_CTRL       ;ctrl key
+        ld      bc,6
+        xor     a
+        ret
+
+_uart_receved_esc:
+_uart_receive_next_esc1:
+        call UART0_serial_RX
+        jr      nc,_uart_receive_next_esc1
+        or      a
+        jr      z,_uart_receive_next_esc1
+_uart_receive_next_esc2:
+        call UART0_serial_RX
+        jr      nc,_uart_receive_next_esc2
+        or      a
+        jr      z,_uart_receive_next_esc2
+        cp      'A'
+        jr      c,_uart_receved_esc_bad
+        cp      'D'+1
+        jr      nc,_uart_receved_esc_not_arrow
+        add     KB_UP_ARROW - 'A'     ;Map Arrows
+        cp      KB_LEFT_ARROW
+        jr      c,_uart_receved_esc_finish
+        xor     1
+        jr      _uart_receved_esc_finish
+_uart_receved_esc_not_arrow:
+        cp      'P'
+        jr      c,_uart_receved_esc_bad
+        cp      'S'+1
+        jr      nc,_uart_receved_esc_bad
+        add     KB_F1 - 'P'     ;Map PF1..4 to F1..4
+        jr      _uart_receved_esc_finish
+_uart_receved_esc_bad:
+        ld      a,KB_ESC        ;pretend ESCAPE only was pressed
+_uart_receved_esc_finish:
+        ld      (hl),a
+        ld      bc,1    ; only 1 character read
+        xor     a       ;success
+        ret    
 
 uart_write:
         ex      de,hl
