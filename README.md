@@ -583,7 +583,7 @@ Note that the port uses terminal mode to simplify keyboard I/O. This also means 
 Other notable features:
 * Timed interrupts are used from the VBLANK timer, assumed to be 60Hz
 * Coloured text is supported, using ANSI compatible control codes
-* Keyboard input is supported only in cooked mode
+* Keyboard input is supported in cooked and raw mode (as best as can be done in terminal mode)
 * ROMDISK is supported and mounted Read-Only
 * A ZealFS image for read/write can be loaded into memory and later (after reboot to MOS) saved back to SDCard
 
