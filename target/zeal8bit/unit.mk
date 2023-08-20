@@ -33,8 +33,8 @@ endif
 # In our case, compile the programs that will be part of ROMDISK and create it.
 # After creation, get its size, thanks to `stat` command, and store it in a generated header file
 # named `romdisk_info_h.asm`
-PRECMD := (cd $(PWD)/romdisk && make) && \
-          SIZE=$$(stat -c %s $(PWD)/romdisk/disk.img) && \
+PRECMD := (cd $(ZOS_PATH)/romdisk && make) && \
+          SIZE=$$(stat -c %s $(ZOS_PATH)/romdisk/disk.img) && \
           (echo -e "IFNDEF ROMDISK_H\nDEFINE ROMDISK_H\nDEFC ROMDISK_SIZE=$$SIZE\nENDIF" > $(PWD)/include/romdisk_info_h.asm) && \
           unset SIZE
 
@@ -51,5 +51,5 @@ POSTCMD := @echo "RAM used by kernel: $$(du -bs $(BINDIR)/*KERNEL_BSS*.bin | cut
            echo "OS size: $$(du -bs $(FULLBIN) | cut -f1) bytes" && \
            cp $(FULLBIN) $(FULLBIN_W_ROMDISK) && \
            truncate -s $$(( $(CONFIG_ROMDISK_ADDRESS) - $(CONFIG_KERNEL_PHYS_ADDRESS) )) $(FULLBIN_W_ROMDISK) && \
-           cat $(PWD)/romdisk/disk.img >> $(FULLBIN_W_ROMDISK) && \
+           cat $(ZOS_PATH)/romdisk/disk.img >> $(FULLBIN_W_ROMDISK) && \
            echo "Image size: $$(du -bs $(FULLBIN_W_ROMDISK) | cut -f1) bytes"

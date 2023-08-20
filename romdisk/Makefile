@@ -13,7 +13,7 @@ FILES_IN_IMG=$(BUILDIR)/$(BIN) simple.txt
 
 # Variables related to the assembler and the flags to use
 CC=z88dk-z80asm
-ASMFLAGS=-I../../../kernel_headers/z88dk-z80asm -O$(BUILDIR) -m -b
+ASMFLAGS=-I$(ZOS_PATH)/kernel_headers/z88dk-z80asm -O$(BUILDIR) -m -b
 
 
 .PHONY: all clean

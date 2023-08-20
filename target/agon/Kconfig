@@ -4,8 +4,4 @@ menu "Agon Light Configuration"
         bool
         default n
 
-    config KERNEL_TARGET_HAS_MMU
-        bool
-        default n
-
 endmenu

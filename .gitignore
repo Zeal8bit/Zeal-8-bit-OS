@@ -2,6 +2,7 @@
 *.conf*
 include/osconfig.asm
 version.txt
+*.img
 
 # Kernel output dir
 build/

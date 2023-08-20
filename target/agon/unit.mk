@@ -1,5 +1,6 @@
 INCLUDES := ./ ./include
-# testing the ez80 mode - uncomment if used 
+
+# Compile all assembly files in eZ80 mode
 ASMFLAGS += -mez80_z80
 
 # Add the source files to assemble for current target
@@ -10,8 +11,8 @@ FULLBIN_W_ROMDISK = $(basename $(FULLBIN))_with_romdisk.img
 
 # Command to be executed before compiling the whole OS.
 PRECMD := @echo "Compiling for Agon Light!" && \
-          (cd $(PWD)/romdisk && make) && \
-          SIZE=$$(stat -c %s $(PWD)/romdisk/disk.img) && \
+          (cd $(ZOS_PATH)/romdisk && make) && \
+          SIZE=$$(stat -c %s $(ZOS_PATH)/romdisk/disk.img) && \
           (echo -e "IFNDEF ROMDISK_H\nDEFINE ROMDISK_H\nDEFC ROMDISK_SIZE=$$SIZE\nENDIF" > $(PWD)/include/romdisk_info_h.asm) && \
           unset SIZE
 

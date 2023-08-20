@@ -10,6 +10,7 @@ export PATH := $(realpath packer)/:$(PATH)
 export KCONFIG_CONFIG = os.conf
 export MENUCONFIG_STYLE = aquatic
 export OSCONFIG_ASM = include/osconfig.asm
+export ZOS_PATH := $(PWD)
 # Output related
 BIN=os.bin
 # As the first section of the OS  must be RST_VECTORS, the final binary is named os_RST_VECTORS.bin
@@ -88,7 +89,7 @@ LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 .PHONY: check menuconfig $(SUBDIRS) version packer
 
 all:$(KCONFIG_CONFIG) version packer precmd $(LINKERFILE_OBJ) $(OBJS)
-	$(CC) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
+	$(CC) $(ASMFLAGS) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
 	@mv $(BINDIR)/$(BIN_GENERATED) $(FULLBIN)
 	@echo "OS binary: $(FULLBIN)"
 	@echo "Executing post commands..."

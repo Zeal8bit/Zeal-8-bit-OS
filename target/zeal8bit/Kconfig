@@ -31,6 +31,7 @@ menu "Zeal 8-bit Computer configuration"
 
     config KERNEL_TARGET_HAS_MMU
         bool "Enable MMU support in the kernel"
+        default y
         help
             Let the kernel be aware that an MMU is present or not. This value must be enabled to have full support for Zeal 8-bit
             Computer target.
