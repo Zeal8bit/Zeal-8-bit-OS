@@ -47,6 +47,7 @@
   - [Relation with the kernel](#relation-with-the-kernel)
   - [Zeal 8-bit Computer](#zeal-8-bit-computer-1)
   - [TRS-80 Model-I](#trs-80-model-i)
+  - [Agon Light](#agon-light)
   - [Porting to another machine](#porting-to-another-machine)
 - [Version history](#version-history)
 - [Contributing](#contributing)
@@ -570,6 +571,21 @@ To have a more interesting port, the following features would need to be impleme
 * Keyboard
 * A disk to store the `init.bin`/romdisk, can be read-only, so can be stored on the ROM
 * A read-write disk to store data, can be a floppy disk driver using ZealFS filesystem
+
+## Agon Light
+
+A port to the eZ80 powered Agon Light, written and maintained by [Shawn Sijnstra](https://github.com/sijnstra/Zeal-8-bit-OS). Feel free to use that fork for Agon specific bugs/requests. This uses the non-MMU kernel, and implements most of the features that the Zeal 8-bit computer implementation supports.
+
+This port requires a loader for the binary to be stored and executed from the correct location. The binary is [OSbootZ, available here.](https://github.com/sijnstra/agon-projects/tree/main/OSbootZ)
+
+Note that the port uses terminal mode to simplify keyboard I/O. This also means that the date function is not available.
+
+Other notable features:
+* Timed interrupts are used from the VBLANK timer, assumed to be 60Hz
+* Coloured text is supported, using ANSI compatible control codes
+* Keyboard input is supported in cooked and raw mode (as best as can be done in terminal mode)
+* ROMDISK is supported and mounted Read-Only
+* A ZealFS image for read/write can be loaded into memory and later (after reboot to MOS) saved back to SDCard
 
 ## Porting to another machine
 

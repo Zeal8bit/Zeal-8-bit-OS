@@ -11,6 +11,7 @@ mainmenu "Zeal 8-bit OS Configuration"
         string
         default "zeal8bit" if TARGET_ZEAL_8_BIT
         default "trs80" if TARGET_TRS_80
+        default "agon" if TARGET_AGON_LIGHT
 
     choice COMPILATION_TARGET
         prompt "Target board"
@@ -28,6 +29,12 @@ mainmenu "Zeal 8-bit OS Configuration"
             prompt "TRS-80 Model I"
             help
                 Compile for TRS-80 Model I.
+
+        config TARGET_AGON_LIGHT
+            bool
+            prompt "Agon Light"
+            help
+                Compile for Agon Light.
     endchoice
 
     # Configuration options depending on the target
@@ -37,6 +44,10 @@ mainmenu "Zeal 8-bit OS Configuration"
 
     if TARGET_TRS_80
         source "target/trs80/Kconfig"
+    endif
+
+    if TARGET_AGON_LIGHT
+        source "target/agon/Kconfig"
     endif
 
     source "kernel/Kconfig"
