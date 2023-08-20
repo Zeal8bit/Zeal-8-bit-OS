@@ -30,6 +30,6 @@ POSTCMD := @echo "RAM used by kernel: $$(du -bs $(BINDIR)/*KERNEL_BSS*.bin | cut
            echo "OS size: $$(du -bs $(FULLBIN) | cut -f1) bytes" && \
            cp $(FULLBIN) $(FULLBIN_W_ROMDISK) && \
            truncate -s 64K $(FULLBIN_W_ROMDISK) && \
-           cat $(PWD)/romdisk/disk.img >> $(FULLBIN_W_ROMDISK) && \
+           cat $(ZOS_PATH)/romdisk/disk.img >> $(FULLBIN_W_ROMDISK) && \
            echo "Image size: $$(du -bs $(FULLBIN_W_ROMDISK) | cut -f1) bytes"
 
