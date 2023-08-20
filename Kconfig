@@ -12,7 +12,6 @@ mainmenu "Zeal 8-bit OS Configuration"
         default "zeal8bit" if TARGET_ZEAL_8_BIT
         default "trs80" if TARGET_TRS_80
         default "agon" if TARGET_AGON_LIGHT
-        default "example" if TARGET_EXAMPLE
 
     choice COMPILATION_TARGET
         prompt "Target board"
