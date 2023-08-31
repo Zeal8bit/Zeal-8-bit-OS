@@ -1,0 +1,71 @@
+name: Build Zeal 8-bit OS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - name: Checkout from git
+        uses: actions/checkout@v3
+        with:
+          submodules: 'true' # future use
+          fetch-depth: 0
+
+      - name: Install prerequisites
+        shell: bash
+        run: |
+            sudo snap remove z88dk
+            sudo snap install --edge z88dk
+            sudo snap alias z88dk.z88dk-z80asm z88dk-z80asm
+            sudo apt install -y jq make lftp
+
+      - name: Build Zeal 8-bit OS (zeal8bit target)
+        shell: bash
+        run: |
+          wget http://zeal8bit.com/roms/config/os.conf
+          wget http://zeal8bit.com/roms/config/osconfig.asm
+          mv osconfig.asm include/
+          z88dk-z80asm
+          make
+          mv build/os_with_romdisk.img build/$(git describe --tags).img
+
+      - name: Update index.json
+        shell: bash
+        run: |
+          wget http://zeal8bit.com/roms/index.json
+          export NAME=$(git describe --tags)
+          export SHA=$(sha256sum -b build/*.img | cut -f1 -d' ')
+          jq ".nightly += [.latest] | .latest = {\"name\" : \"$NAME\", \
+                                                 \"urls\" : \"http://zeal8bit.com/roms/$NAME.img\", \
+                                                 \"version\" : \"$NAME/\", \
+                                                 \"hash\": \"$SHA\"}" < index.json > index_new.json
+          mv index_new.json index.json
+
+      - name: Setup SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          echo "StrictHostKeyChecking no" > ~/.ssh/config
+          echo "$RUNNER_SSH_PRIV" > ~/.ssh/id_rsa
+          echo "$RUNNER_SSH_PUB" > ~/.ssh/id_rsa.pub
+          sudo sh -c 'echo "StrictHostKeyChecking no" >> /etc/ssh/ssh_config'
+        env:
+            RUNNER_SSH_PUB: ${{ secrets.ZEAL8BIT_SSH_PUB }}
+            RUNNER_SSH_PRIV: ${{ secrets.ZEAL8BIT_SSH_PRIV }}
+
+      - name: Publish files
+        shell: bash
+        run: |
+          export NAME=$(git describe --tags).img
+          lftp --env-password -d sftp://$LFTP_USER@$LFTP_SERVER -e 'set sftp:auto-confirm yes; put -e build/$NAME -o /htdocs/roms/$NAME; put -e index.json -o /htdocs/roms/index.json; bye'
+        env:
+            LFTP_USER: ${{ secrets.ZEAL8BIT_USER }}
+            LFTP_SERVER: ${{ secrets.ZEAL8BIT_SERVER }}
+            LFTP_PORT: ${{ secrets.ZEAL8BIT_PORT }}
+            LFTP_PASSWORD: ${{ secrets.ZEAL8BIT_PASS }}
