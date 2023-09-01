@@ -63,7 +63,7 @@ jobs:
         shell: bash
         run: |
           export NAME=$(git describe --tags).img
-          lftp --env-password -d sftp://$LFTP_USER@$LFTP_SERVER -e 'set sftp:auto-confirm yes; put -e build/$NAME -o /htdocs/roms/$NAME; put -e index.json -o /htdocs/roms/index.json; bye'
+          lftp --env-password -d sftp://$LFTP_USER@$LFTP_SERVER -e "set sftp:auto-confirm yes; put -e build/$NAME -o /htdocs/roms/$NAME; put -e index.json -o /htdocs/roms/index.json; bye"
         env:
             LFTP_USER: ${{ secrets.ZEAL8BIT_USER }}
             LFTP_SERVER: ${{ secrets.ZEAL8BIT_SERVER }}
