@@ -42,7 +42,7 @@ jobs:
           export NAME=$(git describe --tags)
           export SHA=$(sha256sum -b build/*.img | cut -f1 -d' ')
           jq ".nightly += [.latest] | .latest = {\"name\" : \"$NAME\", \
-                                                 \"urls\" : \"http://zeal8bit.com/roms/$NAME.img\", \
+                                                 \"urls\" : \"https://zeal8bit.com/roms/$NAME.img\", \
                                                  \"version\" : \"$NAME/\", \
                                                  \"hash\": \"$SHA\"}" < index.json > index_new.json
           mv index_new.json index.json
