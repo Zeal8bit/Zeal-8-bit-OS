@@ -339,11 +339,13 @@ uart_read:
         ; Prepare the buffer to receive in HL
         ex de, hl
         ld      de,0
-         ENTER_CRITICAL()
+
         ; Length is not 0, we can continue
 _uart_receive_next_byte:
 ;        push bc
+        ENTER_CRITICAL()
         call UART0_serial_RX
+        EXIT_CRITICAL()
         jr      nc,_uart_receive_next_byte
 ;        pop bc
         or      a
@@ -365,7 +367,6 @@ _uart_receive_next_byte:
         or c
         jp nz, _uart_receive_next_byte
         ; Finished receiving, return
-        EXIT_CRITICAL()
 uart_read_ok:
         ld      a,'\n'
         dec     hl
@@ -396,10 +397,11 @@ _uart_read_BS:
 ; Let's fake the full key sequence for CTRL (except tab, BS, CR, LF)
 uart_read_raw:
         ex de, hl
-         ENTER_CRITICAL()
         push    bc
 _uart_receive_next_raw_byte:
+        ENTER_CRITICAL()
         call UART0_serial_RX
+        EXIT_CRITICAL()
         jr      nc,_uart_receive_next_raw_byte
         or      a
         jr      z,_uart_receive_next_raw_byte

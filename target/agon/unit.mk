@@ -4,7 +4,7 @@ INCLUDES := ./ ./include
 ASMFLAGS += -mez80_z80
 
 # Add the source files to assemble for current target
-SRCS := uart.asm pio.asm romdisk.asm interrupt_vect.asm ram1disk.asm
+SRCS := uart.asm pio.asm romdisk.asm ram1disk.asm interrupt_vect.asm
 
 # Add the suffix "_romdisk" to the full binary name
 FULLBIN_W_ROMDISK = $(basename $(FULLBIN))_with_romdisk.img
