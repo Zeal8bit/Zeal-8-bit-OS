@@ -449,6 +449,7 @@ system_commands_begin:
         NEW_COMMAND("mkdir", mkdir_main)
         NEW_COMMAND("reset", reset_main)
         NEW_COMMAND("rm", rm_main)
+        NEW_COMMAND("sleep", sleep_main)
         NEW_COMMAND("uartrcv", uartrcv_main)
         NEW_COMMAND("uartsnd", uartsnd_main)
         ; Commands related to I2C
