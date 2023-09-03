@@ -7,6 +7,7 @@
         SECTION TEXT
 
         EXTERN error_print
+        EXTERN parse_int
 
         MACRO ERR_CHECK goto_label
                 or a
@@ -28,36 +29,13 @@ sleep_main:
         ; Retrieve the filename given as a parameter
         inc hl
         inc hl  ; skip the first pointer
-        ld c, (hl)
+        ld e,(hl)       ;grab 2nd pointer
         inc hl
-        ld b, (hl)
-        ld      a,(bc)
-        sub     '0'
-        jr      c,_sleep_usage
-        cp      10
-        jr      nc,_sleep_usage
-        ld      l,a
-        ld      h,0
-        ld      a,3     ;allow 3 more digits
-
-
-_sleep_convlp:
-        ld      (_sleep_max),a
-        inc     bc
-        ld      a,(bc)
-        cp      ' '+1
-        jr      c,_sleep_do
-        sub     '0'
-        jr      c,_sleep_usage
-        cp      10
-        jr      nc,_sleep_usage       
-        call    _sleep_times10
-        ld      e,a
-        ld      d,0
-        add     hl,de
-        ld      a,(_sleep_max)
-        dec     a
-        jr      nz,_sleep_convlp
+        ld c,(hl)
+        ex de,hl        ;pointer in HL
+        call    parse_int       ;strutils - accepts 16 bit dec or hex input at HL
+        or      a               ;0 is ok, 1 is overflow, 2 is bad digit
+        jr      nz,_sleep_usage
 
         ; value was in hl
 _sleep_do:
@@ -78,16 +56,7 @@ _sleep_error:
         ld a, 2
         ret
 
-_sleep_times10:
-        add     hl,hl   ;*2
-        ld      d,h
-        ld      e,l
-        add     hl,hl   ;*4
-        add     hl,hl   ;*8
-        add     hl,de   ;*10
-        ret
-
-str_usage: DEFM "usage: sleep <X>\n X=0...9999 msec\n"
+str_usage: DEFM "usage: sleep <X>\n X=0-65535 or 0xffff msec\n"
 str_usage_end:
 
         SECTION DATA
