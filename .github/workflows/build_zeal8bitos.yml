@@ -7,6 +7,7 @@ on:
 
 jobs:
   deploy:
+    if: github.repository_owner == 'Zeal8bit'
     runs-on: ubuntu-22.04
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,24 +29,28 @@ jobs:
       - name: Build Zeal 8-bit OS (zeal8bit target)
         shell: bash
         run: |
-          wget http://zeal8bit.com/roms/config/os.conf
-          wget http://zeal8bit.com/roms/config/osconfig.asm
+          wget $CONF_SERVER/roms/config/os.conf
+          wget $CONF_SERVER/roms/config/osconfig.asm
           mv osconfig.asm include/
           z88dk-z80asm
           make
           mv build/os_with_romdisk.img build/$(git describe --tags).img
+        env:
+            CONF_SERVER: ${{ secrets.ZEAL8BIT_CONF_SITE }}
 
       - name: Update index.json
         shell: bash
         run: |
-          wget http://zeal8bit.com/roms/index.json
+          wget $CONF_SERVER/roms/index.json
           export NAME=$(git describe --tags)
           export SHA=$(sha256sum -b build/*.img | cut -f1 -d' ')
           jq ".nightly += [.latest] | .latest = {\"name\" : \"$NAME\", \
-                                                 \"urls\" : \"https://zeal8bit.com/roms/$NAME.img\", \
+                                                 \"urls\" : \"$CONF_SERVER/roms/$NAME.img\", \
                                                  \"version\" : \"$NAME/\", \
                                                  \"hash\": \"$SHA\"}" < index.json > index_new.json
           mv index_new.json index.json
+        env:
+            CONF_SERVER: ${{ secrets.ZEAL8BIT_CONF_SITE }}
 
       - name: Setup SSH
         shell: bash
