@@ -108,13 +108,17 @@ video_msleep:
         ld a, d
         or e
         ret z
+        ld a,d
+        inc a
+        jr z,_video_msleep_max
         ld a,e
         and 0xf         ;check if it needs to round up?
         jr z,_video_msleep_start
         ld hl,16        ;timer increment resolution as the round up value
         add hl,de       ;adding a +1 for number of interrupt cycles to round up
-        jp nc,_video_msleep_no_carry
-        ld hl,65535     ;we maxed out the timer
+        jr nc,_video_msleep_no_carry
+_video_msleep_max:
+        ld hl,65536-256     ;we maxed out the timer = 65536 - resolution
 _video_msleep_no_carry:
         ex de,hl        ;de has the updated timer now
 _video_msleep_start:

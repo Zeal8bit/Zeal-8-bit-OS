@@ -21,10 +21,13 @@ romdisk_init:
         ld hl, _romdisk_driver
         call zos_disks_mount
         ; A has the status, return it if error
+
         or a
-        ret nz
+
         ; This is the last driver, enable interrupts here
         INTERRUPTS_ENABLE()
+
+        ret nz
         ; Else, return ERR_DRIVER_HIDDEN as we don't want this driver to be
         ; directly used by users.
         ld a, ERR_DRIVER_HIDDEN
@@ -131,11 +134,11 @@ dest_ez80:
 length_ez80:
        ld.lil      bc,00000h
 
-        ENTER_CRITICAL()
         push    bc
+        ENTER_CRITICAL()
         ldir.l
-        pop     bc      ;number of bytes read
         EXIT_CRITICAL()
+        pop     bc      ;number of bytes read
         xor a
         ret
 
