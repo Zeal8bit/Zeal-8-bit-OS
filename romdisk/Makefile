@@ -2,7 +2,8 @@
 BIN=init.bin
 # Source files to assemble
 SRCS=init.asm parse.asm ls.asm less.asm opt.asm mkdir.asm cd.asm rm.asm \
-	 errors.asm uart.asm strutils.asm date.asm cp.asm misc.asm hexdump.asm
+	 errors.asm uart.asm strutils.asm date.asm cp.asm misc.asm hexdump.asm \
+	 sleep.asm
 # Output directory to place binaries in
 BUILDIR=build
 
