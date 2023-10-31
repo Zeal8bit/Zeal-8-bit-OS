@@ -1,8 +1,8 @@
 # Set the binaries
 SHELL := /bin/bash
-CC=z88dk-z80asm
 # If z88dk has been install through snap, the binary may be prefixed with "z88dk"
-# So choose any of z88dk-dis or z88dk.z88dk-dis, as loong as one exists
+# So choose any of z88dk-* or z88dk.z88dk-*, as long as one exists
+CC=$(shell which z88dk-z80asm z88dk.z88dk-z80asm | head -1)
 DISASSEMBLER=$(shell which z88dk-dis z88dk.z88dk-dis | head -1)
 PYTHON=python3
 export PATH := $(realpath packer)/:$(PATH)
