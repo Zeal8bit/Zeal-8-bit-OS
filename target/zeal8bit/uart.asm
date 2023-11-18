@@ -9,6 +9,7 @@
         INCLUDE "uart_h.asm"
         INCLUDE "interrupt_h.asm"
         INCLUDE "utils_h.asm"
+        INCLUDE "drivers/video_text_h.asm"
 
         EXTERN zos_sys_remap_de_page_2
 
@@ -40,9 +41,9 @@ uart_init:
 
         call pio_init
 
-        ; Configure the UART to convert LF to CRLF when sending bytes
-        ld a, 1
-        ld (_uart_convert_lf), a
+        ; Configure the UART to convert LF to CRLF when sending bytes (not RAW)
+        xor a
+        ld (_uart_raw), a
 
         ; Initialize the escape sequence
         ld hl, ('[' << 8) | 0x1b
@@ -71,6 +72,9 @@ uart_init:
         call zos_log_warning
       ENDIF
 
+    ELSE
+        ld a, 1
+        ld (_uart_raw), a
     ENDIF ; CONFIG_TARGET_STDOUT_UART
 
         ; Currently, the driver doesn't need to do anything special for open, close or de-init
@@ -121,7 +125,11 @@ _no_mmu_msg: DEFM "no-MMU Kernel build\n", 0
 uart_ioctl:
         ; Check that the command number is correct
         ld a, c
-        cp UART_SET_BAUDRATE
+        cp UART_CMD_GET_ATTR
+        jr z, _uart_ioctl_get_attr
+        cp UART_CMD_SET_ATTR
+        jr z, _uart_ioctl_set_attr
+        cp UART_CMD_SET_BAUDRATE
         jr z, _uart_ioctl_set_baud
 
     IF CONFIG_TARGET_STDOUT_UART
@@ -130,7 +138,7 @@ uart_ioctl:
         cp CMD_SET_COLORS
         jr z, _uart_ioctl_set_colors
         cp CMD_SET_CURSOR_XY
-        jr z, _uart_ioctl_set_cursor
+        jp z, _uart_ioctl_set_cursor
         cp CMD_CLEAR_SCREEN
         jp z, _uart_clear_screen
     ENDIF ; CONFIG_TARGET_STDOUT_UART
@@ -138,6 +146,32 @@ uart_ioctl:
 _uart_ioctl_not_supported:
         ld a, ERR_NOT_SUPPORTED
         ret
+
+        ; Return the current attributes (currently only a single one) in the given buffer
+_uart_ioctl_get_attr:
+    IF CONFIG_KERNEL_TARGET_HAS_MMU
+        ; Remap DE to page 2 if it was in page 3
+        call zos_sys_remap_de_page_2
+    ENDIF
+        ; Single bit at the moment: RAW/not-RAW. In other words, do we re-interpret LF to CRLF?
+        ld a, (_uart_raw)
+        ld (de), a
+        ; Ignore higher bits for now, return success
+        xor a
+        ret
+
+
+        ; Set the UART attributes, consider DE as the VALUE, not a pointer
+_uart_ioctl_set_attr:
+        ; Only consider the first bit of attributes (RAW mode)
+        ld a, e
+        and 1
+        ld (_uart_raw), a
+        ; Return success
+        xor a
+        ret
+
+
 _uart_ioctl_set_baud:
         ; Command is correct, check that the parameter is correct
         ld a, e
@@ -159,7 +193,6 @@ _uart_ioctl_valid:
 
 _uart_ioctl_get_area:
     IF CONFIG_KERNEL_TARGET_HAS_MMU
-        ; Remap DE to page 2 if it was in page 3
         call zos_sys_remap_de_page_2
     ENDIF
         ; Let's say that the text area is 80x40
@@ -397,10 +430,10 @@ uart_send_byte:
         cp '\n'
         jr nz, _uart_send_byte_raw
         ; Check if we have to convert LF to CRLF
-        ld a, (_uart_convert_lf)
+        ld a, (_uart_raw)
         or a
         ld a, '\n'
-        jr z, _uart_send_byte_raw
+        jr nz, _uart_send_byte_raw
         ld a, '\r'
         call _uart_send_byte_raw
         ld a, '\n'
@@ -721,8 +754,9 @@ _stdout_save_restore_position:
 
         SECTION DRIVER_BSS
 _uart_baudrate: DEFS 1
-        ; When set to 1, LF will be convert to CRLF when sending bytes
-_uart_convert_lf: DEFS 1
+        ; When set to 1, bytes will be sent as-is to through UART. When set to 0,
+        ; LF will NOT be convert to CRLF when sending bytes
+_uart_raw: DEFS 1
 _uart_esc_seq: DEFS 10
 _uart_esc_seq_end:
 
