@@ -79,6 +79,8 @@ _load_code_rom:
         ld sp, 0xffff
         ; Jump to the user program (0x4000) in case of no error
         ex de, hl
+        ; We aren't supplying a parameter string in de, so set length to zero
+        ld bc,0 ;
         jp (hl)
 _load_read_error:
         push hl
