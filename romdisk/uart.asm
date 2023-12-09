@@ -144,47 +144,139 @@ uartsnd_main:
         ; uartrcv main routine.
         ; It currently accepts a single parameter: size to receive.
         ; It will try to open the driver registered as SER0.
-        ; TODO: Implement this command to actually save data in a file.
         ; Parameters:
         ;       HL - ARGV
         ;       BC - ARGC
         ; Returns:
         ;       A - 0 on success
+        ; Modifies:
+        ;       IX, DE
         PUBLIC uartrcv_main
 uartrcv_main:
+        ; Set up stack frame
+        ld ix, 0
+        add ix, sp
+
         dec bc  ; Do not count the command itself
+
+        ; Check that size is present
         ld a, b
         or c
-        ret z
+        jp z, _rcv_usage
+        ; Advance past command 
         inc hl
         inc hl
+
+        ; Load stack frame
+        push hl ; remaining argv (ix-2)
+        push bc ; remaining argc at (ix-4)
+
+        ; Parse the length parameter
         ld a, (hl)
         inc hl
         ld h, (hl)
         ld l, a
-        ; Parse the length parameter
         call parse_int
-        ; Check if A is 0 or not
+        ; Check parse (a should be zero)
         or a
-        ; At the moment, simply return, this command is just for the sake of demonstration
-        ret nz
-        ; Save the buffer size
-        push hl
+        jp nz, _rcv_usage
+        ; Add read/write size to stack frame
+        push hl ; size at (ix-6)
+
+        ; Open UART
         call uart_open
-        ; Save the size in BC
-        pop bc
-        jp m, open_error
-        ; Read from the UART
-        ; DE - Buffer
-        ; BC - Size
-        ; H  - Descriptor
+        jp m, _uart_rcv_clean_and_error
+
+        ; Set up and do read
+        ld b, (ix-5)
+        ld c, (ix-6)
         ld de, 0x8000
         ld h, a
         READ()
-        ; TODO: Show what was actually received
-        ; Close the driver
+        ; Check read return
+        or a
+        jp nz, _uart_rcv_clean_and_error
+        ; Close the UART driver
+        CLOSE() 
+
+        ; Prepare for write: load H with either stdout or opened file
+        call _uart_rcv_prep_output
+        or a
+        jp nz, _uart_rcv_clean_and_error
+
+        ; Successful prep, h has open device
+        ld b, (ix-5)
+        ld c, (ix-6)
+        ld de, 0x8000
+        WRITE()
+        ; If output was not DEV_STDOUT, close it (needed to flush file output)
+        ld a,h
+        cp DEV_STDOUT
+        jr z, _uart_rcv_clean_and_return
         CLOSE()
+
+_uart_rcv_clean_and_return:
+        ld sp,ix
         ret
+
+_uart_rcv_prep_output:
+        ; Return either stdout or opened output file, depending on whether
+        ; there is a third parameter (second now that we have advanced past
+        ; the command name).
+        ; Parameters:
+        ;   (IX-2) remaining argv
+        ;   (IX-4) remaining argc
+        ; Returns:
+        ;   A - zero on success, open error on failure
+        ;   H - descriptor on success
+        ; Modifies: 
+        ;   BC
+
+        ; Check if remaining argc > 1
+        ld  b, (ix-3)
+        ld  c, (ix-4)
+        dec bc
+        ld  a, b
+        or  c
+        jp  nz, _uart_rcv_open_output_file
+        ; No filename, write to stdout
+        ld  h, DEV_STDOUT 
+        ret
+_uart_rcv_open_output_file:
+        ; Load HL with remaining argv
+        ld  h, (ix-1)
+        ld  l, (ix-2)
+        ; Load BC with filename (argv[1])
+        inc hl
+        inc hl
+        ld  c, (hl)
+        inc hl
+        ld  b, (hl)
+        ld  h, O_WRONLY | O_CREAT | O_TRUNC
+        OPEN()
+        ; On failure return code in A
+        or  a
+        ret m
+        ; Otherwise descriptor in H and 0 in A
+        ld  h, a
+        xor a
+        ret
+
+_uart_rcv_clean_and_error:
+        ld sp, ix
+        jp open_error
+
+_rcv_usage:
+        ld de, _rcv_usage_str
+        ld bc, _rcv_usage_str_end - _rcv_usage_str
+        S_WRITE1(DEV_STDOUT)
+        jr _uart_rcv_clean_and_return
+_rcv_usage_str:
+        DEFM "usage: uartrcv <size_between_1_and_16384> [<output_file>]\n"
+_rcv_usage_str_end:
+
+
+; Common to all uart commands
 
 uart_open:
         ; Open the UART driver
@@ -197,11 +289,8 @@ uart_open:
         ret
 
 uart_error_pop:
-        ; Clean the stack first
         pop bc
         pop hl
-uart_error:
         jp open_error
 
 uart_driver_name: DEFM "#SER0", 0
-
