@@ -151,107 +151,96 @@ uartsnd_main:
         ;       A - 0 on success
         ; Modifies:
         ;       IX, DE
+        DEFC UART_BUFFER = 0x8000 ; Allows full 0x4000 size buffer. Location is fine
+                                  ; provided init.bin size stays < 0x4000
         PUBLIC uartrcv_main
 uartrcv_main:
-        ; Set up stack frame
-        ld ix, 0
-        add ix, sp
-
         dec bc  ; Do not count the command itself
-
         ; Check that size is present
         ld a, b
         or c
         jp z, _rcv_usage
-        ; Advance past command 
+        ; Advance past command
         inc hl
         inc hl
-
-        ; Load stack frame
-        push hl ; remaining argv (ix-2)
-        push bc ; remaining argc at (ix-4)
-
-        ; Parse the length parameter
-        ld a, (hl)
+        ; Load address of size into DE
+        ld e, (hl)
         inc hl
-        ld h, (hl)
-        ld l, a
+        ld d, (hl)
+        inc hl
+        ; Load the filename into BC if any, otherwise the zero arg count becomes the NULL
+        dec bc
+        ld a, b
+        or c
+        jr z, _uartrcv_main_nofile
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+_uartrcv_main_nofile:
+        ex de, hl
         call parse_int
         ; Check parse (a should be zero)
         or a
         jp nz, _rcv_usage
         ; Add read/write size to stack frame
-        push hl ; size at (ix-6)
+        push bc ; Path to the file (or NULL)
+        push hl
 
         ; Open UART
         call uart_open
-        jp m, _uart_rcv_clean_and_error
+        jp m, uart_error_pop
 
         ; Set up and do read
-        ld b, (ix-5)
-        ld c, (ix-6)
-        ld de, 0x8000
+        pop bc  ; Pop size to read
+        push bc ; Keep it on the stack
+        ld de, UART_BUFFER
         ld h, a
         READ()
         ; Check read return
         or a
-        jp nz, _uart_rcv_clean_and_error
+        jp nz, uart_error_pop
         ; Close the UART driver
-        CLOSE() 
-
-        ; Prepare for write: load H with either stdout or opened file
-        call _uart_rcv_prep_output
-        or a
-        jp nz, _uart_rcv_clean_and_error
-
-        ; Successful prep, h has open device
-        ld b, (ix-5)
-        ld c, (ix-6)
-        ld de, 0x8000
-        WRITE()
-        ; If output was not DEV_STDOUT, close it (needed to flush file output)
-        ld a,h
-        cp DEV_STDOUT
-        jr z, _uart_rcv_clean_and_return
         CLOSE()
 
-_uart_rcv_clean_and_return:
-        ld sp,ix
-        ret
+        ; Prepare for write: load H with either stdout or opened file
+        ; Retrieve the filename from the stack (below the top)
+        pop de  ; Size in DE
+        pop bc  ; Path in BC
+        call _uart_rcv_prep_output
+        or a
+        jp nz, open_error
+
+        ; Successful prep, H has open device, DE has the size
+        ld c, e
+        ld b, d
+        ld de, UART_BUFFER
+        WRITE()
+        ; If output was not DEV_STDOUT, close it (needed to flush file output)
+        ld a, h
+        cp DEV_STDOUT
+        ret z
+        CLOSE()
 
 _uart_rcv_prep_output:
         ; Return either stdout or opened output file, depending on whether
         ; there is a third parameter (second now that we have advanced past
         ; the command name).
         ; Parameters:
-        ;   (IX-2) remaining argv
-        ;   (IX-4) remaining argc
+        ;   BC - Path to the file (NULL if STDOUT)
         ; Returns:
         ;   A - zero on success, open error on failure
         ;   H - descriptor on success
-        ; Modifies: 
+        ; Modifies:
         ;   BC
-
-        ; Check if remaining argc > 1
-        ld  b, (ix-3)
-        ld  c, (ix-4)
-        dec bc
-        ld  a, b
-        or  c
-        jp  nz, _uart_rcv_open_output_file
+        ld a, b
+        or c
+        jr  nz, _uart_rcv_open_output_file
         ; No filename, write to stdout
-        ld  h, DEV_STDOUT 
+        ld  h, DEV_STDOUT
+        ; A is already 0
         ret
 _uart_rcv_open_output_file:
-        ; Load HL with remaining argv
-        ld  h, (ix-1)
-        ld  l, (ix-2)
-        ; Load BC with filename (argv[1])
-        inc hl
-        inc hl
-        ld  c, (hl)
-        inc hl
-        ld  b, (hl)
+        ; Filename in BC
         ld  h, O_WRONLY | O_CREAT | O_TRUNC
         OPEN()
         ; On failure return code in A
@@ -262,19 +251,14 @@ _uart_rcv_open_output_file:
         xor a
         ret
 
-_uart_rcv_clean_and_error:
-        ld sp, ix
-        jp open_error
-
 _rcv_usage:
         ld de, _rcv_usage_str
         ld bc, _rcv_usage_str_end - _rcv_usage_str
         S_WRITE1(DEV_STDOUT)
-        jr _uart_rcv_clean_and_return
+        ret
 _rcv_usage_str:
         DEFM "usage: uartrcv <size_between_1_and_16384> [<output_file>]\n"
 _rcv_usage_str_end:
-
 
 ; Common to all uart commands
 
