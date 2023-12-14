@@ -486,10 +486,6 @@ video_hide_cursor:
         ld a, (chars_color)
         jr video_show_cursor_color
 
-
-        IF CONFIG_TARGET_STDOUT_VIDEO
-
-
         ; Map the video RAM in the second page.
         ; This is used by other drivers that want to show text or manipulate
         ; the text cursor several times, knowing that no read/write on user
@@ -518,7 +514,7 @@ video_map_end:
         MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
         ret
 
-
+    IF CONFIG_TARGET_STDOUT_VIDEO
         ; Print a buffer from the current cursor position, but without
         ; updating the cursor position at the end of the operation.
         ; The characters in the buffer must all be printable characters,
@@ -551,8 +547,6 @@ stdout_print_char:
         ld a, b
         call print_char
         jp video_show_cursor
-
-
     ENDIF ; CONFIG_TARGET_STDOUT_VIDEO
 
         ; Routine called everytime a V-blank interrupt occurs
