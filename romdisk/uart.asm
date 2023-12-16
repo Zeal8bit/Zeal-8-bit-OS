@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>; JasonMo <jasonmo2009@hotmail.com>; 
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -10,6 +10,10 @@
         EXTERN error_print
         EXTERN strlen
         EXTERN parse_int
+        EXTERN init_static_buffer
+        EXTERN init_static_buffer_end
+        DEFC STATIC_BUFFER = init_static_buffer
+        DEFC STATIC_BUFFER_SIZE = init_static_buffer_end - init_static_buffer
 
         ; load main routine. Load a binary file form the UART at 0x4000 and jump to it.
         ; Parameters:
@@ -90,8 +94,6 @@ _load_read_error:
         CLOSE()
         ret
 _load_code_rom_end:
-
-
 _load_usage:
         ld de, _load_usage_str
         ld bc, _load_usage_str_end - _load_usage_str
@@ -115,7 +117,9 @@ uartsnd_main:
         dec bc  ; Do not count the command itself
         ld a, b
         or c
+        jr z, _uartsnd_usage
         ret z
+
         inc hl
         inc hl
         ld a, (hl)
@@ -124,22 +128,65 @@ uartsnd_main:
         ld l, a
         ; HL contains the string to output on the UART
         ; Get its length and save it in BC
-        push hl
-        call strlen
-        push bc
+
+        ; Filename in HL
+        ld b, h
+        ld c, l
+        ld h, O_RDONLY
+        OPEN()
+        or a
+        jp m, uart_file_error
+        ld d, a
+
         call uart_open
-        jp m, uart_error_pop
-        ; Write to the UART
-        ; DE - Buffer
-        ; BC - Size
-        ; H  - Descriptor
-        pop bc
+        ld e, a
+
+        push de
+_uartsnd_loop:
         pop de
-        ld h, a
-        WRITE()
-        ; Close the driver
+        push de
+        ; Read from source file and write to destination file, until we don't have any bytes
+        S_READ3(d, STATIC_BUFFER, STATIC_BUFFER_SIZE)
+        or a
+        jr nz, _uart_error_close_all
+        ; Check if we there are no bytes to read anymore
+        ld a, b
+        or c
+        jr z, _uartsnd_end
+        ; Get the destination descriptor back but keep it saved
+        pop de
+        push de
+        ; BC already contains the number of bytes to write
+        S_WRITE2(e, STATIC_BUFFER)
+        ; In theory we should check that we wrote the same amount of bytes, but for
+        ; simplicity reasons, let's only check for errors
+        or a
+        jr nz, _uart_error_close_all
+        jp _uartsnd_loop
+_uartsnd_end:
+        ; Close the opened descriptors
+        pop de
+        ld h, d
         CLOSE()
+        ld h, e
+        CLOSE()
+        xor a   ; Success
         ret
+
+_uart_error_close_all:
+        pop de
+        ld b, a
+        ld h, e
+        CLOSE()
+        ld a, b
+        neg ; will be negated again before calling error_print
+
+_uartsnd_usage:
+        S_WRITE3(DEV_STDOUT, _uartsnd_usage_str, _uartsnd_usage_str_end - _uartsnd_usage_str)
+        ret
+_uartsnd_usage_str:
+        DEFM "usage: uartsnd <filename>\n"
+_uartsnd_usage_str_end:
 
         ; uartrcv main routine.
         ; It currently accepts a single parameter: size to receive.
@@ -261,6 +308,18 @@ _rcv_usage_str:
 _rcv_usage_str_end:
 
 ; Common to all uart commands
+
+uart_file_error:
+        ; Clean the stack from the size
+        pop de
+        ; Load the error message, A contains the negated error
+        neg
+        ld de, uart_file_err_str
+        ld bc, uart_file_err_str_end - uart_file_err_str
+        jp error_print
+uart_file_err_str:
+        DEFM "Could not open file"
+uart_file_err_str_end:
 
 uart_open:
         ; Open the UART driver
