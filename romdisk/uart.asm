@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>; JasonMo <jasonmo2009@hotmail.com>; 
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -10,6 +10,10 @@
         EXTERN error_print
         EXTERN strlen
         EXTERN parse_int
+        EXTERN init_static_buffer
+        EXTERN init_static_buffer_end
+        DEFC STATIC_BUFFER = init_static_buffer
+        DEFC STATIC_BUFFER_SIZE = init_static_buffer_end - init_static_buffer
 
         ; load main routine. Load a binary file form the UART at 0x4000 and jump to it.
         ; Parameters:
@@ -90,8 +94,6 @@ _load_read_error:
         CLOSE()
         ret
 _load_code_rom_end:
-
-
 _load_usage:
         ld de, _load_usage_str
         ld bc, _load_usage_str_end - _load_usage_str
@@ -115,31 +117,69 @@ uartsnd_main:
         dec bc  ; Do not count the command itself
         ld a, b
         or c
-        ret z
+        jr z, _uartsnd_usage
+
         inc hl
         inc hl
-        ld a, (hl)
+        ld c, (hl)
         inc hl
-        ld h, (hl)
-        ld l, a
-        ; HL contains the string to output on the UART
-        ; Get its length and save it in BC
-        push hl
-        call strlen
-        push bc
+        ld b, (hl)
+        ld h, O_RDONLY
+        OPEN()
+        or a
+        jp m, open_error
+        ld d, a
+
         call uart_open
         jp m, uart_error_pop
-        ; Write to the UART
-        ; DE - Buffer
-        ; BC - Size
-        ; H  - Descriptor
-        pop bc
+        ld e, a
+
+        push de
+_uartsnd_loop:
         pop de
-        ld h, a
-        WRITE()
-        ; Close the driver
+        push de
+        ; Read from source file and write to destination file, until we don't have any bytes
+        S_READ3(d, STATIC_BUFFER, STATIC_BUFFER_SIZE)
+        or a
+        jr nz, _uart_error_close_all
+        ; Check if we there are no bytes to read anymore
+        ld a, b
+        or c
+        jr z, _uartsnd_end
+        ; Get the destination descriptor back but keep it saved
+        pop de
+        push de
+        ; BC already contains the number of bytes to write
+        S_WRITE2(e, STATIC_BUFFER)
+        ; In theory we should check that we wrote the same amount of bytes, but for
+        ; simplicity reasons, let's only check for errors
+        or a
+        jp z, _uartsnd_loop
+        jr _uart_error_close_all
+_uartsnd_end:
+        pop de
+_uartsnd_close:
+        ; Close the opened descriptors
+        ld h, d
         CLOSE()
+        ld h, e
+        CLOSE()
+        xor a   ; Success
         ret
+
+_uart_error_close_all:
+        pop de
+        ld b, a
+        call _uartsnd_close
+        ld a, b
+        jp error_print
+
+_uartsnd_usage:
+        S_WRITE3(DEV_STDOUT, _uartsnd_usage_str, _uartsnd_usage_str_end - _uartsnd_usage_str)
+        ret
+_uartsnd_usage_str:
+        DEFM "usage: uartsnd <filename>\n"
+_uartsnd_usage_str_end:
 
         ; uartrcv main routine.
         ; It currently accepts a single parameter: size to receive.
@@ -159,7 +199,7 @@ uartrcv_main:
         ; Check that size is present
         ld a, b
         or c
-        jp z, _rcv_usage
+        jp z, _uartrcv_usage
         ; Advance past command
         inc hl
         inc hl
@@ -181,7 +221,7 @@ _uartrcv_main_nofile:
         call parse_int
         ; Check parse (a should be zero)
         or a
-        jp nz, _rcv_usage
+        jp nz, _uartrcv_usage
         ; Add read/write size to stack frame
         push bc ; Path to the file (or NULL)
         push hl
@@ -206,7 +246,7 @@ _uartrcv_main_nofile:
         ; Retrieve the filename from the stack (below the top)
         pop de  ; Size in DE
         pop bc  ; Path in BC
-        call _uart_rcv_prep_output
+        call _uartrcv_prep_output
         or a
         jp nz, open_error
 
@@ -221,7 +261,7 @@ _uartrcv_main_nofile:
         ret z
         CLOSE()
 
-_uart_rcv_prep_output:
+_uartrcv_prep_output:
         ; Return either stdout or opened output file, depending on whether
         ; there is a third parameter (second now that we have advanced past
         ; the command name).
@@ -234,12 +274,12 @@ _uart_rcv_prep_output:
         ;   BC
         ld a, b
         or c
-        jr  nz, _uart_rcv_open_output_file
+        jr  nz, _uartrcv_open_output_file
         ; No filename, write to stdout
         ld  h, DEV_STDOUT
         ; A is already 0
         ret
-_uart_rcv_open_output_file:
+_uartrcv_open_output_file:
         ; Filename in BC
         ld  h, O_WRONLY | O_CREAT | O_TRUNC
         OPEN()
@@ -251,14 +291,14 @@ _uart_rcv_open_output_file:
         xor a
         ret
 
-_rcv_usage:
-        ld de, _rcv_usage_str
-        ld bc, _rcv_usage_str_end - _rcv_usage_str
+_uartrcv_usage:
+        ld de, _uartrcv_usage_str
+        ld bc, _uartrcv_usage_str_end - _uartrcv_usage_str
         S_WRITE1(DEV_STDOUT)
         ret
-_rcv_usage_str:
+_uartrcv_usage_str:
         DEFM "usage: uartrcv <size_between_1_and_16384> [<output_file>]\n"
-_rcv_usage_str_end:
+_uartrcv_usage_str_end:
 
 ; Common to all uart commands
 
