@@ -8,6 +8,7 @@
 
         EXTERN error_print
         EXTERN date_to_ascii
+        EXTERN parse_dec_digit
 
         ; A static buffer that can be used by any command implementation
         EXTERN init_static_buffer
@@ -40,7 +41,6 @@ date_main:
         or a
         jp nz, date_error
         dec c ; Discount command name
-        or c
         jr z, _date_main_print ; no args, print
         inc hl ; Skip command name
         inc hl
@@ -55,11 +55,9 @@ date_main:
         call ascii_to_date
         pop bc ; Recall argv and argc
         pop hl
-        or a
         jr nz, _date_usage_error
         ; See if there is also a time
         dec c
-        or c
         jr z, _do_setdate_syscall
         ; Parse time
         ld e, (hl) ; Load time string into  DE
@@ -67,7 +65,6 @@ date_main:
         ld d, (hl)
         ld hl, STATIC_DATE_BUFFER + TIME_OFFSET_IN_STRUCT
         call ascii_to_time
-        or a
         jr nz, _date_usage_error
 _do_setdate_syscall:
         ld de, STATIC_DATE_BUFFER
@@ -101,84 +98,84 @@ _date_usage_error:
         ; Read ACSII date and fill out date part of DATE_STRUCT.
         ; The input format will be as follows:
         ;   YYYY-MM-DD
-        ; Does not check the '-' chars, they can be anything. Does not
-        ; validate number ranges.
+        ; Does not validate number ranges.
         ; Parameters:
         ;       HL - Pointer to the date structure, of size DATE_STRUCT_SIZE
         ;       DE - String source.
         ; Returns:
-        ;       A - nonzero if bad format detected. 
-        ;       If A is zero the date parts of the input struct have been filled out.
-        ;       DE - DE + 10
-        ; Modifies: HL, BC
+        ;       F  - NZ if format error was detected
+        ;       If format is ok the date parts of the input struct have been filled out.
+        ; Modifies: A, HL, B, DE
         PUBLIC ascii_to_date
 ascii_to_date:
-        xor a
         ld b, '-'
         call read_bcd_pair
+        ret  nz
         call read_bcd_pair
+        ret  nz
         call check_char
+        ret  nz
+        inc  de
         call read_bcd_pair
+        ret  nz
         call check_char
-        call read_bcd_pair
-        ; TODO calculate and fill out day-of-week
-        ret
+        ret  nz
+        inc  de
+        jp   read_bcd_pair ; tail call
 
         ; Read ACSII time and fill out time part of of DATE_STRUCT.
         ; The input format will be as follows:
         ;   HH:MM:SS
-        ; Does not check the ':' chars, they can be anything. Does not
-        ; validate number ranges.
+        ; Does not validate number ranges.
         ; Parameters:
         ;       HL - Pointer to the time part of date structure
         ;       DE - String source.
         ; Returns:
-        ;       A  - nonzero if bad format detected
+        ;       F  - NZ if bad format detected
         ;       The time parts of the input date struct have been filled out.
-        ; Modifies: BC
+        ; Modifies: A, B, DE
         PUBLIC ascii_to_time
 ascii_to_time:
-        xor a
         ld b, ':'
         call read_bcd_pair
+        ret  nz
         call check_char
+        ret  nz
+        inc  de
         call read_bcd_pair
+        ret  nz
         call check_char
-        call read_bcd_pair
-        ret
+        ret  nz
+        inc  de
+        jp  read_bcd_pair ; tail call
 
         ; Convert an decimal ascii pair of bytes to a BCD byte.
         ; Parameters
         ;       DE - Pointer to first (high) ascii byte
         ;       HL - Pointer to result byte to update
         ; Returns:
-        ;       (HL) - 2 BCD nibbles, big endian
-        ;       HL   - HL + 1
-        ;       DE   - DE + 2
-        ;       A    - unmodified if both input chars are digit,
-        ;              nonzero otherwise
+        ;       F    - Z if both input chars are digit, NZ otherwise
+        ;       if format is ok:
+        ;         (HL) - 2 BCD nibbles, big endian
+        ;         HL   - HL + 1
+        ;         DE   - DE + 2
+        ; Modifies: A
 read_bcd_pair:
-        ld c, a ; we use C as accumulated error condition
         ld a, (de)
-        cp '9' + 1
-        jr c, _ok1
-        ld c, 1
-_ok1:   sub '0'
-        jr nc, _ok2
-        ld c,1
-_ok2:   ld (hl),a
+        call parse_dec_digit
+        jr c, _bad_num
+        ld (hl), a
         inc de ; next digit
         ld a, (de)
-        cp '9' + 1
-        jr c, _ok3
-        ld c,1
-_ok3:   sub '0'
-        jr nc, _ok4
-        ld c,1
-_ok4:   rld
+        call parse_dec_digit
+        jr c, _bad_num
+        rld
         inc de
         inc hl
-        ld a, c ; return original value or 1 if erro detected
+        cp  a ; set Z
+        ret
+_bad_num: 
+        or 1 ; reset Z
         ret
 
 check_char:
@@ -187,18 +184,13 @@ check_char:
         ;       B  - expected char
         ;       DE - Pointer to char to check
         ; Returns:
-        ;       A  - nonzero on mismatch, unmodified on match
-        ;       DE - DE + 1
-        ; Modifies: C
-        ld c, a
+        ;       F  - NZ on mismatch
+        ; Modifies: A
         ld a, (de)
         sub b
-        or c ; take into account if we started with nonzero in a
-        inc de
         ret
 
 date_error:
-        ; Nothing special to print before the error message
         ld de, date_usage_str
         jp error_print
 

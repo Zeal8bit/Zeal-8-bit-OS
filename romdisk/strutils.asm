@@ -304,6 +304,7 @@ _parse_not_oct_digit:
         scf
         ret
 
+        PUBLIC parse_dec_digit
 parse_dec_digit:
         cp '0'
         jp c, _parse_not_dec_digit
