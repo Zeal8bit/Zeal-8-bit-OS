@@ -435,7 +435,7 @@ _byte_to_ascii_nibble:
         ; efficient routine to convert nibble into ASCII
         add a, 0x90
         daa
-        adc a,040h
+        adc a, 0x40
         daa
         ret
 
