@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023-4 Zeal 8-bit Computer <contact@zeal8bit.com>;
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -292,44 +292,65 @@ _parse_dec_end:
         pop de
         ret
 
+;Convert lower nibble in A from ASCII to octal digit
+;Parameters:
+;  A is ASCII character to convert
+;returns:
+;  success: A has hex value, carry clear
+;  fail: A preserved, carry set
+
 parse_oct_digit:
         cp '0'
-        jp c, _parse_not_oct_digit
+        ret c
         cp '7' + 1
-        jp nc, _parse_not_oct_digit
+        ccf
+        ret c
         ; A is between '0' and '7'
         sub '0' ; CY will be reset
         ret
-_parse_not_oct_digit:
-        scf
-        ret
+
+
+;Convert lower nibble in A from ASCII to decimal digit
+;Parameters:
+;  A is ASCII character to convert
+;returns:
+;  success: A has hex value, carry clear
+;  fail: A preserved, carry set
 
         PUBLIC parse_dec_digit
 parse_dec_digit:
         cp '0'
-        jp c, _parse_not_dec_digit
+        ret    c
         cp '9' + 1
-        jp nc, _parse_not_dec_digit
+        ccf
+        ret c
+_parse_hex_dec_digit:
         ; A is between '0' and '9'
         sub '0' ; CY will be reset
         ret
-_parse_not_dec_digit:
-        scf
-        ret
 
+;Convert lower nibble in A from ASCII to hex digit
+;Parameters:
+;  A is ASCII character to convert
+;returns:
+;  success: A has hex value, carry clear
+;  fail: A preserved, carry set
+
+        PUBLIC parse_hex_digit
 parse_hex_digit:
         cp '0'
-        jp c, _parse_not_hex_digit
+        ret c
         cp '9' + 1
         jp c, _parse_hex_dec_digit
         cp 'A'
-        jp c, _parse_not_hex_digit
+        ret c
         cp 'F' + 1
         jp c, _parse_upper_hex_digit
         cp 'a'
-        jp c, _parse_not_hex_digit
+        ret c
         cp 'f' + 1
-        jp nc, _parse_not_hex_digit
+        ccf
+        ret c
 _parse_lower_hex_digit:
         ; A is a character between 'a' and 'f'
         sub 'a' - 10 ; CY will be reset
@@ -337,13 +358,6 @@ _parse_lower_hex_digit:
 _parse_upper_hex_digit:
         ; A is a character between 'A' and 'F'
         sub 'A' - 10 ; CY will be reset
-        ret
-_parse_hex_dec_digit:
-        ; A is a character between '0' and '9'
-        sub '0' ; CY will be reset
-        ret
-_parse_not_hex_digit:
-        scf
         ret
 
 
@@ -418,15 +432,11 @@ byte_to_ascii:
         ld e, a
         ret
 _byte_to_ascii_nibble:
-        ; If the byte is between 0 and 9 included, add '0'
-        sub 10
-        jp nc, _byte_to_ascii_af
-        ; Byte is between 0 and 9
-        add '0' + 10
-        ret
-_byte_to_ascii_af:
-        ; Byte is between A and F
-        add 'A'
+        ; efficient routine to convert nibble into ASCII
+        add a, 0x90
+        daa
+        adc a, 0x40
+        daa
         ret
 
         ; Convert a date (DATE_STRUCT) to ASCII.
