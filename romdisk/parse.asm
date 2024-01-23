@@ -306,13 +306,55 @@ _prepare_argv_argc_loop:
         or a
         jr z, _prepare_argv_argc_end
         ; Check if the character is a quote
-        ld a, '\''
+        ld a, '\''      ;accept single quote as a string
+        cp (hl)
+        jp z, _prepare_argv_argc_quote_start
+        ld a, '\"'      ;accept double quote as a string
+        cp (hl)
+        jr z, _prepare_argv_argc_quote_start
+        ld a, '('
         cp (hl)
         jp nz, _prepare_argv_argc_no_quote
+_prepare_argv_argc_parenth:
+        inc hl
+        push hl ;this will end up in DE return value
+        dec hl ;so the loop works
+        ld e,1 ;this is the count of parentheses depth
+_prepare_argv_argc_parenth_lp:
+        inc hl
+        dec bc
+        ld a,b
+        or c
+        jr z,_prepare_argv_argc_parenth_bad
+        ld a,(hl)
+        or a        ;should not be terminator
+        jr z,_prepare_argv_argc_parenth_bad
+        cp '('
+        jr nz,_prepare_argv_argc_parenth_not_open
+        inc e       ;increase count of open parenth
+        jr _prepare_argv_argc_parenth_lp
+_prepare_argv_argc_parenth_not_open:
+        cp ')'      ;decrease count of open parenth
+        jr nz,_prepare_argv_argc_parenth_lp
+        dec e
+        jr nz,_prepare_argv_argc_parenth_lp
+        xor a
+        ld (hl),a
+        inc a        ;will become 0 for success below
+_prepare_argv_argc_parenth_bad: ;assumes a=0 for bad.
+        dec a
+        inc hl
+        dec bc
+        ex de,hl
+        pop hl
+        jr _prepare_argv_argc_quote_process_end
+
+_prepare_argv_argc_quote_start:
         inc hl
         dec bc
         ; Look for the closing quote
         call memsep
+_prepare_argv_argc_quote_process_end:
         or a
         jp nz, _prepare_argv_argc_error
         ; Next parameter, in DE, should begin with either ' ' or 0
@@ -328,8 +370,6 @@ _prepare_argv_argc_quote:
         cpl     ; Complement of A to have: 0 is not finished, 0xff is finished
         inc de
         push af
-        ; Decrementing HL will make the parameter start with '
-        dec hl
         jp _prepare_argv_argc_save_arg
 _prepare_argv_argc_no_quote:
         ld a, ' '
@@ -366,7 +406,7 @@ _prepare_argv_argc_save_arg:
         pop af
         ; If A is not null, we reached the end of the command line
         or a
-        jr z, _prepare_argv_argc_loop
+        jp z, _prepare_argv_argc_loop
 _prepare_argv_argc_end:
         ld a, (command_argc)
         ld c, a
@@ -440,7 +480,9 @@ system_commands_begin:
         NEW_COMMAND("clear", clear_main)
         NEW_COMMAND("cp", cp_main)
         NEW_COMMAND("date", date_main)
+        NEW_COMMAND("echo", echo_main)
         NEW_COMMAND("exec", exec_main)
+        NEW_COMMAND("expr", expr_main)
         NEW_COMMAND("help", help_main)
         NEW_COMMAND("hexdump", hexdump_main)
         NEW_COMMAND("less", less_main)
