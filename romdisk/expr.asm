@@ -15,6 +15,9 @@
         EXTERN byte_to_ascii
         EXTERN init_static_buffer
         EXTERN dword_to_ascii_dec
+        EXTERN dword_to_ascii
+        EXTERN word_to_ascii_dec
+        EXTERN word_to_ascii
 
         MACRO ERR_CHECK goto_label
                 or a
@@ -29,8 +32,7 @@
         ;       A - 0 on success
         PUBLIC expr_main
 expr_main:
-
-         ; Retrieve the number given as a parameter
+        ; Retrieve the number given as a parameter
         inc hl
         inc hl  ; skip the first pointer
         ld e,(hl)   ;grab 2nd pointer
@@ -48,7 +50,7 @@ _expr_do_math:
         call parse_int ;strutils - accepts 16 bit dec or hex input at HL
         or a           ;0 is ok, 1 is overflow, 2 is bad digit
         jr nz,_expr_usage
- 
+
         ; Routine displaying the value of HL in decimal then hex
         ; Parameters:
         ;   HL - number to display
@@ -59,34 +61,40 @@ _expr_do_math:
 
 _expr_print_result:
         push hl
-        ld (init_static_buffer),hl
-        ld hl,0
-        ld (init_static_buffer+2),hl
-        ld hl,init_static_buffer
-        ld de,init_static_buffer+4
-        call dword_to_ascii_dec
-        ld hl,init_static_buffer+4
-        ld bc,10
-        call strltrim
-        ex de,hl
-        S_WRITE1(DEV_STDOUT)
-        S_WRITE3(DEV_STDOUT, str_gap,3)
+        ld de, init_static_buffer
+        call word_to_ascii_dec
+        ; Destination buffer points right after the decimal representation, fill the hex form
+        ex de, hl
+        ld (hl), ' '
+        inc hl
+        ld (hl), '0'
+        inc hl
+        ld (hl), 'x'
+        inc hl
+        ex de, hl
         pop hl
-        ld a,h
-        call byte_to_ascii
-        ld a,l
-        ld hl,init_static_buffer
-        ld (hl),d
+        call word_to_ascii
+        ; End the buffer with a new line
+        ld (de),'\n'
+        ; Remove leading '0' before printing
+        ld b, 4 ; Keep the last character, even if it is 0
+        ld a, '0'
+        ld hl, init_static_buffer
+_expr_print_result_leading_0:
+        cp (hl)
+        jr nz, _expr_print_result_no_0
         inc hl
-        ld (hl),e
-        inc hl
-        call byte_to_ascii
-        ld (hl),d
-        inc hl
-        ld (hl),e
-        inc hl
-        ld (hl),'\n'
-        S_WRITE3(DEV_STDOUT, init_static_buffer,5)
+        djnz _expr_print_result_leading_0
+_expr_print_result_no_0:
+        ; Total length is 13 - (4 - B) = 13 - 4 + B = 9 + B
+        ld a, 9
+        add b
+        ; Store in BC
+        ld c, a
+        ld b, 0
+        ; Source buffer in DE
+        ex de, hl
+        S_WRITE1(DEV_STDOUT)
         xor a
         ret
 
@@ -128,5 +136,4 @@ str_usage:      DEFM "usage:\n"
                 DEFM " expr l <string> evaluate the length of string\n"
                 DEFM " Results are shown in decimal and hex\n"
 str_usage_end:
-str_gap:        DEFM " 0x"
 

@@ -362,109 +362,15 @@ _parse_upper_hex_digit:
         sub 'A' - 10 ; CY will be reset
         ret
 
-        ; Convert a 32-bit value to ASCII (u32 decimal)
-        ; Parameters:
-        ;       HL - pointer to 32 bit value in little endian (source)
-        ;       DE - String destination. It must have 10 free bytes to write the ASCII result.
-        ;
-        ; Returns:
-        ;       DE - DE + 10
-        ;       HL - HL + 4
-        ; Alters:
-        ;       A, DE, HL, contents of original 32 bit value now zero.
-        PUBLIC dword_to_ascii_dec
-dword_to_ascii_dec:
-        push bc ;preserve bc
-        push hl ;put the source address on the stack
-        ld b,10     ;10 digits maximum
-        ld h,d    ;de has outbuf
-        ld l,e
-_pde_u_zerobuf:
-        ld (hl),0  ;zero out the output
-        inc hl
-        djnz _pde_u_zerobuf
 
-        ld b,4 * 8      ; number of loops through = number of bytes * 8
+        ; -------------------------------------------------------------------------- ;
+        ;                  Convert Double-Words (32-bit ) to strings                 ;
+        ; -------------------------------------------------------------------------- ;
 
-_bcd_Convert:
-        ld c,10     ;num output digits
-        ld h,d
-        ld l,e
-
-_bcd_Add3:
-        ld a,(hl)
-        cp 5       ;only add 3 if the digit is 5 or above
-        jr c,_bcd_no_carry
-        add a,3
-        ld (hl),a
-_bcd_no_carry:
-        inc hl
-        dec c
-        jr nz,_bcd_Add3 ;
-
-        pop hl  ;hl has source address again
-        push hl
-        sla (hl)
-        inc hl
-        rl (hl)
-        inc hl
-        rl (hl)
-        inc hl
-        rl (hl)
-
-        ld c,10  ;num output digits
-        ld hl,9 ;HL = string destination + 10
-        push af ;preserve carry
-        add hl,de ;so we can go backwards through the bitshift
-        pop af
-_bcd_BitShift:
-        ld a,(hl)
-        rla
-        bit 4,a
-        jr z,_bcd_BitShift_clear
-        and 0x0F ;retain these bits
-        scf ;roll carry into next digit
-_bcd_BitShift_clear:
-        ld (hl),a
-        dec hl
-        dec c
-        jr nz,_bcd_BitShift
-        djnz _bcd_Convert
-
-        ld h,d ;hl has the start of the buffer again
-        ld l,e
-        ld b,10-1
-_pde_u_make_ascii:
-        ld a,(hl)
-        or a
-        jr nz,_pde_u_make_ascii2
-        ld (hl),' '
-        inc hl
-        djnz _pde_u_make_ascii
-_pde_u_make_ascii2:
-        inc b
-_pde_u_make_ascii3:
-        ld a,(hl)
-        or 0x30 ;turn into ascii
-        ld (hl),a
-        inc hl
-        djnz _pde_u_make_ascii3
-;hl is now just after the end of the buffer string
-        ex de,hl
-        pop hl
-        inc hl ;add 4 for consistency with hex version
-        inc hl
-        inc hl
-        inc hl
-        pop bc
-        ret
-
-
-
-        ; Convert a 32-bit value to ASCII (hex)
+        ; Convert a double-word, 32-bit, to ASCII Hexadecimal.
         ; Parameters:
         ;       HL - Pointer to a 32-bit value, little-endian
-        ;       DE - String destination. It must have at least 8 free bytes to write the ASCII result.
+        ;       DE - String destination, it must have at least 8 free bytes to write the ASCII result.
         ; Returns:
         ;       HL - HL + 4
         ;       DE - DE + 8
@@ -473,40 +379,273 @@ _pde_u_make_ascii3:
         PUBLIC dword_to_ascii
 dword_to_ascii:
         push bc
-        ld c, (hl)      ; Lowest byte
-        inc hl
-        ld b, (hl)
-        inc hl
-        push bc
-        ld c, (hl)
-        inc hl
-        ld a, (hl)      ; Highest byte
-        inc hl
-        ; HL must be returned like this
-        ex (sp), hl     ; HL contains lowest byte value now
+        ld bc, 4
+        add hl, bc
         push hl
-        ; Use HL as the destination, DE will be used as return value of byte_to_ascii
         ex de, hl
-        call _dword_to_ascii_convert_store
-        ld a, c
-        call _dword_to_ascii_convert_store
-        pop bc
-        ld a, b
-        call _dword_to_ascii_convert_store
-        ld a, c
-        call _dword_to_ascii_convert_store
-        ; Put back the destination (HL) inside DE
-        ex de, hl
-        pop hl
-        pop bc
-        ret
-_dword_to_ascii_convert_store:
+        ; Put 4 in B
+        ld b, c
+_dword_to_ascii_loop:
+        dec de
+        ld a, (de)
+        push de
         call byte_to_ascii
         ld (hl), d
         inc hl
         ld (hl), e
         inc hl
+        pop de
+        djnz _dword_to_ascii_loop
+        ex de, hl
+        pop hl
+        pop bc
         ret
+
+
+        ; Convert a binary double-word, 32-bit, to ASCII Decimal.
+        ; Parameters:
+        ;       HL - Source buffer, containing the 32-bit value in little endian.
+        ;       DE - String destination, it must have at least 10 free bytes to write the ASCII result.
+        ; Returns:
+        ;       HL - HL + 4
+        ;       DE - DE + 10
+        ; Alters:
+        ;       A, DE, HL
+        PUBLIC dword_to_ascii_dec
+dword_to_ascii_dec:
+        push bc
+        push hl ; We need to return HL + 4
+        ; This routine returns DE - 1, so we have to add 10 to go to the last character
+        call dword_to_bcd
+        ; DE points right after the last BCD character. We need to use the same buffer
+        ; to store the ASCII result in the same buffer! To prevent conflict, start from the
+        ; end of the buffer.
+        ld h, d
+        ld l, e
+        ld bc, 5
+        add hl, bc
+        ; HL contains last ASCII character address, save it since we need to return DE + 10
+        push hl
+        ; Store 3 in B (required by _bcd_byte_to_ascii), and 5 in C since we need 5 iterations
+        ld b, 5
+        ; Store the current BCD byte in [HL]
+_dword_to_ascii_dec_loop:
+        ld a, (de)
+        call _bcd_byte_to_ascii
+        ; HL has been decremented by 2, decrement DE to point to the previous BCD byte
+        dec de
+        djnz _dword_to_ascii_dec_loop
+        ; Get back destination + 9
+        pop de
+        ; Make DE point after the last character
+        inc de
+        pop hl
+        ; Return HL + 4
+        ld bc, 4
+        add hl, bc
+        pop bc
+        ret
+
+
+        ; Convert a binary double-word, 32-bit, to Binary-Coded-Decimal (BCD).
+        ; Parameters:
+        ;       HL - Source buffer, containing the 32-bit value in little endian.
+        ;       DE - Destination buffer. It must have at least 5 free bytes to write the BCD result.
+        ; Returns:
+        ;       DE - DE + 5
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC dword_to_bcd
+dword_to_bcd:
+        ; Initialize the destination buffer with 0s
+        xor a
+        ld b, 5
+_dword_bcd_init:
+        ld (de), a
+        inc de
+        djnz _dword_bcd_init
+        dec de ; Make DE point to the last character
+        ; Store lowest 16-bit ont he stack
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        inc hl
+        push bc
+        ; Store the highest 16-bit word in HL
+        ld a, (hl)
+        inc hl
+        ld h, (hl)
+        ld l, a
+        ; If HL is 0, speed up a bit and ignore the first phase
+        or h
+        ; Prepare the loop counter (B = 16)
+        ld b, 16
+        ; HL contains the upper 16-bit, perform the conversion to BCD
+        call nz, _dword_to_bcd_half_fast_no_dec
+        ; Do the same for the upper 16-bit
+        pop hl
+        ; HL contains the lowest 16-bit, fall-through
+        ; HL - 16-bit value
+        ; DE - Address of the lowest byte
+        ld b, 16
+_dword_to_bcd_16bit_loop:
+        add hl, hl
+_dword_to_bcd_10_bcd_push:
+        ld c, 5
+        push de
+_dword_to_bcd_10_bcd_loop:
+        ld a, (de)
+        adc a
+        daa
+        ld (de), a
+        dec de
+        dec c   ; doesn't alter carry
+        jr nz, _dword_to_bcd_10_bcd_loop
+        pop de
+        djnz _dword_to_bcd_16bit_loop
+        ret
+        ; Same as above but will only start as soon as the first non-zero bit
+        ; of HL is found.
+_dword_to_bcd_half_fast_no_carry:
+        dec b
+_dword_to_bcd_half_fast_no_dec:
+        add hl, hl
+        jr nc, _dword_to_bcd_half_fast_no_carry
+        jr _dword_to_bcd_10_bcd_push
+
+
+        ; -------------------------------------------------------------------------- ;
+        ;                     Convert Words (16-bit) to strings                      ;
+        ; -------------------------------------------------------------------------- ;
+
+
+        ; Convert a word, 16-bit, to ASCII Hexadecimal.
+        ; Parameters:
+        ;       HL - 16-bit value
+        ;       DE - String destination. It must have at least 4 free bytes to write the ASCII result.
+        ; Returns:
+        ;       DE - DE + 4
+        ; Alters:
+        ;       A, BC, DE, HL
+        PUBLIC word_to_ascii
+word_to_ascii:
+        ld b, l
+        ld a, h
+        ; Put destination address in HL
+        call _word_to_ascii_nibble
+        ; Same for the lowest byte
+        ld a, b
+_word_to_ascii_nibble:
+        ex de, hl
+        call byte_to_ascii
+        ; Store the given result
+        ld (hl), d
+        inc hl
+        ld (hl), e
+        inc hl
+        ; Store the destination back in DE
+        ex de, hl
+        ret
+
+
+        ; Convert a word, 16-bit, to ASCII Decimal.
+        ; Parameters:
+        ;   HL - 16-bit binary value
+        ;   DE - Destination buffer, must have at least 5 free characters
+        ; Returns:
+        ;   DE  - DE + 5
+        ; Alters:
+        ;   A, BC, HL
+        PUBLIC word_to_ascii_dec
+word_to_ascii_dec:
+        push de ; Save
+        call word_to_bcd
+        ; CDE now contains BCD value of HL, convert each byte to ASCII
+        pop hl
+        ; Make HL point to the last character
+        inc hl
+        inc hl
+        inc hl
+        inc hl
+        push hl ; We need to return DE + 5
+        ld a, e
+        call _bcd_byte_to_ascii
+        ld a, d
+        call _bcd_byte_to_ascii
+        ; HL points to the first destination byte, since the initial value was
+        ; 16-bit, it is guaranteed that C upper nibble is 0 and lower nibble is
+        ; 0~6
+        ld a, c
+        add '0'
+        ld (hl), a
+        ; Put destination + 5 in DE before returning
+        pop de
+        inc de
+        ret
+        ; Parameters:
+        ;   A      - BCD byte
+        ;   HL     - Destination to store the resulting low byte
+        ;   HL - 1 - Destination to store the resulting high byte
+        ; Returns:
+        ;   HL - Original HL - 2
+        ; Alters:
+        ;   A, HL
+_bcd_byte_to_ascii:
+        ; Start with lowest nibble
+        ld (hl), 3
+        rld         ; This works because lowest nibble of '0' is 0 and b is the upper nibble
+        ; Do the same thing for the highest nibble of A
+        rlca
+        rlca
+        rlca
+        rlca
+        dec hl
+        ld (hl), 3
+        rld
+        dec hl
+        ret
+
+
+        ; Convert a binary word, 16-bit, to Binary-Coded-Decimal (BCD).
+        ; Parameters:
+        ;   HL  - 16-bit value to convert to BCD
+        ; Returns:
+        ;   CDE - HL value in BCD format
+        ; Alters:
+        ;   A, B, HL
+        PUBLIC word_to_bcd
+word_to_bcd:
+        ; B = 16, C = 0
+        ld bc, 0x1000
+        ; DE = 0
+        ld d, c
+        ld e, c
+_word_to_bcd_loop:
+        ; Shift the initial bit
+        add hl, hl
+        ; Shift the carry into CDE
+        ld a, e
+        adc a
+        daa
+        ld e, a
+        ; Middle byte
+        ld a, d
+        adc a
+        daa
+        ld d, a
+        ; Highest byte
+        ld a, c
+        adc a
+        daa
+        ld c, a
+        djnz _word_to_bcd_loop
+        ret
+
+
+        ; -------------------------------------------------------------------------- */
+        ;                            Misc. string routines                           */
+        ; -------------------------------------------------------------------------- */
+
 
         ; Convert an 8-bit value to ASCII (hex)
         ; Parameters:
@@ -518,25 +657,23 @@ _dword_to_ascii_convert_store:
         ;       A
         PUBLIC byte_to_ascii
 byte_to_ascii:
-        ld e, a
-        rlca
-        rlca
-        rlca
-        rlca
-        and 0xf
-        call _byte_to_ascii_nibble
         ld d, a
-        ld a, e
+        rlca
+        rlca
+        rlca
+        rlca
         and 0xf
         call _byte_to_ascii_nibble
-        ld e, a
-        ret
+        ld a, d
+        ld d, e
+        and 0xf
 _byte_to_ascii_nibble:
         ; efficient routine to convert nibble into ASCII
         add a, 0x90
         daa
         adc a, 0x40
         daa
+        ld e, a
         ret
 
         ; Convert a date (DATE_STRUCT) to ASCII.
