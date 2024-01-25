@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023-2024 Zeal 8-bit Computer <contact@zeal8bit.com>; Shawn Sijnstra <shawn@sijnstra.com>;
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -20,6 +20,7 @@
         EXTERN date_to_ascii
         EXTERN byte_to_ascii
         EXTERN dword_to_ascii
+        EXTERN dword_to_ascii_dec
 
         ; A static buffer that can be used across the commands implementation
         EXTERN init_static_buffer
@@ -43,13 +44,13 @@ ls_main:
         ; Check that argc is 1 or 2 (command itself is part of argc)
         or c
         cp 3
-        jp nc, _ls_too_many_param
+        jp nc, _ls_usage
         dec a ; No parameters is okay
         jp z, _ls_no_option
         ; We have one parameter
         ld de, valid_params
         call get_options
-        ERR_CHECK(_ls_invalid_param)
+        ERR_CHECK(_ls_usage)
         ; Here C contains the bitmap of given options
         ; Save it to a RMA location to retrieve it later
         ld a, c
@@ -166,10 +167,17 @@ _ls_detailed:
         inc hl
         ex de, hl
         ; FIXME: Print decimal value?
+        ld a,(given_params)
+        bit 2,a
+        jr nz,_ls_use_hex
+        call dword_to_ascii_dec
+        jp _ls_decimal_done
+_ls_use_hex:
         ld a, '$'       ; Hex value only at the moment
         ld (de), a
         inc de
         call dword_to_ascii
+_ls_decimal_done:
         ; Finally, format the date to ascii
         ld (de), ' '
         inc de
@@ -197,10 +205,10 @@ newline_ret:
         ; Close the opened directory
         ; H already contains the opendir entry
         CLOSE()
-        ; If any parameter was given, we have already printed a new line,
+        ; If any parameter except h on its own was given, we have already printed a new line,
         ; no need to add one.
         ld a, (given_params)
-        or a
+        and 3
         ; Set A to 0 (success) without modifying the flags
         ret nz
         S_WRITE3(DEV_STDOUT, newline, 1)
@@ -252,23 +260,15 @@ _ls_stat_error:
 str_stat: DEFM "stat error: "
 str_stat_end:
 
-_ls_invalid_param:
-        ld de, str_invalid
-        ld bc, str_invalid_end - str_invalid
-        call error_print
+_ls_usage:
+        S_WRITE3(DEV_STDOUT, str_usage, str_usage_end - str_usage)
         ld a, 1
         ret
-str_invalid: DEFM "invalid parameter: "
-str_invalid_end:
-
-_ls_too_many_param:
-        ld de, str_params
-        ld bc, str_params_end - str_params
-        call error_print
-        ld a, 1
-        ret
-str_params: DEFM "too many parameters: "
-str_params_end:
+str_usage: DEFM "usage: ls <-options>\n"
+           DEFM " l - list details\n"
+           DEFM " 1 - 1 entry per line\n"
+           DEFM " x - hex output\n"
+str_usage_end:
 
         PUBLIC open_error
 open_error:
@@ -296,5 +296,5 @@ cur_path: DEFM ".", 0   ; This is a string, it needs to be NULL-terminated
 newline: DEFM "\n"      ; This isn't a proper string, it'll be used with WRITE
      ; Given it one more byte to add a '\n' or '\0'
 dir_entry_struct: DEFS ZOS_DIR_ENTRY_SIZE + 1
-valid_params: DEFM "l1", 0
+valid_params: DEFM "l1x", 0
 given_params: DEFS 1

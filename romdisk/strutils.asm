@@ -375,32 +375,20 @@ _parse_upper_hex_digit:
         PUBLIC dword_to_ascii_dec
 dword_to_ascii_dec:
         push bc ;preserve bc
+        push de ;destination address
         push hl ;put the source address on the stack
-        ld b,10     ;10 digits maximum
-        ld h,d    ;de has outbuf
-        ld l,e
+        ld bc,2560 + 32 ;b=10 digits to clear, c=4*8 for the loop
+        ld hl,9
+        add hl,de
+        ld d,h  ;de now has outbuf + 9
+        ld e,l
+        xor a
 _pde_u_zerobuf:
-        ld (hl),0  ;zero out the output
-        inc hl
+        ld (hl),a  ;zero out the output
+        dec hl
         djnz _pde_u_zerobuf
 
-        ld b,4 * 8      ; number of loops through = number of bytes * 8
-
 _bcd_Convert:
-        ld c,10     ;num output digits
-        ld h,d
-        ld l,e
-
-_bcd_Add3:
-        ld a,(hl)
-        cp 5       ;only add 3 if the digit is 5 or above
-        jr c,_bcd_no_carry
-        add a,3
-        ld (hl),a
-_bcd_no_carry:
-        inc hl
-        dec c
-        jr nz,_bcd_Add3 ;
 
         pop hl  ;hl has source address again
         push hl
@@ -412,31 +400,29 @@ _bcd_no_carry:
         inc hl
         rl (hl)
 
-        ld c,10  ;num output digits
-        ld hl,9 ;HL = string destination + 10
-        push af ;preserve carry
-        add hl,de ;so we can go backwards through the bitshift
-        pop af
-_bcd_BitShift:
+        ld b,10  ;num output digits
+        ld h,d
+        ld l,e
+
+_bcd_Add6:
         ld a,(hl)
-        rla
-        bit 4,a
-        jr z,_bcd_BitShift_clear
-        and 0x0F ;retain these bits
-        scf ;roll carry into next digit
-_bcd_BitShift_clear:
+        adc a
+        daa             ;built-in add 6 routine
+        cp 0x10 ;Check for half-carry
+        ccf     ;make carry available for next byte
+        res 4,a ;clear bit without changing flags
         ld (hl),a
         dec hl
+        djnz _bcd_Add6  ;it's add 6 instead of 3 because it's done after the shift
         dec c
-        jr nz,_bcd_BitShift
-        djnz _bcd_Convert
+        jr nz, _bcd_Convert
 
-        ld h,d ;hl has the start of the buffer again
-        ld l,e
-        ld b,10-1
+        pop de ;de now has the source address
+        pop hl ;hl now has the string address
+        ld bc,0x930     ;b = 9, c = 0x30
+        xor a
 _pde_u_make_ascii:
-        ld a,(hl)
-        or a
+        or (hl)
         jr nz,_pde_u_make_ascii2
         ld (hl),' '
         inc hl
@@ -445,13 +431,12 @@ _pde_u_make_ascii2:
         inc b
 _pde_u_make_ascii3:
         ld a,(hl)
-        or 0x30 ;turn into ascii
+        or c ;turn into ascii
         ld (hl),a
         inc hl
         djnz _pde_u_make_ascii3
 ;hl is now just after the end of the buffer string
         ex de,hl
-        pop hl
         inc hl ;add 4 for consistency with hex version
         inc hl
         inc hl
