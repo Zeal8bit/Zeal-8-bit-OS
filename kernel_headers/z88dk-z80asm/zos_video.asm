@@ -81,9 +81,10 @@
 
     ; area_t structure, used when getting the current mode area
     DEFVARS 0 {
-        width_t  DS.B 1  ; Width of the screen in the current mode
-        height_t DS.B 1  ; Height of the screen in the current mode
-        count_t  DS.B 2  ; Number of entities on-screen (usually, width * height)
+        area_width_t  DS.B 1  ; Width of the screen in the current mode
+        area_height_t DS.B 1  ; Height of the screen in the current mode
+        area_count_t  DS.B 2  ; Number of entities on-screen (usually, width * height)
+        area_end_t    DS.B 0
     }
 
 
