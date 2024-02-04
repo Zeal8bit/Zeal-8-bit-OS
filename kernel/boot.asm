@@ -72,6 +72,10 @@ zos_entry:
         ; Initialize all the drivers
         call zos_drivers_init
 
+    IF CONFIG_KERNEL_DRIVERS_HOOK
+        call target_drivers_hook
+    ENDIF
+
         ; Setup the default stdin and stdout in the vfs
         call zos_vfs_restore_std
 

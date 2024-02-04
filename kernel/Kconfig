@@ -42,19 +42,31 @@ menu "Kernel configuration"
                         virtual page: 16KB.
 
         config KERNEL_COLDBOOT_HOOK
-                bool "Hook routine at coldboot"
-                default n
+                bool
+                # If the target has already a hook installed, do not show this option
+                prompt "Hook routine at coldboot" if !TARGET_HAS_COLDBOOT_HOOK
+                default TARGET_HAS_COLDBOOT_HOOK
                 help
                         When enabled, the kernel will call the routine named `target_coldboot` right
                         after initializing the MMU (if any) and setting up the stack.
                         This routine must be defined in the target code.
 
         config KERNEL_EXIT_HOOK
-            bool "Hook routine at program exit"
-            default n
-            help
+                bool
+                prompt "Hook routine at program exit" if !TARGET_HAS_EXIT_HOOK
+                default TARGET_HAS_EXIT_HOOK
+                help
                         When enabled, the kernel will call the routine named `target_exit` right
                         after exiting a user program.
+                        This routine must be defined in the target code.
+
+        config KERNEL_DRIVERS_HOOK
+                bool
+                prompt "Hook routine called after drivers initialization" if !TARGET_HAS_DRIVERS_HOOK
+                default TARGET_HAS_DRIVERS_HOOK
+                help
+                        When enabled, the kernel will call the routine named `target_drivers_hook` right
+                        after the drivers initialization.
                         This routine must be defined in the target code.
 
         config KERNEL_MAX_LOADED_DRIVERS
