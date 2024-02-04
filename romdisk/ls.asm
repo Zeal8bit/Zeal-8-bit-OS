@@ -294,7 +294,9 @@ str_rddir_err_end:
         SECTION DATA
 cur_path: DEFM ".", 0   ; This is a string, it needs to be NULL-terminated
 newline: DEFM "\n"      ; This isn't a proper string, it'll be used with WRITE
+valid_params: DEFM "l1", 0
+
+        SECTION BSS
      ; Given it one more byte to add a '\n' or '\0'
 dir_entry_struct: DEFS ZOS_DIR_ENTRY_SIZE + 1
-valid_params: DEFM "l1", 0
 given_params: DEFS 1

@@ -476,6 +476,7 @@ help_msg_end:
 
         SECTION DATA
 system_commands_begin:
+        NEW_COMMAND("cat", cat_main)
         NEW_COMMAND("cd", cd_main)
         NEW_COMMAND("clear", clear_main)
         NEW_COMMAND("cp", cp_main)
@@ -502,14 +503,17 @@ system_commands_begin:
 ;        DEFS MAX_COMMAND_NAME, "i2cset"
 ;        DEFW i2cset_main
 system_commands_count: DEFB (system_commands_count - system_commands_begin) / SIZE_COMMAND_ENTRY
+        ; Errors
+err_msg_not_found: DEFM ": command not found\n"
+err_msg_not_found_end:
+err_msg_parameter: DEFM "error parsing parameters: could not find matching \'\n"
+err_msg_parameter_end:
+
+
+        SECTION BSS
         ; Arguments related
 command_argv:   DEFS MAX_COMMAND_ARGV * 2
 command_argc:   DEFS 1
         ; History related
 command_prev_size: DEFS 1
 command_prev: DEFS PATH_MAX + 1
-        ; Errors
-err_msg_not_found: DEFM ": command not found\n"
-err_msg_not_found_end:
-err_msg_parameter: DEFM "error parsing parameters: could not find matching \'\n"
-err_msg_parameter_end:

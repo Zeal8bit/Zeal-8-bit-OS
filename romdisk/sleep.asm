@@ -39,7 +39,7 @@ sleep_main:
 
         ; value was in hl
 _sleep_do:
-        ex      de,hl   
+        ex      de,hl
         MSLEEP()
         ERR_CHECK(_sleep_error)
         ret
@@ -58,6 +58,3 @@ _sleep_error:
 
 str_usage: DEFM "usage: sleep <X>\n X=0-65535 or 0xffff msec\n"
 str_usage_end:
-
-        SECTION DATA
-_sleep_max:     defs    1

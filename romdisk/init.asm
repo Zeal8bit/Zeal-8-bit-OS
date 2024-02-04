@@ -18,6 +18,11 @@
         SECTION TEXT
         ORG 0x4000
         SECTION DATA
+        SECTION BSS
+        ; Give a hardcoded address to the BSS section so that it is not put inside the TEXT
+        ; binary (and init.bin file is then smaller)
+        ; This value should be adapted if the TEXT section grows bigger.
+        ORG 0x6000
         ; ----------------  END  ----------------;
 
         ; Start the actual code
@@ -182,13 +187,12 @@ _promptlen_loop_end:
         pop de
         ret
 
-
-        ; Group all the variables used in the program
-        SECTION DATA
+        SECTION BSS
 curdir: DEFS PATH_MAX + 1
 curdir_len: DEFS 2
 bigbuffer: DEFS 81
 bigbuffer_end:
+
         PUBLIC init_static_buffer
         PUBLIC init_static_buffer_end
 init_static_buffer: DEFS 1024
