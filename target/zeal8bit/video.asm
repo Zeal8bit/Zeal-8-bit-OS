@@ -130,8 +130,6 @@ _video_ioctl_set_attr:
         ; Get current mode area size, DE represent a pointer to area_t structure
 _video_ioctl_get_area:
         call zos_sys_remap_de_page_2
-        or a
-        ret nz
         ; Only support 80x40 (640x480px) text mode at the moment
         ex de, hl
         ld (hl), IO_VIDEO_640480_X_MAX
@@ -142,6 +140,7 @@ _video_ioctl_get_area:
         inc hl
         ld (hl), IO_VIDEO_MAX_CHAR >> 8
         ex de, hl
+        xor a
         ret
 
 
