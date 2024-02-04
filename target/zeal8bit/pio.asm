@@ -43,6 +43,12 @@ pio_init:
         ld a, ERR_SUCCESS
         ret
 
+        ; Routine called after all drivers have been initialized
+        PUBLIC target_drivers_hook
+target_drivers_hook:
+        INTERRUPTS_ENABLE()
+        ret
+
         ; Interrupt handler, called when an interrupt occurs
         ; They shall not be the same but for the moment,
         ; let's say it is the case as only the PIO is the only driver

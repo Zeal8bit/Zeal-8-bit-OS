@@ -4,6 +4,11 @@ menu "Zeal 8-bit Computer configuration"
         bool
         default y
 
+
+    config TARGET_HAS_DRIVERS_HOOK
+        bool
+        default y
+
     config KERNEL_RAM_PHYS_ADDRESS
         hex "Kernel RAM physical address"
         default 0x88000
