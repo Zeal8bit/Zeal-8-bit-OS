@@ -2,16 +2,26 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
+    ; Required for configuration struture
+    INCLUDE "osconfig.asm"
+    INCLUDE "disks_h.asm"
+    INCLUDE "target_h.asm"
+
+    ; If the kernel is compiled without MMU support, set the macro to 0
+    ; so that it can still be placed in the configuration structure.
+  IFNDEF CONFIG_KERNEL_TARGET_HAS_MMU
+    DEFC CONFIG_KERNEL_TARGET_HAS_MMU = 0
+  ENDIF
+
     ; Reference the OS entry point
     EXTERN zos_entry
-    
-    ; Make the implemented vectors public  
+    EXTERN zos_sys_perform_syscall
+
+    ; Make the implemented vectors public
     PUBLIC zos_software_reset
     PUBLIC zos_mode1_isr_entry
 
-    ; We will need the syscall table to get the operation to make
-    EXTERN zos_sys_perform_syscall
-    
+
     SECTION RST_VECTORS
     ; Vector 0 is also Software reset
 rst_vector_0:
@@ -20,8 +30,8 @@ zos_software_reset:
     ; and disable them again
     di
     jp zos_entry
-    nop
-    nop
+    ; Address 0x0004 must contain a pointer to the kernel configuration structure
+    DEFW kernel_config_t
     nop
     nop
     ; Syscall entry point
@@ -29,7 +39,7 @@ zos_software_reset:
     ;   L - Syscall operation number
     ;   Check documentation for the parameters of each operation
     ; Alters:
-    ;   None - Registers are saved by the callee 
+    ;   None - Registers are saved by the callee
 zos_syscall:
 rst_vector_8:
     jp zos_sys_perform_syscall
@@ -95,6 +105,24 @@ rst_vector_38:
     nop
     nop
     nop
+
+
+    ; For simplicity reasons, place the kernel configuration structure here for now
+kernel_config_t:
+    DEFB CONFIG_TARGET_NUMBER
+    DEFB CONFIG_KERNEL_TARGET_HAS_MMU
+    DEFB DISK_DEFAULT_LETTER
+    DEFB CONFIG_KERNEL_MAX_LOADED_DRIVERS
+    DEFB CONFIG_KERNEL_MAX_OPENED_DEVICES
+    DEFB CONFIG_KERNEL_MAX_OPENED_FILES
+    DEFW CONFIG_KERNEL_PATH_MAX
+    DEFW CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
+    ; Target specific pointer, check if any was provided
+  IF CONFIG_TARGET_CUSTOM_CONFIG
+    DEFW target_custom_area_addr
+  ELSE
+    DEFW 0
+  ENDIF
 
     ; Assert that these reset vectors are at the right place
     IF 0

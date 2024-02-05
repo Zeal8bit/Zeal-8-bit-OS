@@ -1,9 +1,13 @@
 menu "Zeal 8-bit Computer configuration"
 
+    # Assign a number to each target
+    config TARGET_NUMBER
+        int
+        default 1
+
     config TARGET_HAS_MMU
         bool
         default y
-
 
     config TARGET_HAS_DRIVERS_HOOK
         bool

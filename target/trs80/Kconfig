@@ -1,5 +1,10 @@
 menu "TRS-80 Configuration"
 
+    # Assign a number to each target
+    config TARGET_NUMBER
+        int
+        default 2
+
     config TARGET_HAS_MMU
         bool
         default n

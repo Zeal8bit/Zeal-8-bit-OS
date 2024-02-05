@@ -89,6 +89,21 @@
     ; @brief Filesystems supported on Zeal 8-bit OS
     DEFC FS_RAWTABLE = 0
 
+    ; @brief Kernel configuration structure size, in bytes.
+    ; Its content would be represented like this in C:
+    ; struct {
+    ;     uint8_t c_target;     // Machine number the OS is running on, 0 means UNKNOWN
+    ;     uint8_t c_mmu;        // 0 if the MMU-less kernel is running, 1 else
+    ;     char    c_def_disk;   // Upper case letter for the default disk
+    ;     uint8_t c_max_driver; // Maximum number of driver loadable in the kernel
+    ;     uint8_t c_max_dev;    // Maximum number of opened devices in the kernel
+    ;     uint8_t c_max_files;  // Maximum number of opened files in the kernel
+    ;     uint16_t c_max_path;  // Maximum path length
+    ;     void*    c_prog_addr; // Virtual address where user programs are loaded
+    ;     void*    c_custom;    // Custom area, target-specific
+    ; } zos_config_t;
+    DEFC ZOS_CONFIG_SIZE = 12
+
 
     ; @brief Macro to abstract the syscall instruction
     MACRO SYSCALL
@@ -554,6 +569,17 @@
     MACRO  MAP  _
         ld l, 23
         SYSCALL
+    ENDM
+
+
+    ; @brief Get a read-only pointer to the kernel configuration.
+    ;
+    ; Parameters:
+    ;   PAIR - 16-bit register (HL, DE, BC) to store the configuration structure address in
+    ; Returns:
+    ;   PAIR - Address of the configuration structure
+    MACRO KERNEL_CONFIG PAIR
+        ld PAIR, (0x0004)
     ENDM
 
     ENDIF ; ZOS_SYS_HEADER

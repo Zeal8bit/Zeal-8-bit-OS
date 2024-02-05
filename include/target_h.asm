@@ -14,4 +14,7 @@
         ; Function called after the drivers are all initialized
         EXTERN target_drivers_hook
 
+        ; Address of the custom area in configuration structure
+        EXTERN target_custom_area_addr
+
         ENDIF

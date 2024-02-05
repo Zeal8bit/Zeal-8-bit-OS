@@ -18,6 +18,32 @@
     #error "Unsupported calling convention. Please upgrade your SDCC version."
 #endif
 
+/**
+ * @brief Enumeration for all the supported machines.
+ *        Check the configuration structure below to retrieve the current target.
+ */
+typedef enum {
+    TARGET_UNKNOWN  = 0,
+    TARGET_ZEAL8BIT = 1,
+    TARGET_TRS80    = 2,
+    TARGET_AGON     = 3,
+    TARGET_COUNT
+} zos_target_t;
+
+/**
+ * @brief Kernel configuration structure
+ */
+typedef struct {
+    zos_target_t c_target; // Machine number the OS is running on, 0 means UNKNOWN
+    uint8_t  c_mmu;        // 0 if the MMU-less kernel is running, 1 else
+    char     c_def_disk;   // Upper case letter for the default disk
+    uint8_t  c_max_driver; // Maximum number of driver loadable in the kernel
+    uint8_t  c_max_dev;    // Maximum number of opened devices in the kernel
+    uint8_t  c_max_files;  // Maximum number of opened files in the kernel
+    uint16_t c_max_path;   // Maximum path length
+    void*    c_prog_addr;  // Virtual address where user programs are loaded
+    void*    c_custom;     // Custom area, target-specific, can be NULL
+} zos_config_t;
 
 /**
  * @brief Exit the program and give back the hand to the kernel.
@@ -57,3 +83,13 @@ zos_err_t exec(const char* name, char* argv[]) CALL_CONV;
  * @returns ERR_SUCCESS on success, error code else.
  */
 zos_err_t map(const void* vaddr, uint32_t paddr) CALL_CONV;
+
+
+/**
+ * @brief Get a read-only pointer to the kernel configuration.
+ *
+ * @returns A pointer to the kernel configuration.
+ */
+static inline const zos_config_t* kernel_config(void) {
+    return *((zos_config_t**) 0x0004);
+}

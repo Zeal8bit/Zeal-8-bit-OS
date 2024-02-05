@@ -5,6 +5,9 @@
         IFNDEF DISKS_H
         DEFINE DISKS_H
 
+        ; Required for O_* flags
+        INCLUDE "vfs_h.asm"
+
         ; Default disk letter on boot up
         DEFC DISK_DEFAULT_LETTER = 'A'
 
