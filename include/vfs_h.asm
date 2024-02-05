@@ -86,5 +86,6 @@
         EXTERN zos_vfs_rm
         EXTERN zos_vfs_mount
         EXTERN zos_vfs_dup
+        EXTERN zos_vfs_swap
 
         ENDIF

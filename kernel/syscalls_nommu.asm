@@ -112,4 +112,5 @@ syscall_exec:
         DEFW zos_date_getdate
 syscall_map:
         DEFW SYSCALL_MAP_ROUTINE
+        DEFW zos_vfs_swap
 zos_syscalls_table_end:

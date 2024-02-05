@@ -314,4 +314,5 @@ syscall_exec:
         ; from here. We will call the function directly.
 syscall_map:
         DEFW SYSCALL_MAP_ROUTINE
+        DEFW zos_vfs_swap
 zos_syscalls_table_end:

@@ -353,3 +353,17 @@ zos_err_t mount(zos_dev_t dev, char letter, zos_fs_t fs) CALL_CONV;
  * @returns ERR_SUCCESS on success, error code else.
  */
 zos_err_t dup(zos_dev_t dev, zos_dev_t ndev) CALL_CONV;
+
+
+/**
+ * @brief Swap the given opened devs. This can be handy to temporarily override the
+ *        standard input or output and restore it afterwards.
+ *
+ * @note Both opened dev must be valid, i.e. not empty, nor closed.
+ *
+ * @param fdev First dev number.
+ * @param sdev Second dev number.
+ *
+ * @returns ERR_SUCCESS on success, error code else.
+ */
+zos_err_t swap(zos_dev_t fdev, zos_dev_t sdev) CALL_CONV;

@@ -361,6 +361,7 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 21 | setdate | u16 date | |
 22 | getdate | u16 date | |
 23 | map | u16 dst | u24 src | |
+24 | swap | u8 dev | u8 ndev | |
 
 Please check the [section below](#syscall-parameters) for more information about each of these call and their parameters.
 

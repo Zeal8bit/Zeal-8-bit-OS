@@ -943,6 +943,46 @@ zos_vfs_dup:
         ; Return success, A is already 0.
         ret
 
+
+        ; Swap two given dev number.
+        ; This can be handy to override the standard input or output temporarily.
+        ; Note: New dev number must not be empty or closed.
+        ; Parameters:
+        ;       H - Firt dev number
+        ;       E - Second dev number
+        ; Returns:
+        ;       A - ERR_SUCCESS on success, error code else
+        PUBLIC zos_vfs_swap
+zos_vfs_swap:
+        push bc
+        push de
+        ld b, e
+        call zos_vfs_get_entry_addr
+        jr nz, _zos_vfs_dup_error
+        ld h, b
+        push de
+        call zos_vfs_get_entry_addr
+        pop hl
+        jr nz, _zos_vfs_dup_error
+        ; Exchange the content of HL and DE. Both point to the MSB!
+        ld a, (de)
+        ld b, (hl)
+        ld (hl), a
+        ld a, b
+        ld (de), a
+        dec hl
+        dec de
+        ld a, (de)
+        ld b, (hl)
+        ld (hl), a
+        ld a, b
+        ld (de), a
+        xor a
+_zos_vfs_dup_error:
+        pop de
+        pop bc
+        ret
+
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
         ;======================================================================;
@@ -1251,7 +1291,7 @@ zos_vfs_get_entry:
         jr nc, _zos_vfs_get_entry_invalid_parameter
         ; HL = [HL + 2*A]
         ld hl, _dev_table
-        rlca
+        sla a
         ADD_HL_A()
         ld a, (hl)
         inc hl
@@ -1274,7 +1314,7 @@ zos_vfs_get_entry_addr:
         jr nc, _zos_vfs_get_entry_invalid_parameter
         ; DE = [HL + 2*A]
         ld hl, _dev_table
-        rlca
+        sla a
         ADD_HL_A()
         ld e, (hl)
         inc hl

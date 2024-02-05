@@ -464,6 +464,21 @@ _map:
     ret
 
 
+    ; zos_err_t swap(zos_dev_t dev, zos_dev_t ndev);
+    ; Parameters:
+    ;   A - fdev
+    ;   L - sdev
+    .globl _swap
+_swap:
+    ; Syscall parameters:
+    ;   H - First dev number
+    ;   E - Second dev number
+    ld h, a
+    ld e, l
+    syscall 24
+    ret
+
+
     ; int getchar(void)
     ; Get next character from standard input. Input is buffered.
     ; Returns:

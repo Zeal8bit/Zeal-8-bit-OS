@@ -572,6 +572,21 @@
     ENDM
 
 
+    ; @brief Swap the given opened devs. This can be handy to temporarily override the
+    ;        standard input or output and restore it afterwards.
+    ;        Can be invoked with SWAP().
+    ;
+    ; Parameters:
+    ;   H - First dev number.
+    ;   E - Second dev number.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    MACRO  SWAP  _
+        ld l, 24
+        SYSCALL
+    ENDM
+
+
     ; @brief Get a read-only pointer to the kernel configuration.
     ;
     ; Parameters:
