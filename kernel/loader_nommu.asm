@@ -21,6 +21,9 @@
         DEFC USER_STACK_ADDRESS = CONFIG_KERNEL_RAM_START - 1
         DEFC USER_PROG_MAX_SIZE = USER_STACK_ADDRESS - CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
 
+        DEFC LOADER_OVERRIDE_PROGRAM     = 0
+        DEFC LOADER_KEEP_PROGRAM_IN_MEM  = 1
+
         SECTION KERNEL_TEXT
 
         ; Load the first binary in the system
@@ -171,14 +174,20 @@ _zos_load_file_error:
         ; Parameters:
         ;       BC - File to load and execute
         ;       DE - String parameter, can be NULL
-        ;       (TODO: H - Save the current program in RAM?)
+        ;       H - Save the current program in RAM. Must be LOADER_OVERRIDE_PROGRAM.
         ; Returns:
         ;       A - Nothing on success, the new program is executed.
-        ;           ERR_FAILURE on failure.
+        ;           ERR_NOT_SUPPORTED if H was not LOADER_OVERRIDE_PROGRAM.
+        ;           ERR_FAILURE on failure
         ; Alters:
         ;       HL
         PUBLIC zos_loader_exec
 zos_loader_exec:
+        ; Optimize a bit by asserting the expected value
+        ASSERT(LOADER_OVERRIDE_PROGRAM == 0)
+        ld a, h
+        or a
+        jr nz, _not_supported
         push bc
         push de
         call zos_loader_exec_internal
@@ -218,11 +227,13 @@ zos_loader_exec_internal:
         pop de  ; D contains the opened dev
         pop bc  ; Program size in BC
         jp _zos_load_file_checked
-
+_not_supported:
+        ld a, ERR_NOT_SUPPORTED
+        ret
 
         ; Exit the current process and load back the init.bin file
         ; Parameters:
-        ;       C - Returned code (unused yet)
+        ;       C - Returned code (unused since programs are not preserved in memory on exec)
         ; Returns:
         ;       None
         PUBLIC zos_loader_exit
