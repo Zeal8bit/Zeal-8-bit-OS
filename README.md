@@ -116,14 +116,25 @@ For installing Z88DK, please [check out their Github project](https://github.com
 ## Configuring Zeal 8-bit OS
 
 After installing the dependencies listed above and cloning this repository, the first thing to do is to configure the OS. To do so, simply execute:
+
 ```
 make menuconfig
 ```
+
 From there, it is possible to configure the kernel but also the target computer's options, for example for *Zeal 8-bit computer*, it is possible to configure where the romdisk (more about this below) will be located on the ROM.
 
 All the options have default values, so, if you have nothing to modify in particular or you are not sure what you are doing, press `S` to save the current (default) configuration. The filename for the configuration will be asked, keep it as `os.conf` and press enter.
 
-To exit the menuconfig, press `Q` key. If everything goes well, the following message will be shown:
+To exit the menuconfig, press `Q` key. 
+
+Or you can also run following command instead to use the default config:
+
+```
+make alldefconfig
+```
+
+If everything goes well, the following message will be shown:
+
 ```
 Converting os.conf to include/osconfig.asm ...
 ```

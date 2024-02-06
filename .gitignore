@@ -1,6 +1,8 @@
 # Configuration and auto-generated files
 *.conf*
 include/osconfig.asm
+packer/pack
+target/**/include/romdisk_info_h.asm
 version.txt
 *.img
 

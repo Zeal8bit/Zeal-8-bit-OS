@@ -146,6 +146,11 @@ menuconfig:
 	@echo "Converting $(KCONFIG_CONFIG) to $(OSCONFIG_ASM) ..."
 	@$(call CONVERT_config_asm,$(KCONFIG_CONFIG), $(OSCONFIG_ASM))
 
+alldefconfig:
+	$(PYTHON) $(shell $(PYTHON) -m site --user-base)/bin/alldefconfig
+	@echo "Converting $(KCONFIG_CONFIG) to $(OSCONFIG_ASM) ..."
+	@$(call CONVERT_config_asm,$(KCONFIG_CONFIG), $(OSCONFIG_ASM))
+
 prepare_dirs:
 	@mkdir -p $(BINDIR)
 
