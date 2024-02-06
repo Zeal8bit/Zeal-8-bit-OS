@@ -153,10 +153,16 @@ _process_command_has_param:
 _process_command_not_path:
         ; Keep the original command name
         push hl
-        ; Try to execute A:/command_name, HL contains the command string
+        ; Try to execute x:/command_name, where x is the default disk
         ex de, hl
+        KERNEL_CONFIG(hl)
+        ; Structure can be browsed with `inc l`
+        inc l
+        inc l
+        ld a, (hl)
+        ; Default disk letter in register A
         ld hl, init_static_buffer
-        ld (hl), 'A'
+        ld (hl), a
         inc hl
         ld (hl), ':'
         inc hl
