@@ -170,7 +170,17 @@ _process_command_not_path:
         ex de, hl
         push bc
         ld bc, init_static_buffer
+        ; Check if the kernel has MMU support, if that's the case, this init program can be
+        ; preserved in memory while the subprogram executes.
+        KERNEL_CONFIG(hl)
+        inc hl  ; point to MMU capability
+        ld a, (hl)
+        ; Prepare parameter before testing the MMU capability
         ld h, EXEC_PRESERVE_PROGRAM
+        or a    ; A = 0 <=> no MMU capability, cannot preserve
+        jr nz, _process_command_exec
+        ld h, EXEC_OVERRIDE_PROGRAM
+_process_command_exec:
         EXEC()
         ; Pop the original command name and command length
         pop bc
