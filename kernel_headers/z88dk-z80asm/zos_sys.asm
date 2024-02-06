@@ -618,7 +618,9 @@
     ; Parameters:
     ;   PAIR - 16-bit register (HL, DE, BC) to store the configuration structure address in
     ; Returns:
-    ;   PAIR - Address of the configuration structure
+    ;   PAIR - Address of the configuration structure. It is guaranteed that the structure won't
+    ;          be spread across two 256-byte pages. In other words, it is possible to browse the
+    ;          structure by performing 8-bit arithmetic (`inc l` for example).
     MACRO KERNEL_CONFIG PAIR
         ld PAIR, (0x0004)
     ENDM

@@ -111,7 +111,9 @@ zos_err_t map(const void* vaddr, uint32_t paddr) CALL_CONV;
 /**
  * @brief Get a read-only pointer to the kernel configuration.
  *
- * @returns A pointer to the kernel configuration.
+ * @returns A pointer to the kernel configuration. It is guaranteed that the
+ *          structure won't be spread across two 256-byte pages. In other words,
+ *          it is possible to browse the structure by performing 8-bit arithmetic.
  */
 static inline const zos_config_t* kernel_config(void) {
     return *((zos_config_t**) 0x0004);
