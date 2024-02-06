@@ -38,6 +38,8 @@ _start:
     WRITE()
 _end:
     ; We MUST execute EXIT() syscall at the end of any program.
+    ; Exit code is stored in H, it is 0 if everything went fine.
+    ld h, a
     EXIT()
 
     ; Define a label before and after the message, so that we can get the length of the string

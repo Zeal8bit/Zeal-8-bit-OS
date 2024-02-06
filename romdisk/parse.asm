@@ -25,6 +25,8 @@
         EXTERN strcpy
         EXTERN error_print
         EXTERN init_static_buffer
+        EXTERN exec_main_bc_de
+        EXTERN exec_main_ret_success
 
         ; Parse and execute the command line passed as a parameter.
         ; Parameters:
@@ -95,8 +97,7 @@ _process_command_argument_error:
 
 
         ; Jump to this routine if the command starts with a '.'
-        ; If it is followed by /, it means we have to execute a program. Else, trigger and error
-        ; as we don't have any command starting with '.'
+        ; It will interpret the given command as a relative path to the program to execute
         ; Parameters:
         ;   HL - Command string
         ;   DE - Parameter address
@@ -104,42 +105,36 @@ _process_command_argument_error:
         ;   [SP]   - AF, A 0 if parameter given, must be popped
         ;   [SP+2] - Length of the original string, must be popped
 _parse_exec_cmd_dot:
-        inc hl
-        ld a, (hl)
-        cp '/'
-        jr nz, _parse_exec_cmd_not_exec
-        inc hl
         pop af
         or a
         ; If A is not 0, there was no parameter provided, set DE to 0
         jr z, _parse_exec_cmd_dot_has_param
         ld de, 0
 _parse_exec_cmd_dot_has_param:
-        ; Try to execute the binary in HL, with the parameter DE
+        ; Clean the stack from the "original length"
+        pop bc
+        ; Try to execute the binary in HL, with the parameter in DE
         ld b, h
         ld c, l
-        EXEC()
-        ; Pop the original size from the stack
-        pop bc
-        ld de, 0
-        jp error_print
-        ; The command is invalid, print an error
-_parse_exec_cmd_not_exec:
-        pop af
-        jr _process_command_not_found_error
+        jp exec_main_bc_de
 
 
         ; Jump to this label if the command was not found.
         ; In that case, check if the given command is an absolute path. If not, check if the default driver (A:/),
         ; which acts as the PATH, contains such binary.
         ; Parameters:
-        ;       HL   - String containing the command name
-        ;       DE   - Parameter address
-        ;       BC   - Length of the remaining string (parameters)
-        ;       [SP] - Whole command length, including parameters, must be popped
+        ;   HL   - String containing the command name
+        ;   DE   - Parameter address
+        ;   BC   - Length of the remaining string (parameters)
+        ;   [SP] - Whole command length, including parameters, must be popped
 _process_command_not_found:
-        push hl
-        push bc
+        ; If DE points to a \0, there is no parameter, store a NULL instead
+        ld a, (de)
+        or a
+        jr nz, _process_command_has_param
+        ld d, a
+        ld e, a
+_process_command_has_param:
         push de
         ; Check if the command is already an absolute path
         ld d, h
@@ -152,11 +147,12 @@ _process_command_not_found:
         ld a, (de)
         cp '/'
         jr nz, _process_command_not_path
-        ; HL is an absolute path! Try to execute it directly
-        ld b, h
-        ld c, l
-        jp _process_command_try_exec
+        ; HL is an absolute path, clean the stack and try to execute it
+        pop de
+        jp _parse_exec_cmd_dot_has_param
 _process_command_not_path:
+        ; Keep the original command name
+        push hl
         ; Try to execute A:/command_name, HL contains the command string
         ex de, hl
         ld hl, init_static_buffer
@@ -168,15 +164,29 @@ _process_command_not_path:
         inc hl
         ex de, hl
         call strcpy
+        ; Get the parameters back [SP + 2]
+        pop hl
+        ex (sp), hl
+        ex de, hl
+        push bc
         ld bc, init_static_buffer
-_process_command_try_exec:
-        pop de  ; pop parameters from the stack
+        ld h, EXEC_PRESERVE_PROGRAM
         EXEC()
-        ; If we return from this syscall, an error occurred, get back the parameters and
-        ; print the first error
+        ; Pop the original command name and command length
         pop bc
         pop hl
-        ; Fall-through
+        ; If an error occurred while executing, A will not be 0
+        ; FIXME: if the file exists but the maximum depth of program execution has been reached,
+        ; this routine will show "command not found" instead of "cannot register more".
+        ; This is because the kernel first checks the current depth before even checking if the
+        ; file exists.
+        or a
+        ; If exec was a success, the returned value from sub-process is in D
+        jr nz, _process_command_not_found_error
+        ; Pop the whole command length from the stack
+        pop bc
+        jp exec_main_ret_success
+
 
         ; Print the command and an error saying we haven't found this command
         ; Parameters:
@@ -290,7 +300,7 @@ _get_command_entry_point_not_found:
         ;       HL - Address of command_argv (**argv)
         ;       BC - Number of entries in command_argv (argc)
         ; Alters:
-        ;       Hl, DE, BC, A
+        ;       HL, DE, BC, A
 prepare_argv_argc:
         ld (command_argv), hl ; argv[0] = command name
         ld a, 1

@@ -192,6 +192,8 @@ curdir: DEFS PATH_MAX + 1
 curdir_len: DEFS 2
 bigbuffer: DEFS 81
 bigbuffer_end:
+        ; Allocate a few more bytes so that we can append some characters
+        DEFS 2
 
         PUBLIC init_static_buffer
         PUBLIC init_static_buffer_end

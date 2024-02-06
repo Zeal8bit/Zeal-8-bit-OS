@@ -101,7 +101,7 @@ zos_sys_perform_syscall:
         ; Map the kernel RAM to the second page now.
         MMU_MAP_KERNEL_RAM(MMU_PAGE_2)
         ; Both the kernel RAM and the user's RAM (stack) are available. HOWEVER, any kernel RAM operation
-        ; needs to be accompagnied by an offset, as it not mapped where it should be (page 3).
+        ; needs to be accompanied by an offset, as it not mapped where it should be (page 3).
         ld a, h
         ld (_zos_user_a - KERN_MMU_VIRT_PAGES_SIZE), a       ; Save original A parameter from the user
         ; Get and save the last page number too as this is where the kernel RAM will be mapped
@@ -273,11 +273,15 @@ zos_sys_restore_pages:
 
 
         SECTION KERNEL_BSS
-_zos_user_sp: DEFS 2
+
+        PUBLIC _zos_user_sp
+        PUBLIC _zos_user_page_1
 _zos_user_a:  DEFS 1
 _zos_user_page_1: DEFS 1
 _zos_user_page_2: DEFS 1
 _zos_user_page_3: DEFS 1
+        ; SP address MUST follow the pages (check loader.asm)
+_zos_user_sp: DEFS 2
 _zos_sys_jump: DEFS 3   ; Store jp nnnn instruction (3 bytes)
 
         SECTION SYSCALL_TABLE

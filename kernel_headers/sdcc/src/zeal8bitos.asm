@@ -318,24 +318,37 @@ _mount:
     syscall 14
     ret
 
-    ; void exit(void);
+
+    ; void exit(uint8_t retval);
+    ; Parameters:
+    ;   A - retval
     .globl _exit
 _exit:
+    ; Return value must be put in H
+    ld h, a
     syscall 15
     ret
 
-    ; zos_err_t exec(const char* name, char* argv[])
+    ; zos_err_t exec(zos_exec_mode_t mode, const char* name, char* argv[], uint8_t* retval) CALL_CONV;
     ; Parameters:
-    ;   HL - name
-    ;   DE - argv
+    ;   A - mode
+    ;   DE - name
+    ;   [SP + 2] - argv
+    ;   [SP + 4] - retval
     .globl _exec
 _exec:
     ; Syscall parameters:
     ;   BC - File to load and execute
     ;   DE - Parameter to give to the new program, only one parameter is supported
     ;        at the moment, so we need to dereference DE if it is not NULL.
-    ld b, h
-    ld c, l
+    ld b, d
+    ld c, e
+    ; Get the argv parameter from the stack
+    pop hl
+    ex (sp), hl
+    ex de, hl   ; Store the argv in DE
+    ; If empty, invoke the syscall directly, keep the mode on the stack
+    push af
     ld a, d
     or e
     jr z, _exec_syscall
@@ -345,7 +358,26 @@ _exec:
     inc hl
     ld d, (hl)
 _exec_syscall:
+    pop hl  ; put the mode in H
+    ; The sub-program may alter IX and IY! They must not be altered
+    push ix
+    push iy
     syscall 16
+    pop iy
+    pop ix
+    ; Put the retval pointer in HL
+    pop hl
+    ex (sp), hl
+    ; Stack is cleaned, if A shows an error, return directly
+    or a
+    ret nz
+    ; A is ERR_SUCCESS, if retval pointer is NULL, return
+    or h
+    or l
+    ret z
+    ; Else, store the return value and return success
+    ld (hl), d
+    xor a
     ret
 
 

@@ -79,9 +79,13 @@
     ENDM
 
     ; Free a previously allocated page
-    ; Must not alter HL, DE
-    MACRO MMU_FREE_PAGE page
-        ld a, page
+    ; Parameters:
+    ;   A - Page to free (abstract value returned by MMU_ALLOC_PAGE)
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    ; Alters:
+    ;   Must not alter DE
+    MACRO MMU_FREE_PAGE _
         call mmu_free_page
     ENDM
 

@@ -51,6 +51,8 @@ _init_parameter_no_parameter:
     push de
     call _fflush_stdout
     pop de
+    ; Main returns an int (16-bit) in DE, but `_exit` expects a byte (8-bit) in A
+    ld a, e
     jp _exit
 
 

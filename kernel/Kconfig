@@ -69,6 +69,19 @@ menu "Kernel configuration"
                         after the drivers initialization.
                         This routine must be defined in the target code.
 
+        config KERNEL_MAX_NESTED_PROGRAMS
+                int "Maximum number of nested programs"
+                depends on KERNEL_TARGET_HAS_MMU
+                default 3
+                range 1 10
+                help
+                        When a program A performs an exec syscall to load program B in memory, it is possible
+                        to save A so that it is resumed once B finishes executing.
+                        This value represents the maximum depth of exec that can be performed recursively by
+                        programs.
+                        For example, if this value is set to 1, no program can be saved in RAM when performing an exec.
+                        If this value is set to 2, A can exec B, but B cannot exec without being overwritten/covered.
+
         config KERNEL_MAX_LOADED_DRIVERS
                 int "Maximum number of loaded drivers"
                 default 16

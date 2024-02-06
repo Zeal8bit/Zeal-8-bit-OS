@@ -17,7 +17,7 @@
         SECTION KERNEL_DRV_VECTORS
         ; Add a dummy section whose size is as big as the padding
         ; between the end of KERNEL_DRV_VECTORS and the beginning
-        ; of INTERRUPT_VECTOR section. This is needed in order to not
+        ; of INTERRUPT_VECTOR section. This is needed in order not to
         ; alter the real size of KERNEL_DRV_VECTORS, while being able to have
         ; the 256-alignment on INTERRUPT_VECTOR section.
         SECTION KERNEL_PADDING

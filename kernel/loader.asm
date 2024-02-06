@@ -17,8 +17,16 @@
         EXTERN zos_sys_remap_bc_page_2
         EXTERN zos_sys_remap_de_page_2
         EXTERN _zos_default_init
+        EXTERN _zos_user_page_1
+        EXTERN _zos_user_sp
 
         DEFC TWO_PAGES_SIZE_UPPER_BYTE = (KERN_MMU_VIRT_PAGES_SIZE >> 8) * 2
+
+        ; Let's allocate at most 3 pages for a single program (48KB)
+        DEFC KERNEL_PAGES_PER_PROGRAM    = 3
+        DEFC KERNEL_STACK_ENTRY_SIZE     = KERNEL_PAGES_PER_PROGRAM + 2 ; 2 more bytes for Stack Pointer
+        DEFC LOADER_OVERRIDE_PROGRAM     = 0
+        DEFC LOADER_KEEP_PROGRAM_IN_MEM  = 1
 
         SECTION KERNEL_TEXT
 
@@ -29,18 +37,15 @@
         ;   A - error code on failure, doesn't return on success
         PUBLIC zos_load_init_file
 zos_load_init_file:
-        push hl ; Save file name
-        ; Start by allocating 3 pages that will be used to store the user program.
-        ; TODO: Once executer-program save is supported, it will be required to
-        ;       allocate pages for the init program and save it in an array.
-        REPTI index, 0, 1, 2
-            MMU_ALLOC_PAGE()
-            ; Allocated page is in B, check error first
-            or a
-            jr nz, zos_load_init_file_error
-            ld a, b
-            ld (_allocate_pages + index), a
-        ENDR
+        ; Save file name to open
+        push hl
+        ; Initialize the stack head, which is at the beginning of the array
+        ld hl, _stack_user_pages
+        ld (_stack_head), hl
+        ; Start by allocating memory pages to store init program
+        ld de, _allocate_pages
+        call zos_load_allocate_page_to_de
+        jr nz, zos_load_init_file_error
         ; Tail-call to zos_load_file
         pop hl
         jp zos_load_file
@@ -48,6 +53,32 @@ zos_load_init_file_error:
         pop hl
         ret
 
+
+        ; Allocate KERNEL_PAGES_PER_PROGRAM pages while saving them to the array
+        ; pointed by DE
+        ; Parameters:
+        ;   DE - Array to store the newly allocated pages
+        ; Returns:
+        ;   A - ERR_SUCCESS on success, error code else
+        ;   Z flag - set if A is ERR_SUCCESS
+        ; Alters:
+        ;   A, BC, DE, HL
+zos_load_allocate_page_to_de:
+        REPT KERNEL_PAGES_PER_PROGRAM - 1
+            ; MMU_ALLOC_PAGE must not alter DE pair
+            MMU_ALLOC_PAGE()
+            ; Allocated page is in B, check error first
+            or a
+            ret nz
+            ld a, b
+            ld (de), a
+            inc de
+        ENDR
+        MMU_ALLOC_PAGE()
+        ex de, hl
+        ld (hl), b
+        or a
+        ret
 
         ; Routine helper to open and check the size of a file.
         ; If this routines returns success, then a load/exec of the file is possible
@@ -209,7 +240,9 @@ _zos_load_failed_h_dev:
         ; Parameters:
         ;       BC - File to load and execute
         ;       DE - String parameter, can be NULL
-        ;       (TODO: H - Save the current program in RAM?)
+        ;       H  - Save the current program in RAM
+        ;            0: Do not save, override the current program
+        ;            1: Save the current program
         ; Returns:
         ;       A - Nothing on success, the new program is executed.
         ;           ERR_FAILURE on failure.
@@ -220,10 +253,32 @@ zos_loader_exec:
         push bc
         push de
         call zos_sys_remap_bc_page_2
+        ; If H is LOADER_OVERRIDE_PROGRAM, no need to allocate memory pages
+        ASSERT(LOADER_OVERRIDE_PROGRAM == 0)
+        ld a, h
+        or a
+        jp nz, zos_loader_exec_new_pages
+        ; Override the current program, no need to allocate pages
         call zos_loader_exec_internal
+zos_loader_ret:
         pop de
         pop bc
         ret
+
+        ; Jump to this branch if we need to allocate new memory pages to store
+        ; the user program in.
+        ; Parameters, Return and Alters is identical to `zos_loader_exec`
+zos_loader_exec_new_pages:
+        ; The top of the stack contains DE and BC registers
+        call zos_loader_allocate_user_pages
+        jr nz, zos_loader_ret
+        call zos_loader_exec_internal
+        ; Returning from zos_loader_exec_internal means an error occurred, free the pages and return
+        push af
+        call zos_loader_free_user_pages
+        pop af
+        jr zos_loader_ret
+
 zos_loader_exec_internal:
         ld a, d
         or e
@@ -244,7 +299,6 @@ zos_loader_exec_internal:
         ex de, hl
         ; HL - String parameter
         call strlen
-        ; Keep the size of the string, we will need to pass it to the program
         ASSERT(CONFIG_KERNEL_STACK_ADDR > 0xC000 && CONFIG_KERNEL_STACK_ADDR <= 0xFFFF)
         ; Calculate the address of destination: bottom_of_stack - parameter_length - 1
         ex de, hl   ; Switch the address of the parameter to DE again
@@ -270,25 +324,160 @@ zos_loader_exec_internal:
 
         ; Exit the current process and load back the init.bin file
         ; Parameters:
-        ;       C - Returned code (unused yet)
+        ;   H - Return code
         ; Returns:
-        ;       None
+        ;   D - Return code (for the caller program)
         PUBLIC zos_loader_exit
 zos_loader_exit:
-        call zos_vfs_clean
     IF CONFIG_KERNEL_EXIT_HOOK
+        ; target_exit must not alter H (return code)
         call target_exit
     ENDIF
-        ; TODO: Once executer-program save is supported, it may be required to
-        ;       free the allocated pages of the callee here, with something like:
-        ; ld a, (_allocate_pages_<nb>)
-        ; MMU_FREE_PAGE(a)
-        ; Load the init file name
+        ; If the first program is exiting, reset the VFS and re-launch the init program
+        ld a, (_stack_entries)
+        or a
+        jr z, zos_loader_exit_from_first
+        ; TODO: Should we clean the VFS? Which descriptors? No way to differentiate between
+        ; one opened by the callee-program and the caller-program
+        ; Keep return code to pass it to the caller
+        push hl
+        ; Not exiting from the init program, pop the previous program
+        call zos_loader_free_user_pages
+        ; TODO: check the errors Should not occur, should be a dynamic assert
+        ; Copy pages from _allocate_pages and user stack pointer into the syscall dispatcher
+        ; HL points to the entry we just popped (previous program to load), copy it raw to _zos_user_page_1
+        ; _zos_user_page_1 must be followed by _zos_user_page_2, _zos_user_page_3 AND _zos_user_sp!
+        ld de, _zos_user_page_1
+        ld bc, KERNEL_STACK_ENTRY_SIZE
+        ldir
+        ; Ready to jump back to the program, restore the return value in D(E)
+        pop de
+        ; Return ERR_SUCCESS
+        xor a
+        ret
+zos_loader_exit_from_first:
+        call zos_vfs_clean
+        ; Load the init file name again
         ld hl, _zos_default_init
         jp zos_load_file
 
+
+        ; Push the current pages to the stack and allocate new pages to _allocate_pages
+        ; Parameters:
+        ;   None
+        ; Returns:
+        ;   A - ERR_SUCCESS on success
+        ;       ERR_CANNOT_REGISTER_MORE if the maximum amount of programs in RAM is reached
+        ;       error code else
+        ;   Z flag - Set if A is ERR_SUCCESS, not set else
+        ; Alters:
+        ;   A, HL
+zos_loader_allocate_user_pages:
+        ; Make sure we can still push programs to the stack
+        ld a, (_stack_entries)
+        sub CONFIG_KERNEL_MAX_NESTED_PROGRAMS - 1
+        jr z, zos_loader_allocate_user_pages_full
+        push de
+        push bc
+        ; Use _file_stats as a temporary buffer so that we don't erase _allocate_pages
+        ; in case of any error
+        ld de, _file_stats
+        call zos_load_allocate_page_to_de
+        jr nz, zos_loader_allocate_user_pages_ret
+        ; Perform the following move: [_file_stats] -> [_allocate_pages] -> [_stack_head]
+        ; where DE is _file_stats, BC is _allocate_pages and HL is _stack_head
+        ld de, _file_stats
+        ld hl, (_stack_head)
+        ld bc, _allocate_pages
+        REPT KERNEL_PAGES_PER_PROGRAM
+            ld a, (bc)
+            ld (hl), a
+            ld a, (de)
+            ld (bc), a
+            inc hl
+            inc de
+            inc bc
+        ENDR
+        ; Store the user stack too
+        ld de, (_zos_user_sp)
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        inc hl
+        ; Update the top of the stack
+        ld (_stack_head), hl
+        ; Update the number of entries
+        ld hl, _stack_entries
+        inc (hl)
+        ; Return as a success
+        xor a
+zos_loader_allocate_user_pages_ret:
+        pop bc
+        pop de
+        ret
+zos_loader_allocate_user_pages_full:
+        or ERR_CANNOT_REGISTER_MORE
+        ret
+
+
+        ; Pop the previous user pages from the stack into the _allocate_pages array
+        ; Parameters:
+        ;   None
+        ; Returns:
+        ;   HL - Points to the stack entry just removed, which contains: page1, page2, page3, SPl, SPh
+        ;   A - ERR_SUCCESS on success
+        ;       ERR_CANNOT_REGISTER_MORE if the stack is empty
+        ; Alters:
+        ;   A, BC, DE, HL
+zos_loader_free_user_pages:
+        ; Check that we have at least 1 entry on the stack
+        ld hl, _stack_entries
+        ld a, (hl)
+        or a
+        jr z, zos_loader_allocate_user_pages_full
+        dec (hl)
+        ; Free the current user program's pages
+        ld de, _allocate_pages
+        REPT KERNEL_PAGES_PER_PROGRAM - 1
+            ld a, (de)
+            MMU_FREE_PAGE()
+            inc de
+        ENDR
+        ld a, (de)
+        MMU_FREE_PAGE()
+        ; Copy the top of the stack to _allocate_pages
+        ld hl, (_stack_head)
+        dec hl  ; Points to the user SP high byte
+        dec hl
+        dec hl
+        ; Copy the previous user program's pages
+        ; DE points to _allocate_pages + KERNEL_PAGES_PER_PROGRAM - 1
+        REPT KERNEL_PAGES_PER_PROGRAM
+            ldd
+        ENDR
+        ; HL points to the previous entry's SPh, increment it to make it point to
+        ; the value we just popped
+        inc hl
+        ld (_stack_head), hl
+        ; Success
+        xor a
+        ret
+
+
         SECTION KERNEL_BSS
-        ; Memory to store the pages allocated for the user program.
-_allocate_pages: DEFS 3
+        ; Small array to store freshly allocated user pages
+        ; _allocate_pages[i] represents is page i + 1
+        ; (page 0 is always the kernel)
+_allocate_pages: DEFS KERNEL_PAGES_PER_PROGRAM
+
+        ; Stack storing the pages allocated for the user programs that are waiting for
+        ; another program to finish
+        ASSERT(CONFIG_KERNEL_MAX_NESTED_PROGRAMS >= 1)
+_stack_user_pages: DEFS (CONFIG_KERNEL_MAX_NESTED_PROGRAMS - 1) * KERNEL_STACK_ENTRY_SIZE
+        ; Head address of the stack
+_stack_head: DEFS 2
+        ; Number of programs pushed to the stack ((_stack_head - _stack_user_pages) / KERNEL_STACK_ENTRY_SIZE)
+_stack_entries: DEFS 1
+
         ; Buffer used to get the stats of the file to load.
 _file_stats: DEFS STAT_STRUCT_SIZE

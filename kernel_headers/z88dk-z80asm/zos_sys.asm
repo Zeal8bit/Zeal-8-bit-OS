@@ -104,6 +104,13 @@
     ; } zos_config_t;
     DEFC ZOS_CONFIG_SIZE = 12
 
+    ; @brief Override caller program when invoking `exec`
+    DEFC EXEC_OVERRIDE_PROGRAM = 0
+
+    ; @brief Keep the caller program in memory when invoking `exec`, until "child"
+    ; program finishes its execution
+    DEFC EXEC_PRESERVE_PROGRAM = 1
+
 
     ; @brief Macro to abstract the syscall instruction
     MACRO SYSCALL
@@ -432,11 +439,13 @@
     ENDM
 
 
-    ; @brief Exit the program and give back the hand to the kernel.
+    ; @brief Exit the program and give back the hand to the kernel. If the caller program invoked
+    ;        EXEC() with `EXEC_PRESERVE_PROGRAM` as the mode, it will be reloaded from RAM after
+    ;        exiting the current program.
     ;        Can be invoked with EXIT().
     ;
     ; Parameters:
-    ;   C - Returned code (unused yet)
+    ;   H - Return code to pass to caller program
     ; Returns:
     ;   None
     MACRO  EXIT  _
@@ -446,14 +455,31 @@
 
 
     ; @brief Load and execute a program from a file name given as a parameter.
-    ;        The program will cover the current program.
+    ;        The current program, invoking this syscall, can either be preserved in memory
+    ;        (only available when the kernel is compiled with MMU support!)
+    ;        until the sub-program finishes executing, or, it can be covered/overridden.
+    ;        In the first case, upon return, D register will contain the return value of the
+    ;        sub-program.
+    ;        The depth of sub-programs is defined and limited in the kernel. As such, it is not
+    ;        guaranteed that it will always be possible to execute a sub-program while keeping
+    ;        the current one in memory. It depends on the target and kernel configuration.
     ;        Can be invoked with EXEC().
     ;
     ; Parameters:
     ;   BC - File to load and execute. The string must be NULL-terminated and must not cross boundaries.
     ;   DE - String argument to give to the program to execute, must be NULL-terminated. Can be NULL.
+    ;   H - Mode marking whether the current program shall be preserved in RAM or overwritten by sub-program.
+    ;       Can be either `EXEC_OVERRIDE_PROGRAM` or `EXEC_PRESERVE_PROGRAM`.
     ; Returns:
-    ;   A - On success, the new program is executed. ERR_FAILURE on failure.
+    ;   A - When invoked with `EXEC_OVERRIDE_PROGRAM`, returns only on error
+    ;       When invoked with `EXEC_PRESERVE_PROGRAM`, returns ERR_SUCCESS when the sub-program was executed
+    ;       successfully (regardless of its returned value), error code else. If error code is ERR_CANNOT_REGISTER_MORE,
+    ;       the maximum depth has been reached, the current program cannot execute a program while being preserved in
+    ;       memory. In that case, it shall either exit, either execute the sub-program with `EXEC_OVERRIDE_PROGRAM`.
+    ;   D - Sub-program exit value, when invoked with `EXEC_PRESERVE_PROGRAM`.
+    ; Alters:
+    ;   Contrarily to other syscalls, invoking EXEC() will not preserve AF, BC, DE, IX, IY.
+    ;   Only HL is guaranteed to be preserved.
     MACRO  EXEC  _
         ld l, 16
         SYSCALL

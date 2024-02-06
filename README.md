@@ -22,7 +22,7 @@
   - [Flashing](#flashing)
     - [Zeal 8-bit Computer](#zeal-8-bit-computer)
     - [Generic targets](#generic-targets)
-- [Features overview](#features-overview)
+- [Features Overview](#features-overview)
 - [TO DO](#to-do)
 - [Implementation details](#implementation-details)
   - [Memory Mapping](#memory-mapping)
@@ -38,6 +38,8 @@
     - [Syscall table](#syscall-table)
     - [Syscall parameters](#syscall-parameters)
     - [Syscall parameters constraints](#syscall-parameters-constraints)
+    - [Syscall `exec`](#syscall-exec)
+    - [Syscall documentation](#syscall-documentation)
   - [Drivers](#drivers)
   - [Virtual File System](#virtual-file-system)
     - [Architecture of the VFS](#architecture-of-the-vfs)
@@ -49,7 +51,7 @@
   - [TRS-80 Model-I](#trs-80-model-i)
   - [Agon Light](#agon-light)
   - [Porting to another machine](#porting-to-another-machine)
-- [Version history](#version-history)
+- [Version History](#version-history)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -58,13 +60,13 @@
 
 ## What?
 
-Zeal 8-bit OS is an operating system written entirely in Z80 assembly for Z80 computers. It has been designed around simplicity and portability. It is inspired by Linux and CP/M. It has the concept of drivers and disks, while being ROM-able.
+Zeal 8-bit OS is an operating system written entirely in Z80 assembly for Z80 computers. It has been designed around simplicity and portability. It is inspired by Linux and CP/M. It has the concept of drivers and disks while being ROM-able.
 
 ## Why?
 
-As you may know, this project is in fact part of a bigger project called *Zeal 8-bit Computer*, which, as it name states, consists of an entirely newly designed 8-bit computer. It is based on a Z80 CPU.
+As you may know, this project is in fact part of a bigger project called *Zeal 8-bit Computer*, which, as its name states, consists of an entirely newly designed 8-bit computer. It is based on a Z80 CPU.
 
-When writing softwares, demos or drivers for it, I realized the code was tied to *Zeal 8-bit computer* hardware implementation, making them highly incompatible with any other Z80 computers, even if the required features were basic (only UART for example).
+When writing software, demos or drivers for it, I realized the code was tied to *Zeal 8-bit computer* hardware implementation, making them highly incompatible with any other Z80 computers, even if the required features were basic (only UART for example).
 
 ## Yet another OS?
 
@@ -87,7 +89,7 @@ Moreover, the OS can still be optimized in both speed and size. This is not the 
 
 To the kernel size, we have to add the drivers implementation size and the RAM used by them. Of course, this is highly dependent on the target machine itself, the features that are implemented and the amount of drivers we have.
 
-The OS is designed to work with an MMU, thus, the target must have 4 swappable virtual pages of 16KB each. The pages must be interchangeable. More info about this in the [Memory Mapping](#memory-mapping) section.
+The OS is designed to work with an MMU, thus, the target must have 4 swappable virtual pages of 16KB each. The pages must be interchangeable. More info about it in the [Memory Mapping](#memory-mapping) section.
 
 
 # Getting started
@@ -148,7 +150,7 @@ The file named `os_with_romdisk.img` contains the OS binary with the generated `
 
 On Zeal 8-bit Computer, the file to flash is `os_with_romdisk.img` as it also contains the initial program that is executed after the OS finishes booting.
 
-To flash this file, you can use Zeal 8-bit Bootloader, if your board is equipped with it. Check the [bootloader repository](https://github.com/Zeal8bit/Zeal-Bootloader) for more info about it.
+To flash this file, you can use Zeal 8-bit Bootloader if your board is equipped with it. Check the [bootloader repository](https://github.com/Zeal8bit/Zeal-Bootloader) for more info about it.
 
 Or, you can flash it directly on the 256KB NOR Flash, referenced SST39SF020, thanks to an external flasher, such as the TL866. In that case, you can use [minipro](https://gitlab.com/DavidGriffith/minipro/) program and the following command:
 ```
@@ -159,7 +161,7 @@ minipro -w -S -p sst39sf020 build/os_with_romdisk.img
 
 The binary can be directly flashed to a ROM, to a NOR flash, or any other storage the target computer is using. It can also be used to boot an emulator.
 
-For example, to flash it on an W27C020 (256KB) EEPROM, you can still use a TL866xx programmer with [minipro](https://gitlab.com/DavidGriffith/minipro/) and the following command:
+For example, to flash it on a W27C020 (256KB) EEPROM, you can still use a TL866xx programmer with [minipro](https://gitlab.com/DavidGriffith/minipro/) and the following command:
 
 ```
 minipro -w -S -p w27c020 build/os_with_romdisk.img
@@ -167,10 +169,10 @@ minipro -w -S -p w27c020 build/os_with_romdisk.img
 
 Of course, this is completely dependent on the target computer.
 
-# Features overview
+# Features Overview
 
 The kernel itself supports the following features:
-* Mono-threaded system, the whole CPU is dedicated to running program!
+* Mono-threaded system, the whole CPU is dedicated to running a single program!
 * Up to 26 disks (A to Z)
 * Files
 * Directories
@@ -189,7 +191,7 @@ The kernel itself supports the following features:
 
 The only supported target at the moment is *Zeal 8-bit computer*, the port is not complete yet, the implemented features are:
 * Video 640x480 text-mode
-* UART as video card replacement (text-mode)
+* UART as video card replacement (text mode)
 * UART for sending and receiving data
 * MMU and no-MMU build, configurable in the `menuconfig`
 * PS/2 keyboard
@@ -201,8 +203,8 @@ The only supported target at the moment is *Zeal 8-bit computer*, the port is no
 
 # TO DO
 
-There are still some work to do in the project. Some features needs to be development on the kernel side, some things needs to be documented in the project, here is a non-exhaustive list:
-* <s>Generate header files usable by user programs for: syscalls, file entries, directories entries, opening flags, etc..</s> **Done, header files are available in `kernel_headers` directory.**
+There is still some work to do on the project. Some features need to be developed on the kernel side, some things need to be documented in the project, here is a non-exhaustive list:
+* <s>Generate header files usable by user programs for syscalls, file entries, directories entries, opening flags, etc...</s> **Done, header files are available in `kernel_headers` directory.**
 * <s>Document clearly what each syscall does</s> **Done, check ASM header file.**
 * <s>A writable file system. Currently, only `rawtable` (more about it below) file system is implemented, which is read-only.</s> **ZealFS file system has been implemented, it supports files and directories, and is writable!**
 * <s>Make it work with MMU-less targets, and add a configuration option for this</s> **Done, kernel is now compatible with MMU-less targets!**
@@ -221,30 +223,30 @@ There are still some work to do in the project. Some features needs to be develo
 * Optimize the code to be smaller and faster.
 * *More things I am forgetting...*
 
-And of course **fixing bugs!**
+And of course, **fixing bugs!**
 
-As Zeal 8-bit OS is still in beta version, you will encounter bugs, errors, problems, please feel free to open an issue, with a snippet of code to help reproducing it.
+As Zeal 8-bit OS is still in beta version, you will encounter bugs, and errors, please feel free to open an issue, with a snippet of code to help reproduce it.
 
 # Implementation details
 
-In the sections below, the word "program", also referred to as "users programs", designates a software being executed after the kernel loaded it from a file and jumped to it.
+In the sections below, the word "program", also referred to as "users programs", designates software being executed after the kernel loaded it from a file and jumped to it.
 
 ## Memory Mapping
 
 ### Kernel configured with MMU
 
-Zeal 8-bit OS can separate kernel RAM and user's program thanks to virtual pages. Indeed, as it is currently implemented, the kernel is aware of 4 virtual pages of 16KB.
+Zeal 8-bit OS can separate kernel RAM and user programs thanks to virtual pages. Indeed, as it is currently implemented, the kernel is aware of 4 virtual pages of 16KB.
 
-The first page, page 0, shall not be switched as it contains the kernel code. This means that the OS binary is limited to 16KB, it must never exceed this size. When a user's program is being execute, any `syscall` will result in jumping in the first bank where the OS code resides. So if this page is switched for another purpose, no syscall, no interrupt nor communication with the kernel must happen, else, undefined behavior will occur.
+The first page, page 0, shall not be switched as it contains the kernel code. This means that the OS binary is limited to 16KB, it must never exceed this size. When a user's program is being executed, any `syscall` will result in jumping in the first bank where the OS code resides. So if this page is switched for another purpose, no syscall, no interrupt nor communication with the kernel must happen, else, undefined behavior will occur.
 
-The second page, page 1, is where user programs are copied to and executed from. Thus, all the programs for Zeal 8-bit OS shall be linked from address `0x4000` (16KB). When loading a program, the second and third page are also mapped to usable RAM from the user program. Thus, a user program can have a maximum size of 48KB.
+The second page, page 1, is where user programs are copied and executed. Thus, all the programs for Zeal 8-bit OS shall be linked from address `0x4000` (16KB). When loading a program, the second and third pages are also mapped to usable RAM from the user program. Thus, a user program can have a maximum size of 48KB.
 
-The fourth page, page 3, is used to store the OS data for both the kernel and the drivers. When loading a user program, this page is switched to RAM, so that it's usable by the program, when a syscall occurs, it's switched back to the kernel RAM. Upon loading a user program, the SP (Stack Pointer) is set to `0xFFFF`. However, this may change in a near future.
+The fourth page, page 3, is used to store the OS data for both the kernel and the drivers. When loading a user program, this page is switched to RAM, so that it's usable by the program, when a syscall occurs, it's switched back to the kernel RAM. Upon loading a user program, the SP (Stack Pointer) is set to `0xFFFF`. However, this may change in the near future.
 
 To sum up, here is a diagram to show the usage of the memory:
 <img src="md_images/mapping.svg" alt="Memory mapping diagram"/>
 
-*If the user program's parameters are pointed to a portion of memory in page 3 (last page), there is a conflict as the kernel will always remap its RAM page inside in that exact same page. This is why it will remap page 2 (third page) to let it contain the user parameter. Of course, the parameter will be decremented by 16KB to let it now point to the page 2.
+*If the user program's parameters are pointing to a portion of memory in page 3 (last page), there is a conflict as the kernel will always map its RAM page inside this exact same page during a syscall. Thus, it will remap user's page 3 into page 2 (third page) to access the program's parameters. Of course, in case the parameters are pointers, they will be modified to let them point to the new virtual address (in other words, a pointer will be subtracted by 16KB to let it point to page 2).
 
 ### Kernel configured as no-MMU
 
@@ -284,7 +286,7 @@ Z80 presents multiple general-purpose registers, not all of them are used in the
 
 This means that the OS won't alter IX and IY registers, so they can be used freely in the application.
 
-The alternate registers (names followed by `'`) may only be used in the interrupt handlers[^1]. An application should not use these registers. If for some reasons, you still have to use them, please consider disabling the interrupts during the time they are used:
+The alternate registers (names followed by `'`) may only be used in the interrupt handlers[^1]. An application should not use these registers. If for some reason, you still have to use them, please consider disabling the interrupts during the time they are used:
 
 ```
 my_routine:
@@ -301,7 +303,7 @@ Keep in mind that disabling the interrupts for too long can be harmful as the sy
 
 ### Reset vectors
 
-The Z80 provides 8 distinct reset vectors, as the system is meant to always be stored in the first virtual page of memory, these are all reserved to the OS:
+The Z80 provides 8 distinct reset vectors, as the system is meant to always be stored in the first virtual page of memory, these are all reserved for the OS:
 
 Vector | Usage
 ------ | ------
@@ -331,7 +333,7 @@ This parameter must be a NULL-terminated string that will be copied and transmit
 
 ## Syscalls
 
-The system relies on syscalls in order to perform requests between the user program and the kernel. Thus, this shall the way to perform operations on the hardware. The list of possible operations are listed in the table below.
+The system relies on syscalls to perform requests between the user program and the kernel. Thus, this shall be the way to perform operations on the hardware. The possible operations are listed in the table below.
 
 ### Syscall table
 
@@ -352,7 +354,7 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 12 | readdir | u8 dev | u16 dst | |
 13 | rm | u16 path | | |
 14 | mount | u8 dev | u8 letter | u8 fs |
-15 | exit | | | |
+15 | exit | u8 code | | |
 16 | exec | u16 name | u16 argv | |
 17 | dup | u8 dev | u8 ndev | |
 18 | msleep | u16 duration | | |
@@ -378,6 +380,7 @@ In order to perform a syscall, the operation number must be stored in register `
 | u8 flags              | `H`          |
 | u8 cmd                | `C`          |
 | u8 letter             | `D`          |
+| u8 code               | `H`          |
 | u8 fs                 | `E`          |
 | u8 id                 | `H`          |
 | u8 whence             | `A`          |
@@ -395,7 +398,7 @@ In order to perform a syscall, the operation number must be stored in register `
 | u32 offset            | `BCDE`       |
 
 
-And finally, the code must perform a `RST $08` instruction (please check [Reset vectors](#reset-vectors)).
+And finally, the code must perform an `RST $08` instruction (please check [Reset vectors](#reset-vectors)).
 
 The returned value is placed in A. The meaning of that value is specific to each call, please check the documentation of the concerned routines for more information.
 
@@ -411,6 +414,26 @@ For example, if `read` syscall is called with:
 * `DE = 0x4000` and `BC = 0x1000`, the parameters are **correct**, because the buffer pointed by `DE` fits into page 1 (from `0x4000` to `0x7FFF`)
 * `DE = 0x4000` and `BC = 0x4000`, the parameters are **correct**, because the buffer pointed by `DE` fits into page 1 (from `0x4000` to `0x7FFF`)
 * `DE = 0x7FFF` and `BC = 0x2`, the parameters are **incorrect**, because the buffer pointed by DE is in-between page 1 and page2.
+
+### Syscall `exec`
+
+Even though Zeal 8-bit OS is a mono-tasking operating system, it can execute and keep several programs in memory. When a program A executes a program B thanks to the `exec` syscall, it shall provide a `mode` parameter that can be either `EXEC_OVERRIDE_PROGRAM` or `EXEC_PRESERVE_PROGRAM`:
+* `EXEC_OVERRIDE_PROGRAM`: this option tells the kernel that program A doesn't need to be executed anymore, so program B will be loaded in the same address space as program A. In other words, program B will be loaded inside the same RAM pages as program A, it will overwrite it.
+* `EXEC_PRESERVE_PROGRAM`: this option tells the kernel that program A needs to be kept in RAM until program B finishes its execution and calls the `exit` syscall. To do so, the kernel will allocate 3 new memory pages (`16KB * 3 = 48KB`) in which it stores newly loaded program B. Once program B exits, the kernel frees the previously allocated pages for program B, remaps program A's memory pages, and gives back the hand to program A. If needed, A can retrieve B's exit value.
+
+The depth of the execution tree is defined in the `menuconfig`, thanks to option `CONFIG_KERNEL_MAX_NESTED_PROGRAMS`. It represents the maximum number of programs that can be stored in RAM at one time. For example, if the depth is 3, program A can call program B, program B can call program C, but program C cannot call any other program.
+However, if a program invokes `exec` with `EXEC_OVERRIDE_PROGRAM`, the depth is **not** incremented as the new program to load will override the current one.
+As such, if we take back the previous example, program C can call a program if and only if it invokes the `exec` syscall in `EXEC_OVERRIDE_PROGRAM` mode.
+
+Be careful, when executing a sub-program, the whole opened device table, (including files, directories, and drivers), the current directory, and CPU registers will be **shared**.
+
+This means that if program A opens a file with descriptor 3, program B will inherit this index, and thus, also be able to read, write, or even close that descriptor. Reciprocally, if B opens a file, directory, or driver and exits **without** closing it, program A will also have access to it. As such, the general guideline to follow is that before exiting, a program must always close the descriptors it opened. The only moment the table of opened devices and current directory are reset is when the initial program (program A in the previous example) exits. In that case, the kernel will close all the descriptors in the opened devices table, reopen the standard input and output, and reload the initial program.
+
+This also means that when invoking the `exec` syscall in an assembly program, on success, all registers, except HL, must be considered altered because they will be used by the subprogram. So, if you wish to preserve `AF`, `BC`, `DE`, `IX` or `IY`, they must be pushed on the stack before invoking `exec`.
+
+### Syscall documentation
+
+The syscalls are all documented in the header files provided for both assembly and C, you will find [assembly headers here](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/kernel_headers/z88dk-z80asm) and [C headers here](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/kernel_headers/sdcc/include) respectively.
 
 ## Drivers
 
@@ -467,11 +490,11 @@ DEFW my_driver0_ioctl
 DEFW my_driver0_deinit
 ```
 
-Registering a driver consists in putting these information (structure) inside a section called `DRV_VECTORS`. The order is very important as any driver dependency shall be resolved at compile-time. For example, if driver `A` depends on driver `B`, then `B`'s structure must be put before `A` in the section `DRV_VECTORS`.
+Registering a driver consists in putting this information (structure) inside a section called `DRV_VECTORS`. The order is very important as any driver dependency shall be resolved at compile-time. For example, if driver `A` depends on driver `B`, then `B`'s structure must be put before `A` in the section `DRV_VECTORS`.
 
 At boot, the `driver` component will browse the whole `DRV_VECTORS` section and initialize the drivers one by one by calling their `init` routine. If this routine returns `ERR_SUCCESS`, the driver will be registered and user programs can open it, read, write, ioctl, etc...
 
-A driver, can be hidden to the programs, this is handy for disk drivers that must only be accessed by the kernel's file system layer. In order to be hidden, the `init` routine should return `ERR_DRIVER_HIDDEN`.
+A driver can be hidden to the programs, this is handy for disk drivers that must only be accessed by the kernel's file system layer. To do so, the `init` routine should return `ERR_DRIVER_HIDDEN`.
 
 ## Virtual File System
 
@@ -507,9 +530,9 @@ flowchart TD;
 
 ## Disks
 
-Zeal 8-bit OS supports up to 26 disks at once. The disks are denoted by a letter, from A to Z. It's the disk's driver responsibility to decide where to mount the disk in the system.
+Zeal 8-bit OS supports up to 26 disks at once. The disks are denoted by a letter, from A to Z. It's the disk driver's responsibility to decide where to mount the disk in the system.
 
-The first drive, `A`, is special as it is the one where the system will look for preferences or configuration.
+The first drive, `A`, is special as it is the one where the system will look for preferences or configurations.
 
 In an application, a `path` may be:
 
@@ -521,26 +544,27 @@ In an application, a `path` may be:
 
 Even though the OS is completely ROM-able and doesn't need any file system or disk to boot, as soon as it will try to load the initial program, called `init.bin` by default, it will check for the default disk and request that file. Thus, even the most basic storage needs a file system, or something similar.
 
-* The first "file system" that is supported in Zeal 8-bit OS is called "rawtable". As it name states, it represents the succession of files, not directories, in a storage device, in no particular order. The file name size limit is the same as the kernel's: 16 characters, including the optional `.` and extension. If we want to compare it to C code, it would be an array of structure defining each file, following by the files content in the same order. A romdisk packer source code is available in the `packer/` at the root of this repo. Check [its README](packer/README.md) for more info about it.
+* The first "file system", which is already implemented, is called "rawtable". As its name states, it represents the succession of files, not directories, in a storage device, in no particular order. The file name size limit is the same as the kernel's: 16 characters, including the optional `.` and extension. If we want to compare it to C code, it would be an array of structures defining each file, followed by the file's content in the same order. A romdisk packer source code is available in the `packer/` at the root of this repo. Check [its README](packer/README.md) for more info about it.
 
-* The second file system that is implemented is named ZealFS. Its main purpose is to be embedded in very small storages, from 8KB up to 64KB. It is readable and writable, it supports files and directories. [More info about it in the dedicated repository](https://github.com/Zeal8bit/ZealFS).
+* The second file system, which is also implemented, is named ZealFS. Its main purpose is to be embedded in very small storages, from 8KB up to 64KB. It is readable and writable, it supports files and directories. [More info about it in the dedicated repository](https://github.com/Zeal8bit/ZealFS).
 
-* The third file system that would be nice to have on Zeal 8-bit OS is FAT16. Very famous, already supported by almost all desktop operating systems, usable on CompactFlash and even SD cards, this is almost a must have. It has **not** been implemented yet, but it's planned. FAT16 is not perfect though as it is not adapted for small storages, this is why ZealFS is needed.
+* The third file system that would be nice to have on Zeal 8-bit OS is FAT16. Very famous, already supported by almost all desktop operating systems, usable on CompactFlash and even SD cards, this is almost a must-have. It has **not** been implemented yet, but it's planned. FAT16 is not perfect though as it is not adapted for small storage, this is why ZealFS is needed.
 
 # Supported targets
 
 ## Relation with the kernel
 
-The Zeal 8-bit OS is based around two main components: a kernel and a target code.
+The Zeal 8-bit OS is based on two main components: a kernel and a target code.
 The kernel alone does nothing. The target needs to implement the drivers, some MMU macros used inside the kernel and a linker script. The linker script is fairly simple, it lists the sections in the order they must be linked in the final binary by `z80asm` assembler.
 
-The kernel currently use the following sections, which must be included in any linker script:
+The kernel currently uses the following sections, which must be included in any linker script:
 * `RST_VECTORS`: contains the reset vectors
+* `SYSCALL_TABLE`: contains a table where syscall `i` routine address is stored at index `i`, must be aligned on 256
 * `SYSCALL_ROUTINES`: contains the syscall dispatcher, called from a reset vector
 * `KERNEL_TEXT`: contains the kernel code
 * `KERNEL_STRLIB`: contains the string-related routines used in the kernel
-* `KERNEL_BSS`: contains the data used by the kernel code, **must** be in RAM
 * `KERNEL_DRV_VECTORS`: represents an array of drivers to initialize, check [Driver section](#drivers) for more details.
+* `KERNEL_BSS`: contains the data used by the kernel code, **must** be in RAM
 * `DRIVER_BSS`: not used directly by the kernel, it shall be defined and used in the drivers. The kernel will set it to 0s on boot, it must be bigger than 2 bytes
 
 ## Zeal 8-bit Computer
@@ -595,20 +619,20 @@ To port Zeal 8-bit OS MMU version to another machine, make sure you have a memor
 To port no-MMU Zeal 8-bit OS, make sure RAM is available from virtual address `0x4000` and above. The most ideal case being having ROM is the first 16KB for the OS and RAM in the remaining 48KB for the user programs and kernel RAM.
 
 If your target is compatible, follow the instructions:
-* Open the `Kconfig` file at the root of this repo, add an entry to the `config TARGET` and `config COMPILATION_TARGET` options. Take example on the ones that are already present.
+* Open the `Kconfig` file at the root of this repo, and add an entry to the `config TARGET` and `config COMPILATION_TARGET` options. Take the ones already present as examples.
 * Create a new directory in `target/` for your target, the name **must** be the same as the one specified in the new `config TARGET` option.
 * Inside this new directory, create a new `unit.mk` file. This is the file that shall contain all the source files to assemble or the ones to include.
-* Populate your `unit.mk` file, to do os, you can to populate the following `make` variables:
+* Populate your `unit.mk` file, to do so, you can populate the following `make` variables:
   * `SRCS`: list of the files to be assembled. Typically, these are the drivers (mandatory)
   * `INCLUDES`: the directories containing header files that can be included
   * `PRECMD`: a bash command to be executed **before** the kernel starts building
-  * `POSTCMD`: a bash command to be execute **after** the kernel finishes building
+  * `POSTCMD`: a bash command to be executed **after** the kernel finishes building
 * Create the assembly code that implements the drivers for the target
 * Create an `mmu_h.asm` file which will be included by the kernel to configure and use the MMU. Check the file [`target/zeal8bit/include/mmu_h.asm`](target/zeal8bit/include/mmu_h.asm) to see how it should look like.
 * Make sure to have at least one driver that mounts a disk, with the routine `zos_disks_mount`, containing an `init.bin` file, loaded and executed by the kernel on boot.
 * Make sure to have at least one driver which registers itself as the standard out (stdout) with the routine `zos_vfs_set_stdout`.
 
-# Version history
+# Version History
 
 For the complete changelog, [please check the release page](https://github.com/Zeal8bit/Zeal-8-bit-OS/releases/).
 
@@ -624,7 +648,7 @@ To contribute:
   * Open a Pull Request
 
 
-(*) A good commit message is as follow:
+(*) A good commit message is as follows:
 ```
 Module: add/fix/remove a from b
 
@@ -647,4 +671,4 @@ You are free to use it for personal and commercial use, the boilerplate present 
 
 For any suggestion or request, you can contact me at contact [at] zeal8bit [dot] com
 
-For features requests, you can also open an issue or a pull request.
+For feature requests, you can also open an issue or a pull request.
