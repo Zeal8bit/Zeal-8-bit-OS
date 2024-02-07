@@ -5,12 +5,15 @@ SHELL := /bin/bash
 CC=$(shell which z88dk-z80asm z88dk.z88dk-z80asm | head -1)
 DISASSEMBLER=$(shell which z88dk-dis z88dk.z88dk-dis | head -1)
 PYTHON=python3
+PYTHON_BIN=$(PYTHON) $(shell $(PYTHON) -m site --user-base)/bin
 export PATH := $(realpath packer)/:$(PATH)
-# Menuconfig-related env variables
+# Kconfig related
 export KCONFIG_CONFIG = os.conf
 export MENUCONFIG_STYLE = aquatic
 export OSCONFIG_ASM = include/osconfig.asm
 export ZOS_PATH := $(PWD)
+MENUCONFIG=$(PYTHON_BIN)/menuconfig
+ALLDEFCONFIG=$(PYTHON_BIN)/alldefconfig
 # Output related
 BIN=os.bin
 # As the first section of the OS  must be RST_VECTORS, the final binary is named os_RST_VECTORS.bin
@@ -142,12 +145,12 @@ define CONVERT_config_asm =
 endef
 
 menuconfig:
-	$(PYTHON) $(shell $(PYTHON) -m site --user-base)/bin/menuconfig
+	$(MENUCONFIG)
 	@echo "Converting $(KCONFIG_CONFIG) to $(OSCONFIG_ASM) ..."
 	@$(call CONVERT_config_asm,$(KCONFIG_CONFIG), $(OSCONFIG_ASM))
 
 alldefconfig:
-	$(PYTHON) $(shell $(PYTHON) -m site --user-base)/bin/alldefconfig
+	$(ALLDEFCONFIG)
 	@echo "Converting $(KCONFIG_CONFIG) to $(OSCONFIG_ASM) ..."
 	@$(call CONVERT_config_asm,$(KCONFIG_CONFIG), $(OSCONFIG_ASM))
 

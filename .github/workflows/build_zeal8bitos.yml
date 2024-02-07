@@ -32,7 +32,6 @@ jobs:
         shell: bash
         run: |
           make alldefconfig
-          mv osconfig.asm include/
           z88dk-z80asm
           make
           mv build/os_with_romdisk.img build/$(git describe --tags).img
