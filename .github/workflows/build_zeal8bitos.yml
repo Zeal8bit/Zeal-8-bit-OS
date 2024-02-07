@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - v*
 
 jobs:
   deploy:
@@ -29,9 +31,7 @@ jobs:
       - name: Build Zeal 8-bit OS (zeal8bit target)
         shell: bash
         run: |
-          wget $CONF_SERVER/roms/config/os.conf
-          wget $CONF_SERVER/roms/config/osconfig.asm
-          mv osconfig.asm include/
+          make alldefconfig
           z88dk-z80asm
           make
           mv build/os_with_romdisk.img build/$(git describe --tags).img

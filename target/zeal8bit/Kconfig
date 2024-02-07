@@ -49,7 +49,7 @@ menu "Zeal 8-bit Computer configuration"
     config TARGET_ENABLE_COMPACTFLASH
         bool
         prompt "Enable CompactFlash driver (EXPERIMENTAL)"
-        default n
+        default y
         help
             Import the CompactFlash driver in the kernel compilation. If this option is enabled, the CompactFlash will be seen
             as a disk by the kernel. The address and and the initialization timeout can be configured.
