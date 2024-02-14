@@ -3,13 +3,16 @@ name: Build Zeal 8-bit OS
 on:
   push:
     branches:
-      - main
+      - '*'
     tags:
       - v*
+  pull_request:
+    types: 
+      - opened
+      - reopened
 
 jobs:
   deploy:
-    if: github.repository_owner == 'Zeal8bit'
     runs-on: ubuntu-22.04
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,7 +29,9 @@ jobs:
             sudo snap remove z88dk
             sudo snap install --edge z88dk
             sudo snap alias z88dk.z88dk-z80asm z88dk-z80asm
-            sudo apt install -y jq make lftp
+            sudo apt update
+            sudo apt install -y jq make lftp git python3 python3-pip
+            pip3 install --ignore-installed --user kconfiglib
 
       - name: Build Zeal 8-bit OS (zeal8bit target)
         shell: bash
@@ -35,10 +40,9 @@ jobs:
           z88dk-z80asm
           make
           mv build/os_with_romdisk.img build/$(git describe --tags).img
-        env:
-            CONF_SERVER: ${{ secrets.ZEAL8BIT_CONF_SITE }}
 
       - name: Update index.json
+        if: ${{ github.repository_owner == 'Zeal8bit' && github.ref == 'main' }}
         shell: bash
         run: |
           wget $CONF_SERVER/roms/index.json
@@ -53,6 +57,7 @@ jobs:
             CONF_SERVER: ${{ secrets.ZEAL8BIT_CONF_SITE }}
 
       - name: Setup SSH
+        if: ${{ github.repository_owner == 'Zeal8bit' && github.ref == 'main' }}
         shell: bash
         run: |
           mkdir -p ~/.ssh
@@ -65,6 +70,7 @@ jobs:
             RUNNER_SSH_PRIV: ${{ secrets.ZEAL8BIT_SSH_PRIV }}
 
       - name: Publish files
+        if: ${{ github.repository_owner == 'Zeal8bit' && github.ref == 'main' }}
         shell: bash
         run: |
           export NAME=$(git describe --tags).img
