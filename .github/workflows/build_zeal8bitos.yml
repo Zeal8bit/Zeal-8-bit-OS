@@ -42,7 +42,7 @@ jobs:
           mv build/os_with_romdisk.img build/$(git describe --tags).img
 
       - name: Update index.json
-        if: ${{ github.repository_owner == 'Zeal8bit' && github.ref == 'main' }}
+        if: ${{ github.repository_owner == 'Zeal8bit' && github.ref == 'refs/heads/main' }}
         shell: bash
         run: |
           wget $CONF_SERVER/roms/index.json
@@ -57,7 +57,7 @@ jobs:
             CONF_SERVER: ${{ secrets.ZEAL8BIT_CONF_SITE }}
 
       - name: Setup SSH
-        if: ${{ github.repository_owner == 'Zeal8bit' && github.ref == 'main' }}
+        if: ${{ github.repository_owner == 'Zeal8bit' && github.ref == 'refs/heads/main' }}
         shell: bash
         run: |
           mkdir -p ~/.ssh
@@ -70,7 +70,7 @@ jobs:
             RUNNER_SSH_PRIV: ${{ secrets.ZEAL8BIT_SSH_PRIV }}
 
       - name: Publish files
-        if: ${{ github.repository_owner == 'Zeal8bit' && github.ref == 'main' }}
+        if: ${{ github.repository_owner == 'Zeal8bit' && github.ref == 'refs/heads/main' }}
         shell: bash
         run: |
           export NAME=$(git describe --tags).img
