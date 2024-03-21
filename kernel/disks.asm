@@ -10,8 +10,14 @@
         INCLUDE "strutils_h.asm"
         INCLUDE "fs/rawtable_h.asm"
         INCLUDE "fs/zealfs_h.asm"
+        INCLUDE "log_h.asm"
 
         SECTION KERNEL_TEXT
+
+        EXTERN _vfs_work_buffer
+        EXTERN boot_ready
+
+        DEFC TMP_WORK_BUFFER = _vfs_work_buffer + VFS_WORK_BUFFER_SIZE / 2
 
         PUBLIC zos_disks_init
 zos_disks_init:
@@ -72,7 +78,16 @@ zos_disks_mount:
         ld hl, _disks_fs
         ADD_HL_A()
         ld (hl), c
-        xor a   ; Optimization for ERR_SUCCESS
+
+    IF CONFIG_KERNEL_LOG_BOOT_MOUNTED_DISKS
+        ; If kernel is booting (ready = 0), print the mounted disk letter
+        ld a, (boot_ready)
+        or a
+        call z, _zos_disk_print_mounter_disk
+    ENDIF
+
+        ; Optimization for ERR_SUCCESS
+        xor a
 _zos_disks_mount_ex_pop_ret:
         ex de, hl
 _zos_disks_mount_pop_ret:
@@ -85,6 +100,37 @@ _zos_disks_mount_invalid_param:
 _zos_disks_mount_already_mounted:
         ld a, ERR_ALREADY_MOUNTED
         jr _zos_disks_mount_ex_pop_ret
+
+
+    IF CONFIG_KERNEL_LOG_BOOT_MOUNTED_DISKS
+        ; Print the name of the mounted disk on boot
+        ; Parameters:
+        ;   B - Disk index (0-25)
+        ; Returns:
+        ;   None
+        ; Alters:
+        ;   A, BC, HL
+_zos_disk_print_mounter_disk:
+        ; Convert the index to an ASCII letter
+        ld a, b
+        add 'A'
+        ; Copy message from ROM to RAM
+        push de
+        ld de, TMP_WORK_BUFFER
+        ld hl, _mounted_msg
+        ld bc, _mounted_msg_end - _mounted_msg
+        ldir
+        ; Replace the letter in the message
+        ld (TMP_WORK_BUFFER + 5), a
+        ld hl, TMP_WORK_BUFFER
+        call zos_log_info
+        pop de
+        ret
+_mounted_msg:
+        DEFM "Disk ? mounted\n", 0
+_mounted_msg_end:
+    ENDIF
+
 
         ; Unmount the disk of the given letter. It is not possible to unmount the
         ; default disk. It shall must be changed.

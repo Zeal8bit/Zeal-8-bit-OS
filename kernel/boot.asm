@@ -102,6 +102,11 @@ _zos_boot_date_ok:
         ld hl, zos_kernel_ready
         xor a
         call zos_log_message
+
+        ; Mark the kernel as "ready"
+        ld a, 1
+        ld (boot_ready), a
+
         ld hl, _zos_default_init
         call zos_load_init_file
         ; If we return from zos_load_file, an error occurred
@@ -139,3 +144,9 @@ zos_kernel_ready:
         DEFM "  @"
         STR(CONFIG_KERNEL_INIT_EXECUTABLE_ADDR)
         DEFM "\n\n", 0
+
+
+        SECTION KERNEL_BSS
+
+        PUBLIC boot_ready
+boot_ready: DEFS 1

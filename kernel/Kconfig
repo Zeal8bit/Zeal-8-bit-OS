@@ -130,13 +130,11 @@ menu "Kernel configuration"
                         it will load the KERNEL_INIT_EXECUTABLE in RAM. This constant defines the virtual
                         address where it will be loaded and executed from.
 
-        config KERNEL_LOG_SUPPORT_ANSI_COLOR
-                bool "Mark whether Kernel logger can use ANSI escape sequences for printing colors"
+        config KERNEL_LOG_BOOT_MOUNTED_DISKS
+                bool "Print the mounted disks in the boot banner"
                 default y
                 help
-                        Kernel logger, by default, prints logs without any color. However, if this option
-                        is enable, it will be able to print error messages in red, warning messages in yellow
-                        and info messages in green.
+                        If this option is enabled, the kernel will print the disks that are mounted on boot.
 
         config KERNEL_ENABLE_ZEALFS_SUPPORT
                 bool "Enable support for ZealFS file system"
