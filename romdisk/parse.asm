@@ -27,6 +27,7 @@
         EXTERN init_static_buffer
         EXTERN exec_main_bc_de
         EXTERN exec_main_ret_success
+        EXTERN try_exec_bc_de
 
         ; Parse and execute the command line passed as a parameter.
         ; Parameters:
@@ -176,18 +177,8 @@ _process_command_not_path:
         ex de, hl
         push bc
         ld bc, init_static_buffer
-        ; Check if the kernel has MMU support, if that's the case, this init program can be
-        ; preserved in memory while the subprogram executes.
-        KERNEL_CONFIG(hl)
-        inc hl  ; point to MMU capability
-        ld a, (hl)
-        ; Prepare parameter before testing the MMU capability
-        ld h, EXEC_PRESERVE_PROGRAM
-        or a    ; A = 0 <=> no MMU capability, cannot preserve
-        jr nz, _process_command_exec
-        ld h, EXEC_OVERRIDE_PROGRAM
-_process_command_exec:
-        EXEC()
+        ; Execute program whose name is pointed by BC
+        call try_exec_bc_de
         ; Pop the original command name and command length
         pop bc
         pop hl

@@ -61,10 +61,9 @@ _exec_main_merge:
     ; Execute the program stored in BC with the parameters in DE
     PUBLIC exec_main_bc_de
 exec_main_bc_de:
-    ld h, EXEC_PRESERVE_PROGRAM
     ; Keep the file name so that we can show it in case of error
     push bc
-    EXEC()
+    call try_exec_bc_de
     pop hl
     ; If an error occurred while executing, A will not be 0
     or a
@@ -91,6 +90,30 @@ exec_main_error:
     inc bc
     inc bc
     jp error_print
+
+
+    ; Execute the program pointed by BC, this routien will automatically
+    ; determine whether to override or preserve the current program, depending
+    ; on the kernel configuration structure.
+    ; Parameters:
+    ;   BC - Program path/name
+    ;   DE - Parameter (optional)
+    PUBLIC try_exec_bc_de
+try_exec_bc_de:
+    ; Check if the kernel has MMU support, if that's the case, this init program can be
+    ; preserved in memory while the subprogram executes.
+    KERNEL_CONFIG(hl)
+    inc hl  ; point to MMU capability
+    ld a, (hl)
+    ; Prepare parameter before testing the MMU capability
+    ld h, EXEC_PRESERVE_PROGRAM
+    or a    ; A = 0 <=> no MMU capability, cannot preserve
+    jr nz, _process_command_exec
+    ld h, EXEC_OVERRIDE_PROGRAM
+_process_command_exec:
+    EXEC()
+    ret
+
 
     ; Reset the board
     PUBLIC reset_main
