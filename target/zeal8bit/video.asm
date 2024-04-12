@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023-2024 Zeal 8-bit Computer <contact@zeal8bit.com>
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -41,15 +41,14 @@ video_init:
     ; Reset the cursor position, the scroll value and the color, it should already be set to default
     ; on coldboot, but maybe not on warmboot
     ; A is already 0
-    out (IO_TEXT_CURS_Y), a
-    out (IO_TEXT_CURS_X), a
-    out (IO_TEXT_SCROLL_Y), a
-    out (IO_TEXT_SCROLL_X), a
     out (IO_TEXT_CURS_CHAR), a
     ld a, DEFAULT_CHARS_COLOR
     out (IO_TEXT_COLOR), a
     ld a, DEFAULT_CHARS_COLOR_INV
     out (IO_TEXT_CURS_COLOR), a
+
+    ; Clear the screen and cursor (position and scroll)
+    call _video_ioctl_clear_screen
 
     ; Make the cursor blink every 30 frames (~500ms)
     ld a, DEFAULT_CURSOR_BLINK
@@ -62,11 +61,9 @@ video_init:
     ld a, DEFAULT_TEXT_CTRL
     out (IO_TEXT_CTRL_REG), a
 
-    IF CONFIG_TARGET_STDOUT_VIDEO
     ; Set it at the default stdout
     ld hl, this_struct
     call zos_vfs_set_stdout
-    ENDIF ; CONFIG_TARGET_STDOUT_VIDEO
 
     ; Register the timer-related routines
     IF VIDEO_USE_VBLANK_MSLEEP
