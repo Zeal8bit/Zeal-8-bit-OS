@@ -35,11 +35,13 @@
                                     ; are treated with a mapped array
 
     ; Macros for modifier key flags
-    DEFC KB_FLAG_IGN_BIT   = 0x7
-    DEFC KB_FLAG_KEYP_BIT  = 0x6
-    DEFC KB_FLAG_CTRL_BIT  = 0x4
-    DEFC KB_FLAG_ALT_BIT   = 0x3
-    DEFC KB_FLAG_SHIFT_BIT = 0x2
-    DEFC KB_FLAG_MODE_MASK = 0x3
+    DEFC KB_FLAG_KEYP_BIT  = 0x7
+    DEFC KB_FLAG_CTRL_BIT  = 0x6
+    DEFC KB_FLAG_ALT_BIT   = 0x5
+    DEFC KB_FLAG_SHIFT_BIT = 0x4
+
+    DEFC KB_FLAG_MODE_MASK = 0b111
+    DEFC KB_BLK_MODE_MASK  = 0b100
+    DEFC KB_BUF_MODE_MASK  = 0b11
 
     ENDIF

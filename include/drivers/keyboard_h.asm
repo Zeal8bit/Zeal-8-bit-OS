@@ -55,6 +55,19 @@
         KB_MODE_COUNT,
     }
 
+    ; kb_block_t: Blocking/non-blocking modes, can be ORed with the mode above
+    DEFGROUP {
+        ; In blocking mode, the `read` syscall will not return until a newline character ('\n')
+        ; is encountered.
+        KB_READ_BLOCK = 0 << 2,
+
+        ; In non-blocking mode, the syscall `read` can return 0 if there is no pending keys that were
+        ; typed by the user. Please note that the driver must NOT return KB_RELEASED without a key following it.
+        ; In other words, if the buffer[i] has been filled with a KB_RELEASED, buffer[i+1] must be valid
+        ; and contain the key that was released.
+        KB_READ_NON_BLOCK = 1 << 2
+    }
+
 
     ; The following codes represent the keys of a 104-key keyboard that can be detected by
     ; the keyboard driver.

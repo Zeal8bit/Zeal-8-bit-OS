@@ -74,6 +74,21 @@ typedef enum {
 
 
 /**
+ * With blocking reads, the `read` syscall will not return until at least one character is received in raw mode,
+ * or until a new line character is received in cooked and half-cooked modes.
+ */
+#define KB_READ_BLOCK (0 << 2)
+
+/**
+ * with non-blocking reads, the syscall `read` can return 0 if there is no pending keys.
+ * Please note that the driver will NOT return KB_RELEASED without a key following it.
+ * In other words, if the buffer[i] has been filled with a KB_RELEASED, buffer[i+1] must be valid
+ * and contain the key that was released.
+ */
+#define KB_READ_NON_BLOCK  (1 << 2)
+
+
+/**
  * The following codes represent the keys of a 104-key keyboard that can be detected by
  * the keyboard driver.
  */
