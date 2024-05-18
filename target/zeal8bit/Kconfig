@@ -21,22 +21,14 @@ menu "Zeal 8-bit Computer configuration"
             Physical address where the Kernel and drivers data (including BSS) will be stored in RAM.
             If the kernel is meant to be executed from RAM, this value must be checked to avoid overlapping with kernel code!
 
-    config ROMDISK_ADDRESS
-        hex "ROMDISK image physical address"
-        default 0x8000
-        range 0x4000 0x3C000
+    config ROMDISK_PAGE_DISTANCE
+        hex "ROMDISK image page offset relative to the Kernel"
+        default 2
+        range 1 30
         help
-            Address where the ROMDISK image will be placed in flash memory. As flash is mapped at physical address 0x0000,
-            this value also represents the physical address of ROMDISK image.
-
-    config KERNEL_PHYS_ADDRESS
-        hex "Physical address of the kernel"
-        default 0x0000
-        range 0x0000 0x3C000
-        help
-            Address where the kernel/OS will be placed in flash memory. This will be used to calculate the offset between,
-            the kernel and the romdisk. For example, if kernel is meant to be flashed at 0x4000 and the romdisk at 0x8000,
-            the latter will be at a distance of <romdisk_address> - <kernel_entry> = 0x4000 bytes from the kernel entry.
+            Romdisk 16KB page offset relative to the Kernel's in the physical address space. For example, if the Kernel is flashed
+            at address `0x4000` (16KB) in ROM and the ROMDISK is flashed at address `0x8000` (32KB), then this value must be
+            set to 1 (`(0x8000 - 0x4000) / 16KB = 1`)
 
     config KERNEL_TARGET_HAS_MMU
         bool "Enable MMU support in the kernel"

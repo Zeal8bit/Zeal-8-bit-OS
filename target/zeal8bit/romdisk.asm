@@ -13,6 +13,9 @@
 
         SECTION KERNEL_DRV_TEXT
 romdisk_init:
+        ; Get the kernel physical (16KB) page and save it for later
+        MMU_GET_PAGE_NUMBER(MMU_PAGE_0)
+        ld (_kernel_phys_page), a
         ; Mount this romdisk as the default disk
         call zos_disks_get_default
         ; Default disk in A
@@ -123,9 +126,14 @@ _romdisk_read_to_page1:
         rlc h
         rla
         ; Now A contains bits 0,0,0,18,17,16,15,14
-        ; However, ROMDISK doesn't start at page 0 of flash,
-        ; thus, we have to add to A the start page index
-        add CONFIG_ROMDISK_ADDRESS / KERN_MMU_VIRT_PAGES_SIZE
+        ; However, ROMDISK doesn't start at page 0 of flash, thus, we have to add to A the start page index.
+        ; We can get the start page index by adding the current kernel page + ROMDISK offset (CONFIG)
+        push hl
+        ; Get the page where the kernel is located
+        ld hl, _kernel_phys_page
+        add (hl)
+        add CONFIG_ROMDISK_PAGE_DISTANCE
+        pop hl
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ; Page is mapped! Restore HL to an actual address between 0 and 16KB
         ld a, h
@@ -173,7 +181,13 @@ _romdisk_read_to_page2:
         rla
         rlc h
         rla
-        add CONFIG_ROMDISK_ADDRESS / KERN_MMU_VIRT_PAGES_SIZE
+        ; Similarly to above, calculate the physical page of the ROMDISK
+        push hl
+        ; Get the page where the kernel is located
+        ld hl, _kernel_phys_page
+        add (hl)
+        add CONFIG_ROMDISK_PAGE_DISTANCE
+        pop hl
         MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
         ld a, h
         rrca
@@ -274,6 +288,7 @@ romdisk_ioctl:
         ret
 
         SECTION KERNEL_BSS
+_kernel_phys_page: DEFS 1
 _romdisk_mmu_conf: DEFS 1
 
         SECTION KERNEL_DRV_VECTORS

@@ -54,6 +54,6 @@ POSTCMD := @echo "RAM used by kernel: $$(du -bs $(BINDIR)/*KERNEL_BSS*.bin | cut
            rm $(BINDIR)/*KERNEL_BSS*.bin && \
            echo "OS size: $$(du -bs $(FULLBIN) | cut -f1) bytes" && \
            cp $(FULLBIN) $(FULLBIN_W_ROMDISK) && \
-           truncate -s $$(( $(CONFIG_ROMDISK_ADDRESS) - $(CONFIG_KERNEL_PHYS_ADDRESS) )) $(FULLBIN_W_ROMDISK) && \
+           truncate -s $$(( $(CONFIG_ROMDISK_PAGE_DISTANCE) * 16*1024 )) $(FULLBIN_W_ROMDISK) && \
            cat $(ZOS_PATH)/romdisk/disk.img >> $(FULLBIN_W_ROMDISK) && \
            echo "Image size: $$(du -bs $(FULLBIN_W_ROMDISK) | cut -f1) bytes"
