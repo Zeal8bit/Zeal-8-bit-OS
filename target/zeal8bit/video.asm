@@ -337,7 +337,11 @@ video_write:
     ; Page 3 is kernel RAM
     ; We don't need to use page1 for VRAM since we will use I/O bus, map it and print the buffer
     MAP_TEXT_CTRL()
-    jp print_buffer
+    ; Write should always be full-length, so BC is unchanged
+    push bc
+    call print_buffer
+    pop bc
+    ret
 
 
     ; Read not supported yet.
