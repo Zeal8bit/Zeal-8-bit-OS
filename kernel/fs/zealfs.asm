@@ -12,13 +12,13 @@
     INCLUDE "fs/zealfs_h.asm"
 
     ; The maximum amount of pages a storage can have is 256 (64KB), so the bitmap size is 256/32
-    DEFC FS_BITMAP_SIZE = 32
-    DEFC FS_NAME_LENGTH = 16
-    DEFC FS_PAGE_SIZE  = 256
-    DEFC FS_OCCUPIED_BIT = 7
-    DEFC FS_ISDIR_BIT = 0
+    DEFC FS_BITMAP_SIZE   = 32
+    DEFC FS_NAME_LENGTH   = 16
+    DEFC FS_PAGE_SIZE     = 256
+    DEFC FS_OCCUPIED_BIT  = 7
+    DEFC FS_ISDIR_BIT     = 0
     DEFC FS_OCCUPIED_MASK = 1 << FS_OCCUPIED_BIT
-    DEFC FS_ISDIR_MASK = 1 << FS_ISDIR_BIT
+    DEFC FS_ISDIR_MASK    = 1 << FS_ISDIR_BIT
 
     DEFC RESERVED_SIZE = 28
 
@@ -38,12 +38,15 @@
     DEFC ZEALFS_ROOT_DIR_OFFSET = zealfs_root_entries
     ASSERT(ZEALFS_ROOT_DIR_OFFSET == 64)
 
+    ; Number of bytes the `zealfs_entry_size` field takes
+    DEFC FS_SIZE_WIDTH = 2
+
     ; ZealFileEntry structure. Entry for a single file or directory.
     DEFVARS 0 {
         zealfs_entry_flags  DS.B 1                  ; flags for the file entry
         zealfs_entry_name   DS.B FS_NAME_LENGTH     ; entry name, including the extension
         zealfs_entry_start  DS.B 1                  ; start page index
-        zealfs_entry_size   DS.W 1                  ; size in bytes of the file
+        zealfs_entry_size   DS.B FS_SIZE_WIDTH      ; size in bytes of the file
         zealfs_entry_date   DS.B DATE_STRUCT_SIZE   ; zos date format
         zealfs_entry_rsvd   DS.B 4                  ; Reserved
         zealfs_entry_end    DS.B 0
@@ -92,6 +95,21 @@
 
     SECTION KERNEL_TEXT
 
+    ; Get the maximum number of entries in a directory
+    ; Parameters:
+    ;   C - 1 if root directory, 0 else
+    ; Returns:
+    ;   B - Number of entries per directory
+    ; Alters:
+    ;   BC
+_zos_zealfs_get_dir_max_entries:
+    ld b, DIR_MAX_ENTRIES
+    dec c
+    ret nz
+    ; Root directory
+    ld b, ROOT_MAX_ENTRIES
+    ret
+
     ; Like the routine below, browse the absolute path given in HL until the last name is reached.
     ; It will check that all the names on the path corresponds to folders that actually exist on
     ; the disk.
@@ -133,6 +151,7 @@ _zos_zealfs_check_name_next_dir:
     dec hl
     ld (hl), '/'
     inc hl
+    ; In all case, we won't check the root directory anymore
     ld c, 0
     ; If B is 1, we have reached the end of the string
     dec b
@@ -141,13 +160,15 @@ _zos_zealfs_check_name_next_dir:
     or a
     ret nz
     jp _zos_zealfs_check_name_next_dir
+
+    ; Look for the next entry in the absolute path received by the routine `_zos_zealfs_check_next_name`
     ;   C  - 1 if root of the disk, 0 else
-    ;   HL - Name of the entry to check
+    ;   HL - Name of the entry to check, ending with either '\0' or '/'
     ;   DE - Context returned by this function (FS_ROOT_CONTEXT at first)
     ; Returns:
+    ;   B  - 1 if we have reached the last entry/end of the string
     ;   HL - Entry following the one checked (if B is not 1)
     ;   DE - Context passed to this function again
-    ;   B  - 1 if we have reached the last entry/end of the string
 _zos_zealfs_check_next_name_nested:
     push hl
     ; Look for the next '/' or '\0' in the string, maximum length is FS_NAME_LENGTH
@@ -168,7 +189,7 @@ _zos_zealfs_next_char:
     ret
     ; Reach this label when we detect a / in the name
 _zos_zealfs_check_name_found:
-    ; Replace the slash with a NULL-byte
+    ; Replace the '/' with a NULL-byte
     ld (hl), 0
     inc hl ; Point to the character after it
     ; If the next char is also a NULL-byte, it means that the string is ending with /,
@@ -189,18 +210,13 @@ _zos_zealfs_check_name_found_null:
 _zos_zealfs_check_name_start_search:
     ; Here, we have the following register organization:
     ;   - A is 0 if we reached the end of the string, else, it is '/'
-    ;   - C contains 1 if we are at the root, 0 else
-    ;   - HL points to the name to check
+    ;   - C contains 1 if we are checking the root directory, 0 else
+    ;   - HL points to the file/dir name to check, NULL-terminated
     ;   - DE contains the context, which is the offset to the next entry to read
     ;   - [SP] address of the next entry
     ; We will optimize a bit and ignore the header data, look at the entries directly.
     ; Check how many bytes we need to read, by default, we will browse max dir entries
-    ld b, DIR_MAX_ENTRIES
-    dec c
-    jr nz, _zos_zealfs_check_name_not_root
-    ; Root directory
-    ld b, ROOT_MAX_ENTRIES
-_zos_zealfs_check_name_not_root:
+    call _zos_zealfs_get_dir_max_entries
     ; C can be re-used here, store A inside, as such, we can put BC on the stack
     ld c, a
 _zos_zealfs_check_name_driver_read_loop:
@@ -215,7 +231,7 @@ _zos_zealfs_check_name_driver_read_loop:
     ; Destination buffer in DE
     ld de, RAM_BUFFER
     ; Read until zealfs_entry_size (included)
-    ld bc, zealfs_entry_size + 2 ; 16-bit
+    ld bc, zealfs_entry_size + FS_SIZE_WIDTH
     call RAM_EXE_READ
     ; In all cases we will need to pop the name out of the stack
     pop hl
@@ -239,7 +255,7 @@ _zos_zealfs_check_name_next_offset:
     ex de, hl
     ; Before incrementing, save the current offset in the FREE_ENTRY if and only if
     ; we found an empty entry (i.e. Z flag is set)
-    jp nz, _zos_zealfs_no_set
+    jr nz, _zos_zealfs_no_set
     ld (RAM_FREE_ENTRY), hl
 _zos_zealfs_no_set:
     ld bc, ZEALFS_ENTRY_SIZE
@@ -248,11 +264,13 @@ _zos_zealfs_no_set:
     ; Get back the flags and check if we need to continue the loop
     pop bc
     djnz _zos_zealfs_check_name_driver_read_loop
-    ; No more entries to check in the directory anymore...error.
+    ; No more entries to check in the directory anymore, for the current page.
+    ; Check if this directory has any other page
+    ; TODO-v2: read FAT_TABLE[PAGE]
     ; B is 0 already, but it must be set to 1 (reached end of str) if C is 0.
     ld a, c
     or c
-    jp nz, _zos_zealfs_no_add
+    jr nz, _zos_zealfs_no_add
     inc b
 _zos_zealfs_no_add:
     ld a, ERR_NO_SUCH_ENTRY
@@ -373,7 +391,7 @@ _zos_zealfs_check_flags:
     jr z, _zos_zealfs_no_trunc
     ; O_TRUNC was passed, the simplest solution is to set the size to 0
     ld hl, 0
-    jp _zos_zealfs_open_load_hl
+    jr _zos_zealfs_open_load_hl
 _zos_zealfs_no_trunc:
     ld hl, (RAM_BUFFER + zealfs_entry_size)
 _zos_zealfs_open_load_hl:
@@ -388,12 +406,14 @@ _zos_zealfs_open_load_hl:
     ; Save the context on the stack
     push de
     ; HL has been set already, set DE to 0 now
+    ; TODO-v3: Update DE with the upper word of the file size
     ld de, 0
     call zos_disk_allocate_opnfile
     or a
     jr nz, _zos_zealfs_error
     ; Save the context in the structure private field (4 bytes)
-    ; The context is in fact the offset on the disk of the file entry.
+    ; The context is in fact the file entry offset on the disk.
+    ; TODO-v3: 4 bytes won't be enough anymore for 32-bit sizes?
     ex de, hl
     pop bc
     ld (hl), c
@@ -561,7 +581,7 @@ zos_zealfs_close:
     ld bc, zealfs_entry_size
     add hl, bc
     ; Perform a write on the disk (16-bit size)
-    ld bc, 2
+    ld bc, FS_SIZE_WIDTH
     call RAM_EXE_WRITE
     ; Store close routine address in HL
     pop hl
@@ -606,7 +626,7 @@ zos_zealfs_rm:
     ; Test if the entry is a directory or a file
     ld a, (RAM_BUFFER)
     and FS_ISDIR_MASK
-    jp nz, _zos_zealfs_rm_isdir
+    jr nz, _zos_zealfs_rm_isdir
     ; The entry is a file, we have to free each page of the file.
     ; Start by marking the file entry as free, put its offset in HL.
     ex de, hl
@@ -621,6 +641,7 @@ _zos_zealfs_rm_file_loop:
     push hl
     call zos_zealfs_free_page
     pop hl
+    ; TODO-v2: Get the next entry/page from the FAT table
     ; Read the next page
     ld de, RAM_BUFFER
     ld bc, 1
@@ -634,13 +655,14 @@ _zos_zealfs_rm_file_loop:
     or a
     ; If the "next" page is not free, continue the loop
     jp nz, _zos_zealfs_rm_file_loop
-    ; End of the linked-lis tof pages, success
+    ; End of the linked-list of pages, success
     xor a
     ret
 _zos_zealfs_rm_isdir:
     push de
     ; The entry is a directory, check that it is empty, we have to iterate over
     ; all entries it contains. Put the start offset of the directory in HL.
+    ; TODO-v3: We may need two bytes here in the future
     ld a, (RAM_BUFFER + zealfs_entry_start)
     ld h, a
     ld l, 0
@@ -656,14 +678,16 @@ _zos_zealfs_rm_isdir_loop:
     ; Check that the current entry is empty
     ld a, (RAM_BUFFER)
     and FS_OCCUPIED_MASK
-    jp nz, _zos_zealfs_rm_isdir_notempty
+    jr nz, _zos_zealfs_rm_isdir_notempty
     ; Current entry is empty, increment offset and continue
     ; Update the next entry offset (HL += ZEALFS_ENTRY_SIZE)
     ld a, ZEALFS_ENTRY_SIZE
     add l
     ld l, a
     ; On carry, the page containing the dir page has been overflowed, the dir is empty
-    jp nc, _zos_zealfs_rm_isdir_loop
+    ; TODO-v3: Not possible anymore to check the end of the directory like this
+    jr nc, _zos_zealfs_rm_isdir_loop
+    ; TODO-v2: Check the next page for the current directory current = FAT_TABLE[current]
 _zos_zealfs_rm_is_empty:
     ; Directory to remove is empty, we can mark it as free. The entry offset is on the stack
     ; The page to free is in H.
@@ -673,6 +697,8 @@ _zos_zealfs_rm_is_empty:
     pop hl
     or a
     ret nz
+    ; TODO-v2: Remove all the pages of the current directory. Only provide the first page, the
+    ; remove_from_fat should do the rest
     jp zos_zealfs_free_page
 _zos_zealfs_rm_isdir_notempty:
     ; The directory is not empty, we can return right now
@@ -872,7 +898,8 @@ zos_zealfs_readdir_next:
     ld l, a
     ; If there is carry, we jumped to the next page, so no more entries afterwards.
     ; This can be done because the number of the entries are a multiple of a page size.
-    jp nc, zos_zealfs_readdir_not_last
+    ; TODO-v3: This cannot be used anymore to check the end of the page
+    jr nc, zos_zealfs_readdir_not_last
     ld l, 0xFF
 zos_zealfs_readdir_not_last:
     ; HL contains the next entry which may be valid or invalid
@@ -884,6 +911,7 @@ zos_zealfs_readdir_not_last:
     ld a, l
     inc a
     jp nz, zos_zealfs_readdir_next
+    ; TODO-v2: Get the next directory page from the FAT and continue the loop
     ; Entry is empty, end of dir data, we have to save this state and return an error
     pop de
     dec a   ; Make A = 0xFF
@@ -892,7 +920,7 @@ zos_zealfs_readdir_not_last:
     ret
 zos_zealfs_readdir_end:
     ; An entry has been found! The name has already been populated, modify the flags
-    ; on ZealFS 1 means directory, on ZealOS it means file. Invert it.
+    ; on ZealFS 1 means directory, on Zeal 8-bit OS it means file. Invert it.
     xor 0x81    ; also clears the top bit
     ld (de), a
     ; Update the opened dir entry structure with the offset reached (HL)
@@ -946,13 +974,13 @@ zos_zealfs_mkdir:
     ret nz
     ; We just created a directory, we must empty its content, use HL as the disk
     ; offset. Iterate over all the DIR_MAX_ENTRIES entries of the directory.
-    ; Set the first byte of the buffer to 0, it'll used to clean the directories
-    ; entries.
+    ; Set the first byte of the buffer to 0, it will clean the directories entries.
     ; Note: _zos_zealfs_new_entry already set the first byte to 0, we can continue to
     ; the next entry directly to save time.
     ld (RAM_BUFFER), a
     ld h, b
     ld l, ZEALFS_ENTRY_SIZE
+    ; TODO-v3: Get the number of maximum entries from the header
     ld b, DIR_MAX_ENTRIES - 1
 _zos_zealfs_empty_dir:
     push bc
@@ -1020,6 +1048,7 @@ zos_zealfs_browse_start:
     push de
     push bc
     call zos_zealfs_seek
+    ; TODO-v3: Take into account all the 32-bits
     ; DE contains the resulted offset on disk
     ; Pop the user buffer size and address
     pop bc
@@ -1040,6 +1069,7 @@ _zos_zealfs_browse_content_loop:
     ; E is the offset in the file
     ; D is the current page
     ; If B is not 0, we can process at most 255 bytes
+    ; TODO-v2: Divide by 256 instead of 255 now that we have the FAT
     push bc
     ; Calculate in advance A = 255 - offset
     ld a, 255
@@ -1119,6 +1149,7 @@ _zos_zealfs_browse_c_bytes:
     or a    ; Check the flags for potential error
     jr nz, _zos_zealfs_browse_error_pop
     ; Get the next page index
+    ; TODO-v2: Check the FAT instead!
     ld a, (RAM_BUFFER)
     ; If the next page is empty, we have to jump to our callback
     or a
@@ -1158,6 +1189,7 @@ _zos_zealfs_browse_allocate:
     or a
     jr nz, _zos_zealfs_browse_error_pop
     ; Write the new page index (D) as the first byte of the current page (H)
+    ; TODO-v2: Should be written to the FAT instead
     ld bc, 1
     ; B is 0
     ld l, b
@@ -1191,6 +1223,7 @@ _zos_zealfs_browse_allocate:
     ;            file, the driver address and the user field.
     ; Returns:
     ;       A - 0 on success, error value else
+    ;       TODO-v3: Use a 32-bit value for the offset on the disk
     ;       DE - Address in disk of the current file offset.
     ;       (D - Page index/number)
     ;       (E - Offset in the page)
@@ -1226,6 +1259,7 @@ zos_zealfs_seek:
     add hl, bc
     ; HL points to the offset now, which is guaranteed to be 16-bit, because of the
     ; limitation of the filesystem
+    ; TODO-v3: Need to extend this to 32-bit!
     ld e, (hl)
     inc hl
     ld d, (hl)
@@ -1298,10 +1332,12 @@ _zos_zealfs_seek_corrupted:
     ;   [RAM_EXE_READ]  - Must be populate already with driver's read routine
     ;   [RAM_EXE_WRITE] - Must be populate already with driver's read routine
     ; Returns:
+    ;   TODO-v3: Returns a 16-bit page index
     ;   D - Index of the new page
 zos_zealfs_new_page:
     ; Read the page_count, free_pages and pages bitmap from the header
     ld hl, zealfs_bitmap_size_t
+    ; TODO-v3: Update the bitmap size here
     ld bc, zealfs_reserved_t - zealfs_bitmap_size_t
     ld de, RAM_BUFFER
     call RAM_EXE_READ   ; Read from the disk
@@ -1326,10 +1362,12 @@ zos_zealfs_new_page:
     ld de, RAM_BUFFER
     call RAM_EXE_WRITE
     pop de
+    ; TODO-v2: Update the FAT table
     ret
 
 
-    ; Free a page and update the disk header and bitmap accordingly
+    ; Free a page and update the disk header and bitmap accordingly.
+    ; TODO-v2: This routine should free all the pages next to the given one in the FAT
     ; Parameters:
     ;   H - Index of the page to free
     ;   [RAM_EXE_READ]  - Must be populate already with driver's read routine
@@ -1340,6 +1378,7 @@ zos_zealfs_new_page:
     ;   A, BC, DE, HL
 zos_zealfs_free_page:
     push hl
+    ; TODO-v3: The bitmap is not that small anymore, need a loop to determine which part of it should be updated?
     ; Read the header, starting at the bitmap size field, up to the end of the bitmap.
     ld hl, zealfs_bitmap_size_t
     ld bc, zealfs_reserved_t - zealfs_bitmap_size_t
@@ -1364,8 +1403,45 @@ zos_zealfs_free_page:
     jp RAM_EXE_WRITE
 
 
+    ; Routine that frees a previously allocated page in the bitmap
+    ; Parameters:
+    ;   HL - Address of the bitmap (must be as big as FS_BITMAP_SIZE)
+    ;   A  - Index of the page allocated to free
+    ; Returns:
+    ;   None
+    ; Alters:
+    ;   A, BC, DE, HL
+free_page:
+    ; Store page/8 in C
+    ; By rotating by 3 to the right, we get:
+    ; A = NNNN_NLLL => A = LLLN_NNNN
+    ; Only keep the Ns at the moment
+    rrca
+    rrca
+    rrca
+    ld b, a
+    and 0x1f
+    ; HL += A
+    add l
+    ld l, a
+    adc h
+    sub l
+    ld h, a
+    ; Now, we need to set (HL) bit A to 0. Let's use sel-modifying code
+    ; to simplify this. We have to generate res A, (hl) instruction.
+    ; Re-use RAM_EXE_PAGE_0 (prepared by the caller) part which is 3-bytes big.
+    ; A = 0x86 + bit*8, so A needs to be 00LL_L000, rotate twice is enough
+    ld a, b
+    rrca
+    rrca
+    and 0b00111000
+    add 0x86
+    ld (RAM_EXE_PAGE_0 + 1), a
+    jp RAM_EXE_PAGE_0
+
+
     ; Create a new entry at the last known FREE_ENTRY location.
-    ; This routine allocated a new page, update the entry, the disk header, the bitmap
+    ; This routine allocates a new page, update the entry, the disk header, the bitmap
     ; and returns the new page allocated.
     ; In case of a directory, the size will be set to a page size (256). In case of a
     ; file, it will be set to 0.
@@ -1386,6 +1462,7 @@ zos_zealfs_new_entry:
     pop hl
     ; We won't need the driver address anymore, re-use it
     ; Check if a free entry was found or not
+    ; TODO-v3: Need a 32-bit address for the entry
     ld de, (RAM_FREE_ENTRY)
     ld a, d
     or e
@@ -1418,10 +1495,12 @@ zos_zealfs_new_entry:
     ex de, hl
     add hl, bc  ; Skip the name[] array in the buffer
     pop bc  ; Get the start_start from register C
+    ; TODO-v3: Populate the 16-bit page index
     ld (hl), c
     inc hl
     ; B is still 0 (files) or 1 (directories). The size is in little-endian.
     ; In both cases, the lowest byte is 0.
+    ; TODO-v3: Populate the size in the header
     ld (hl), 0
     inc hl
     ; We can write B directly now, so that the size is:
@@ -1453,6 +1532,7 @@ zos_zealfs_new_entry:
     ld b, h ; Return new page index
     ret
 _zos_zealfs_new_entry_full:
+    ; TODO-v2: May need to allocate a new page for the current directory!
     ld a, ERR_CANNOT_REGISTER_MORE
     ret
 _zos_zealfs_pop_af_all_ret:
@@ -1525,7 +1605,7 @@ zos_zealfs_prepare_driver_write:
     ld (RAM_EXE_WRITE + 6), hl
     ret
 
-    ; Same as above but safe
+    ; Same as above but safe, it preserves both HL and DE
 zos_zealfs_prepare_driver_write_safe:
     push hl
     push de
@@ -1583,40 +1663,3 @@ _allocate_page_bit_found:
     ; Prepare the return value in A
     ld a, b
     ret
-
-
-    ; Routine that frees a previously allocated page in the bitmap
-    ; Parameters:
-    ;   HL - Address of the bitmap (must be as big as FS_BITMAP_SIZE)
-    ;   A  - Index of the page allocated to free
-    ; Returns:
-    ;   None
-    ; Alters:
-    ;   A, BC, DE, HL
-free_page:
-    ; Store page/8 in C
-    ; By rotating by 3 to the right, we get:
-    ; A = NNNN_NLLL => A = LLLN_NNNN
-    ; Only keep the Ns at the moment
-    rrca
-    rrca
-    rrca
-    ld b, a
-    and 0x1f
-    ; HL += A
-    add l
-    ld l, a
-    adc h
-    sub l
-    ld h, a
-    ; Now, we need to set (HL) bit A to 0. Let's use sel-modifying code
-    ; to simplify this. We have to generate res A, (hl) instruction.
-    ; Re-use RAM_EXE_PAGE_0 (prepared by the called) part which is 3-bytes big.
-    ; A = 0x86 + bit*8, so A needs to be 00LL_L000, rotate twice is enough
-    ld a, b
-    rrca
-    rrca
-    and 0b00111000
-    add 0x86
-    ld (RAM_EXE_PAGE_0 + 1), a
-    jp RAM_EXE_PAGE_0
