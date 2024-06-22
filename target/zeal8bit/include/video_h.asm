@@ -34,11 +34,13 @@
     ; -------------------------------------------------------------------------- ;
 
     ; Physical address for the memory components.
+    DEFC VID_MEM_PALETTE_OFFSET   = 0xE00
+
     ; It is also possible to access the I/O components via the memory bus, but for the
     ; sake of simplicity, we don't do it here.
     DEFC VID_MEM_PHYS_ADDR_START  = 0x100000
     DEFC VID_MEM_LAYER0_ADDR      = VID_MEM_PHYS_ADDR_START
-    DEFC VID_MEM_PALETTE_ADDR     = VID_MEM_PHYS_ADDR_START + 0xE00
+    DEFC VID_MEM_PALETTE_ADDR     = VID_MEM_PHYS_ADDR_START + VID_MEM_PALETTE_OFFSET
     DEFC VID_MEM_LAYER1_ADDR      = VID_MEM_PHYS_ADDR_START + 0x1000
     DEFC VID_MEM_SPRITE_ADDR      = VID_MEM_PHYS_ADDR_START + 0x2800
     DEFC VID_MEM_FONT_ADDR        = VID_MEM_PHYS_ADDR_START + 0x3000
