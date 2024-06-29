@@ -264,7 +264,7 @@ _i2c_setdate_loop:
         ; Read bytes from the I2C.
         ; Parameters:
         ;       DE - Destination buffer, smaller than 16KB, not cross-boundary, guaranteed to be mapped.
-        ;       BC - Size to read in bytes. In the case of I2C, must be smaller than 256.
+        ;       BC - Size to read in bytes.
         ;       A  - Should be DRIVER_OP_NO_OFFSET here.
         ; Returns:
         ;       A  - ERR_SUCCESS if success, error code else
@@ -282,11 +282,10 @@ i2c_read:
         ; Prepare the parameters to read a device:
         ;   A - 7-bit device address
         ;   HL - Buffer to store the bytes read
-        ;   B - Size of the buffer
+        ;   BC - Size of the buffer
         ; Returns:
         ;   A - ERR_SUCCESS on success, ERR_FAILURE (No device responded) else
         ld a, (_i2c_dev_addr)
-        ld b, c
         ex de, hl
         jp i2c_read_device
 
@@ -339,9 +338,9 @@ i2c_send_byte:
         ld b, 8
         ld c, PINS_DEFAULT_STATE
         ; Prepare the byte to send
-        REPT IO_I2C_SDA_OUT_PIN
+    REPT IO_I2C_SDA_OUT_PIN
         rlca
-        ENDR
+    ENDR
         ld e, a
         ; D represent the mask to retrieve the SDA line output data
         ld d, 1 << IO_I2C_SDA_OUT_PIN
@@ -359,10 +358,10 @@ _i2c_send_byte_loop:
         and d
         or c    ; or with PINS_DEFAULT_STATE
 
-        IFNDEF I2C_NO_LIMIT
+    IFNDEF I2C_NO_LIMIT
         ; In order to achieve a duty cycle of 50% with a period of 5us, let's add the following
         bit 0, a
-        ENDIF
+    ENDIF
 
         ; Set SDA state in PIO, set SCL to low at the same time
         ; SCL is already 0 because PINS_DEFAULT_STATE sets it to 0
@@ -375,10 +374,10 @@ _i2c_send_byte_loop:
         ; Save only the current SDA value in A
         and d
 
-        IFNDEF I2C_NO_LIMIT
+    IFNDEF I2C_NO_LIMIT
         ; In order to achieve a duty cycle of 50% with a period of 5us, let's add the following
         jp $+3
-        ENDIF
+    ENDIF
 
         ; SDA is not allowed to change here as SCL is high
         djnz _i2c_send_byte_loop
@@ -394,9 +393,9 @@ _i2c_send_byte_loop:
         out (IO_PIO_SYSTEM_DATA), a
 
         ; Wait a bit to have a 5us period
-        IFNDEF I2C_NO_LIMIT
+    IFNDEF I2C_NO_LIMIT
         jr $+2
-        ENDIF
+    ENDIF
 
         ; Put SCL high again
         ld a, PINS_DEFAULT_STATE | (1 << IO_I2C_SDA_OUT_PIN) | (1 << IO_I2C_SCL_OUT_PIN)
@@ -634,7 +633,7 @@ _i2c_write_double_nack_no_pop:
         ; Parameters:
         ;   A - 7-bit device address
         ;   HL - Buffer to store the bytes read
-        ;   B - Size of the buffer
+        ;   BC - Size of the buffer
         ; Returns:
         ;   A - 0: Success
         ;       -1: No device responded
@@ -651,17 +650,22 @@ i2c_read_device:
         scf
         rla
 
+        ; Save C in register E since start uses C
+        ld e, c
         ; Start signal and send address
         call i2c_perform_start
+        ld c, e
         ; Send the device address
         call i2c_send_byte
         ; If not zero, NACK was received, abort
         ld a, 0xff
         jr nz, _i2c_read_device_address_nack
 
-        ; Run the following loop for B - 1 (sending an ACK at the end)
-        dec b
-        jp z, _i2c_read_device_byte_end
+        ; Run the following loop for BC - 1 (sending an ACK at the end)
+        dec bc
+        ld a, b
+        or c
+        jr z, _i2c_read_device_byte_end
 _i2c_read_device_byte:
         ; Set A to 0 (ACK)
         xor a
@@ -669,10 +673,13 @@ _i2c_read_device_byte:
         call i2c_receive_byte
         ld (hl), a
         inc hl
-        djnz _i2c_read_device_byte
+        dec bc
+        ld a, b
+        or c
+        jp nz, _i2c_read_device_byte
 _i2c_read_device_byte_end:
         ; Set A to 1 (NACK)
-        ld a, 1
+        inc a
         call i2c_receive_byte
         ld (hl), a
 
@@ -690,8 +697,8 @@ _i2c_read_device_address_nack:
         ;   A - 7-bit device address
         ;   HL - Write buffer (bytes to write)
         ;   DE - Read buffer (bytes read from the bus)
-        ;   B - Size of the write buffer
-        ;   C - Size of the read buffer
+        ;   B - Size of the write buffer (0 for 256)
+        ;   C - Size of the read buffer (0 for 256)
         ; Returns:
         ;   A - 0: Success
         ;       -1: No device responded
