@@ -9,6 +9,7 @@
         INCLUDE "target_h.asm"
         INCLUDE "log_h.asm"
         INCLUDE "vfs_h.asm"
+        INCLUDE "strutils_h.asm"
 
         ; Forward declaration of symbols used below
         EXTERN zos_drivers_init
@@ -22,6 +23,7 @@
         EXTERN __KERNEL_BSS_size
         EXTERN __DRIVER_BSS_head
         EXTERN __DRIVER_BSS_size
+        EXTERN _vfs_work_buffer
 
         SECTION KERNEL_TEXT
 
@@ -86,9 +88,9 @@ zos_entry:
         call zos_time_is_available
         rrca
         jp c, _zos_boot_time_ok
-        ; Print a warning saying that we don't have any time driver
+        ; Print a warning saying that we don't have any timer driver
         ld b, a ; BC not altered by log
-        ld hl, zos_time_warning
+        ld hl, zos_timer_warning
         call zos_log_warning
         ld a, b
 _zos_boot_time_ok:
@@ -108,23 +110,21 @@ _zos_boot_date_ok:
         ld (boot_ready), a
 
         ld hl, _zos_default_init
+        ; Push on the stack in case of an error, we will need it for
+        ; the formatting string. In case of success, it will be overwritten.
+        push hl
         call zos_load_init_file
         ; If we return from zos_load_file, an error occurred
-        ld hl, _load_error_1
+        ld hl, _load_error
+        ld de, _vfs_work_buffer
+        call strformat
+        ex de, hl
         call zos_log_error
-        xor a
-        ld hl, _zos_default_init
-        call zos_log_message
-        xor a
-        ld hl, _load_error_2
-        call zos_log_message
         ; Loop until the board is rebooted
 reboot: halt
         jp reboot
 
-_load_error_1: DEFM "Could not load ", 0
-_load_error_2: DEFM " initialization file\n", 0
-
+_load_error: DEFM "Could not load ", FORMAT_STRING, " initialization file\n", 0
 
         PUBLIC _zos_default_init
 _zos_default_init:
@@ -136,12 +136,12 @@ _zos_default_init:
 zos_boilerplate:
         INCBIN "version.txt"
         DEFB "\n", 0
-zos_time_warning: DEFM "Timer unavailable\n", 0
+zos_timer_warning: DEFM "Timer unavailable\n", 0
 zos_date_warning: DEFM "Date unavailable\n", 0
 zos_kernel_ready:
         DEFM "Kernel ready.\nLoading "
         CONFIG_KERNEL_INIT_EXECUTABLE
-        DEFM "  @"
+        DEFM " @"
         STR(CONFIG_KERNEL_INIT_EXECUTABLE_ADDR)
         DEFM "\n\n", 0
 

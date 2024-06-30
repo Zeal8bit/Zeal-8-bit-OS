@@ -3,8 +3,110 @@
 ; SPDX-License-Identifier: Apache-2.0
 
     INCLUDE "errors_h.asm"
+    INCLUDE "strutils_h.asm"
+
+    EXTERN _vfs_work_buffer_end
+    DEFC WORK_BUFFER = _vfs_work_buffer_end - 4
 
     SECTION KERNEL_STRLIB
+
+    ; Format the given string with parameters passed on the stack.
+    ; The string to format can specify special parameters thanks to the FORMAT_*
+    ; macros. These parameters must be pushed on the stack from right to left.
+    ; In other words, the first parameter that the parser will encounter must
+    ; be on the top of the stack. The stack will be cleaned by this routine.
+    ; Note:
+    ;   This routine uses 4 bytes at the end of the _vfs_work_buffer
+    ; Parameters:
+    ;   HL - Address of the string to format
+    ;   DE - Destination to store the result, must be big enough to hold all
+    ;        the characters.
+    ; Returns:
+    ;   DE - Destination
+    ; Alters:
+    ;   A, HL, BC
+    PUBLIC strformat
+strformat:
+    ; Store return address in work ram
+    ex (sp), hl
+    ld (WORK_BUFFER), hl
+    ld (WORK_BUFFER + 2), de
+    pop hl
+_str_format_loop:
+    ld a, (hl)
+    and a
+    jp m, _str_format_special
+    jr z, _str_format_end
+    ldi
+    jp _str_format_loop
+_str_format_special:
+    ; Check format specifier, remove upper bit
+    and FORMAT_SPECIFIER_MASK
+    jr z, _str_format_char_array
+    dec a
+    jr z, _str_format_str
+    dec a
+    jr z, _str_format_hex
+    dec a
+    jr z, _str_format_char
+    ; Unknown, skip it
+    inc hl
+    jr _str_format_loop
+_str_format_char_array:
+    ; Store 0 in B
+    ld b, a
+    ; Similar to string but with a limited amount of bytes
+    ; Get the amount of bytes to copy from (HL)
+    ld a, (hl)
+    rrca
+    rrca
+    rrca
+    rrca
+    and 0x7
+    ld c, a
+    ; BC contains the size to copy, get the source string from the stack
+    ex (sp), hl
+    ldir
+    jr _str_format_restore_continue
+_str_format_str:
+    ex (sp), hl
+_str_format_str_loop:
+    ld a, (hl)
+    or a
+    jr z, _str_format_restore_continue
+    ldi
+    jr _str_format_str_loop
+_str_format_hex:
+    ex (sp), hl
+    ; Only H contains data
+    ld a, h
+    ; Use HL to save DE
+    ex de, hl
+    call byte_to_ascii
+    ; Save D and E inside HL
+    ld (hl), d
+    inc hl
+    ld (hl), e
+    inc hl
+    ex de, hl
+    jr _str_format_restore_continue
+_str_format_char:
+    ex (sp), hl
+    ld a, h
+    ld (de), a
+    inc de
+_str_format_restore_continue:
+    pop hl
+    inc hl
+    jr _str_format_loop
+_str_format_end:
+    ; Store the NULL byte at the end of the buffer
+    ld (de), a
+    ; Get back the original destination buffer and the return address
+    ld de, (WORK_BUFFER + 2)
+    ld hl, (WORK_BUFFER)
+    jp (hl)
+
 
     ; Trim leading space character from a string pointed by HL
     ; Parameters:

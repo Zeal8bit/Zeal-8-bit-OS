@@ -21,12 +21,6 @@
 
         PUBLIC zos_drivers_init
 zos_drivers_init:
-        ; Initialize the messages, use the global usable buffer
-        ld hl, _driver_log_success
-        ld de, _vfs_work_buffer
-        ld bc, _driver_log_end - _driver_log_success
-        ldir
-
         ; Browse the driver vectors and try to initialize them all
         ld hl, __KERNEL_DRV_VECTORS_head
         ; Load the size of the vectors in B
@@ -34,6 +28,7 @@ zos_drivers_init:
         ld b, __KERNEL_DRV_VECTORS_size / driver_end
 
 _zos_driver_init_next_driver:
+        push bc
         ; HL points to the name of the driver
         call zos_driver_name_valid     ; Check if the name is valid
         jp nc, _zos_valid_name
@@ -63,62 +58,51 @@ _zos_next_driver:
         ; Skip to the next driver in the list
         ld a, driver_end
         ADD_HL_A()
+        pop bc
         djnz _zos_driver_init_next_driver
         ; Log finished registering drivers
         ret
 
-_driver_log_success: DEFM "Driver: .... init success\n", 0
-_driver_log_failed: DEFM "Driver: .... init error $..\n", 0
+_driver_log_success: DEFM "Driver: ", FORMAT_4_CHAR , " init success\n", 0
+_driver_log_failed:  DEFM "Driver: ", FORMAT_4_CHAR , " init error $", FORMAT_U8_HEX ,"\n", 0
 _driver_log_end:
-
-        DEFC SUCCESS_MESSAGE_LEN = _driver_log_failed - _driver_log_success
-        DEFC FAILED_MESSAGE_LEN = _driver_log_end - _driver_log_failed
-        DEFC LOG_MESSAGES_LEN = FAILED_MESSAGE_LEN + SUCCESS_MESSAGE_LEN
-        ASSERT(VFS_WORK_BUFFER_SIZE >= SUCCESS_MESSAGE_LEN + FAILED_MESSAGE_LEN)
 
         ; Copies the driver name and the error to the log buffer.
         ; Then calls the error log function.
         ; Parameters:
         ;       HL - Driver name (4 characters)
+        ;       DE - Temporary buffer
         ;       A - Error code
         ; Alters:
         ;       A, C, DE
 _zos_driver_log_error:
-        ; Setting C to DRIVER_NAME_LENGTH will prevent any modification
-        ; on B when performing ldir
-        ld c, DRIVER_NAME_LENGTH
+        ; HL must not be altered
         push hl
-        ; Point to the log failed message
-        ld de, _vfs_work_buffer + SUCCESS_MESSAGE_LEN + 8
-        REPT DRIVER_NAME_LENGTH
-        ldi
-        ENDR
-        ; Point to failed log message's error code
-        ld hl, _vfs_work_buffer + LOG_MESSAGES_LEN - 4
-        call byte_to_ascii
-        ld (hl), d
-        inc hl
-        ld (hl), e
-        ld hl, _vfs_work_buffer + SUCCESS_MESSAGE_LEN
+        ; Push the error code on the stack for the format string
+        push af
+        push hl
+        ; REPT DRIVER_NAME_LENGTH
+        ld hl, _driver_log_failed
+        ; Prepare the temporary buffer in DE
+        ld de, _vfs_work_buffer
+        call strformat
+        ex de, hl
         call zos_log_error
         pop hl
         ret
         ; Same as above but with a success
 _zos_driver_log_success:
-        ; Setting C to DRIVER_NAME_LENGTH will prevent any modification
-        ; on B when performing ldir
-        ld c, DRIVER_NAME_LENGTH
+        ; HL must not be altered
         push hl
-        ; Point to the log failed message
-        ld de, _vfs_work_buffer + 8
-        REPT DRIVER_NAME_LENGTH
-        ldi
-        ENDR
-        ld hl, _vfs_work_buffer
+        push hl
+        ld hl, _driver_log_success
+        ld de, _vfs_work_buffer
+        call strformat
+        ; Put the message to print in DE, as required by zos_log_info
+        ex de, hl
         call zos_log_info
+        xor a
         pop hl
-        ; Do not alter former flags
-        or a
         ret
 
         ; Checks whether the name has already been registered
@@ -128,7 +112,7 @@ _zos_driver_log_success:
         ;       A  - 0 if exists, non-zero else
         ;       DE - Address of the existing drivers (if any)
         ; Alters:
-        ;       A, DE, C
+        ;       A, DE, BC
         PUBLIC zos_driver_find_by_name
 zos_driver_find_by_name:
         ; If we have no drivers, returns 1 directly
@@ -152,7 +136,6 @@ zos_driver_find_by_name:
         ; B must not be altered, but C can be altered
         jp zos_disks_get_driver_and_fs
 _zos_driver_find_by_name_driver:
-        push bc
         ; Save HL as it must not be destroyed
         push hl
         ; Calculate the offset in the loaded drivers array
@@ -185,7 +168,6 @@ _zos_driver_find_by_name_loop:
         inc a   ; return A strictly positive
 _zos_driver_find_by_name_already_exists:
         pop hl
-        pop bc
         ret
 _zos_driver_failure:
         ld a, ERR_INVALID_NAME
@@ -233,15 +215,14 @@ zos_driver_name_valid:
         ; Returns:
         ;       A - 0 on success, error code else
         ; Alters:
-        ;       A, DE
+        ;       A, BC, DE
 zos_driver_register:
         ; Check if we can still register a driver
         ld a, (_loaded_drivers_count)
         cp CONFIG_KERNEL_MAX_LOADED_DRIVERS
         jr z, _zos_driver_register_full
         ; Call the driver's init function first
-        ; Save HL and BC as we need them in the caller
-        push bc
+        ; Save HL as we need it in the caller
         push hl
         ; Optimize a bit
         ASSERT(driver_init_t == 4)
@@ -257,7 +238,6 @@ zos_driver_register:
         ; Perform a call to a register address (HL)
         CALL_HL()
         pop hl
-        pop bc
         ; If it succeeded but is hidden, return (but as a success)
         ASSERT(ERR_DRIVER_HIDDEN == 255)
         inc a

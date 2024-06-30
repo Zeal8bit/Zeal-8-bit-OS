@@ -17,8 +17,6 @@
         EXTERN _vfs_work_buffer
         EXTERN boot_ready
 
-        DEFC TMP_WORK_BUFFER = _vfs_work_buffer + VFS_WORK_BUFFER_SIZE / 2
-
         PUBLIC zos_disks_init
 zos_disks_init:
         ; Set the default disk to A
@@ -111,23 +109,20 @@ _zos_disks_mount_already_mounted:
         ; Alters:
         ;   A, BC, HL
 _zos_disk_print_mounter_disk:
+        push de
         ; Convert the index to an ASCII letter
         ld a, b
         add 'A'
-        ; Copy message from ROM to RAM
-        push de
-        ld de, TMP_WORK_BUFFER
+        push af
         ld hl, _mounted_msg
-        ld bc, _mounted_msg_end - _mounted_msg
-        ldir
-        ; Replace the letter in the message
-        ld (TMP_WORK_BUFFER + 5), a
-        ld hl, TMP_WORK_BUFFER
+        ld de, _vfs_work_buffer
+        call strformat
+        ex de, hl
         call zos_log_info
         pop de
         ret
 _mounted_msg:
-        DEFM "Disk ? mounted\n", 0
+        DEFM "Disk ", FORMAT_CHAR, " mounted\n", 0
 _mounted_msg_end:
     ENDIF
 

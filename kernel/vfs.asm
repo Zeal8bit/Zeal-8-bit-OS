@@ -1537,4 +1537,6 @@ _vfs_current_dir: DEFS CONFIG_KERNEL_PATH_MAX * 2 + 1
         ; FS implementation at a time, thus, it shall be used as a temporary buffer in
         ; the routines.
         PUBLIC _vfs_work_buffer
+        PUBLIC _vfs_work_buffer_end
 _vfs_work_buffer: DEFS VFS_WORK_BUFFER_SIZE
+_vfs_work_buffer_end:

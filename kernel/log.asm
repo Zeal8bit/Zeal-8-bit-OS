@@ -32,9 +32,6 @@ zos_log_init:
         ld (hl), ')'
         inc hl
         ld (hl), ' '
-        ; Set the logging to buffer first
-        ld a, LOG_IN_BUFFER
-        ld (_log_property), a
         ret
 
 
@@ -63,10 +60,6 @@ zos_log_stdout_ready:
         or a
         ret nz
         inc (hl)
-        ; Set the property to log on stdout now instead of buffer
-        ; TODO: Flush the buffer
-        ld a, LOG_ON_STDOUT
-        ld (_log_property), a
         xor a   ; No prefix to print
         ld hl, zos_boilerplate
         jp zos_log_message
@@ -147,18 +140,11 @@ zos_log_message:
         call _zos_log_set_color
         pop af
 zos_log_message_current_color:
-        push bc
-        ld b, a
-        ld a, (_log_property)
-        cp LOG_DISABLED
-        jr z, _zos_log_popbc_ret
-        cp LOG_IN_BUFFER
-        jr z, _zos_log_buffer
         ; Do not alter parameters
+        push bc
         push de
         push hl
         ; Check if we need to print the prefix
-        ld a, b
         or a
         jp z, _zos_log_no_prefix
         ; Set the letter to put in the ( )
@@ -177,9 +163,6 @@ _zos_log_no_prefix:
         call _zos_log_call_write
         pop hl
         pop de
-_zos_log_popbc_ret:
-_zos_log_buffer:
-        ; TODO: implement with a ringbuffer?
         pop bc
         ret
 
@@ -202,24 +185,10 @@ _zos_log_call_write:
         jp (hl)
 
 
-        ; Modify logging properties. For example, this lets logging only append in the
-        ; log buffer and not on the actual hardware.
-        ; Parameters:
-        ;       A - Flags for the logging module
-        ; Returns:
-        ;       None
-        ; Alters:
-        ;       None
-zos_log_set_property:
-        ld (_log_property), a
-        ret
-
-
         SECTION KERNEL_BSS
 _log_plate_printed: DEFS 1
 _log_write_fun:     DEFS 2
 _log_ioctl_fun:     DEFS 2
-_log_property:      DEFS 1
 _log_prefix:        DEFS 4 ; RAM for '(W) '
 _log_prefix_end:
 
