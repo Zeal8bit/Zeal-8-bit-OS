@@ -125,7 +125,7 @@ From there, it is possible to configure the kernel but also the target computer'
 
 All the options have default values, so, if you have nothing to modify in particular or you are not sure what you are doing, press `S` to save the current (default) configuration. The filename for the configuration will be asked, keep it as `os.conf` and press enter.
 
-To exit the menuconfig, press `Q` key. 
+To exit the menuconfig, press `Q` key.
 
 Or you can also run following command instead to use the default config:
 
@@ -154,6 +154,20 @@ OS binary: build/os.bin
 Indicating that the final binary has been created. This binary only includes the kernel code and the drivers.
 
 The file named `os_with_romdisk.img` contains the OS binary with the generated `romdisk` (more about this below)
+
+It is possible to embed any file inside the `romdisk` before compiling the OS thanks to the environment variable `EXTRA_ROMDISK_FILES`. This variable must be set with a list of absolute paths to the files to embed, for example, if you want to embed the files `/home/me/documents/file.txt` and `/home/me/dev/mygame.bin` inside the romdisk, you can set the environment variable as follows:
+
+```
+export EXTRA_ROMDISK_FILES="/home/me/documents/file.txt /home/me/dev/mygame.bin"
+```
+
+After that, it is required to recompile the OS, with `make`, to build the romdisk image again. The logs will show the files that will be part of the romdisk:
+
+```
+...
+Packing the files
+pack disk.img build/init.bin simple.txt /home/me/documents/file.txt /home/me/dev/mygame.bin
+```
 
 ## Flashing
 
