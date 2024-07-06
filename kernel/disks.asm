@@ -10,6 +10,7 @@
         INCLUDE "strutils_h.asm"
         INCLUDE "fs/rawtable_h.asm"
         INCLUDE "fs/zealfs_h.asm"
+        INCLUDE "fs/hostfs_h.asm"
         INCLUDE "log_h.asm"
 
         SECTION KERNEL_TEXT
@@ -255,6 +256,10 @@ zos_disk_open_file:
         jp z, zos_fs_zealfs_open
         cp FS_FAT16
         jp z, zos_fs_fat16_open
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        cp FS_HOSTFS
+        jp z, zos_fs_hostfs_open
+    ENDIF
         ; The filesystem has not been found, memory corruption?
         ld a, ERR_INVALID_FILESYSTEM
         ret
@@ -299,6 +304,10 @@ zos_disk_stat:
         jp z, zos_fs_zealfs_stat
         cp FS_FAT16
         jp z, zos_fs_fat16_stat
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        cp FS_HOSTFS
+        jp z, zos_fs_hostfs_stat
+    ENDIF
         ; The filesystem has not been found, memory corruption?
         ld a, ERR_INVALID_FILESYSTEM
         ret
@@ -404,6 +413,13 @@ _zos_disk_read_add_min_is_bc_no_pop:
         jp z, _zos_disk_read_zealfs
         cp FS_FAT16
         jp z, _zos_disk_read_fat16
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        cp FS_HOSTFS
+        jr nz, _zos_disk_read_invalid
+        call zos_fs_hostfs_read
+        jr _zos_disk_read_epilogue
+_zos_disk_read_invalid:
+    ENDIF
         ; The filesystem has not been found, memory corruption?
         pop hl
         ld a, ERR_INVALID_FILESYSTEM
@@ -514,6 +530,13 @@ _zos_disk_write_no_append:
         jp z, _zos_disk_write_zealfs
         cp FS_FAT16
         jp z, _zos_disk_write_fat16
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        cp FS_HOSTFS
+        jr nz, _zos_disk_write_invalid
+        call zos_fs_hostfs_write
+        jr _zos_disk_write_epilogue
+_zos_disk_write_invalid:
+    ENDIF
         ; The filesystem has not been found, memory corruption?
         pop hl
         ld a, ERR_INVALID_FILESYSTEM
@@ -896,6 +919,13 @@ zos_disk_close:
         jp z, _zos_disk_close_zealfs
         cp FS_FAT16
         jp z, _zos_disk_close_fat16
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        cp FS_HOSTFS
+        jr nz, _zos_disk_close_invalid
+        call zos_fs_hostfs_close
+        jr _zos_disk_close_epilogue
+_zos_disk_close_invalid:
+    ENDIF
         ; The filesystem has not been found, memory corruption?
         pop hl
         ld a, ERR_INVALID_FILESYSTEM
@@ -917,6 +947,18 @@ _zos_disk_close_dir:
         ; Decrement the reference count.
         ; If there was a single reference, 0xB1, becomes 0xB0 here
         dec (hl)
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        ; The HostFS needs a notification when a directory is closed
+        inc hl
+        ld a, (hl)
+        ; Only keep the filesystem number now
+        DISKS_OPN_FILE_GET_FS()
+        ; Point to the user field
+        ld bc, opn_file_usr_t - opn_file_driver_t + 1
+        add hl, bc
+        cp FS_HOSTFS
+        call z, zos_fs_hostfs_close
+    ENDIF
         xor a
         ret
 
@@ -1065,6 +1107,10 @@ zos_disk_opendir:
         jp z, zos_fs_rawtable_opendir
         cp FS_ZEALFS
         jp z, zos_fs_zealfs_opendir
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        cp FS_HOSTFS
+        jp z, zos_fs_hostfs_opendir
+    ENDIF
         cp FS_FAT16
         jp z, zos_fs_fat16_opendir
         ; The filesystem has not been found, memory corruption?
@@ -1096,6 +1142,10 @@ zos_disk_mkdir:
         jp z, zos_fs_rawtable_mkdir
         cp FS_ZEALFS
         jp z, zos_fs_zealfs_mkdir
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        cp FS_HOSTFS
+        jp z, zos_fs_hostfs_mkdir
+    ENDIF
         cp FS_FAT16
         jp z, zos_fs_fat16_mkdir
         ; The filesystem has not been found, memory corruption?
@@ -1213,6 +1263,10 @@ zos_disk_readdir:
         jp z, zos_fs_rawtable_readdir
         cp FS_ZEALFS
         jp z, zos_fs_zealfs_readdir
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        cp FS_HOSTFS
+        jp z, zos_fs_hostfs_readdir
+    ENDIF
         cp FS_FAT16
         jp z, zos_fs_fat16_readdir
         ; The filesystem has not been found, memory corruption?
@@ -1242,6 +1296,10 @@ zos_disk_rm:
         jp z, zos_fs_rawtable_rm
         cp FS_ZEALFS
         jp z, zos_fs_zealfs_rm
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+        cp FS_HOSTFS
+        jp z, zos_fs_hostfs_rm
+    ENDIF
         cp FS_FAT16
         jp z, zos_fs_fat16_rm
         ; The filesystem has not been found, memory corruption?

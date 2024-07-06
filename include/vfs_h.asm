@@ -5,6 +5,7 @@
         IFNDEF VFS_H
         DEFINE VFS_H
 
+        INCLUDE "osconfig.asm"
         INCLUDE "time_h.asm"
 
         ; Filesystem list, useful when mounting a disk
@@ -13,6 +14,9 @@
                 FS_RAWTABLE = 0,    ; Check fs/rawtable.asm for more info
                 FS_ZEALFS,
                 FS_FAT16,
+    IF CONFIG_ENABLE_EMULATION_HOSTFS
+                FS_HOSTFS,
+    ENDIF
                 FS_END,
         }
 

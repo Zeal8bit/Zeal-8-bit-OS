@@ -78,6 +78,14 @@ menu "Zeal 8-bit Computer configuration"
     endmenu
 
 
+    config ENABLE_EMULATION_HOSTFS
+        bool
+        prompt "Enable host file system for the emulator (EXPERIMENTAL)"
+        default "n"
+        help
+            Implements a virtual file system that will use the host machine FS when the OS is run under the Zeal 8-bit Computer emulator
+
+
     config TARGET_ENABLE_VIDEO
         bool
         prompt "Enable video driver" if KERNEL_TARGET_HAS_MMU

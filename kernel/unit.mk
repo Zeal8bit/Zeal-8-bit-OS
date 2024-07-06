@@ -14,3 +14,7 @@ SRCS += fs/rawtable.asm
 ifdef CONFIG_KERNEL_ENABLE_ZEALFS_SUPPORT
 	SRCS += fs/zealfs.asm
 endif
+
+ifdef CONFIG_ENABLE_EMULATION_HOSTFS
+	SRCS += fs/hostfs.asm
+endif

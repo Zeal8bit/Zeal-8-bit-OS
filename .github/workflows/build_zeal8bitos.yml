@@ -7,7 +7,7 @@ on:
     tags:
       - v*
   pull_request:
-    types: 
+    types:
       - opened
       - reopened
 
@@ -37,6 +37,7 @@ jobs:
         shell: bash
         run: |
           make alldefconfig
+          echo 'CONFIG_ENABLE_EMULATION_HOSTFS=y' >> os.conf
           z88dk-z80asm
           make
           mv build/os_with_romdisk.img build/$(git describe --tags).img
