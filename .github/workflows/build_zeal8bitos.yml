@@ -38,6 +38,7 @@ jobs:
         run: |
           make alldefconfig
           echo 'CONFIG_ENABLE_EMULATION_HOSTFS=y' >> os.conf
+          make asmconf
           z88dk-z80asm
           make
           mv build/os_with_romdisk.img build/$(git describe --tags).img

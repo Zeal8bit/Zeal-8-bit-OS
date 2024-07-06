@@ -89,7 +89,7 @@ LINKERFILE_PATH=target/$(TARGET)/$(LINKERFILE)
 LINKERFILE_OBJ=$(patsubst %.asm,%.o,$(LINKERFILE_PATH))
 LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
-.PHONY: check menuconfig $(SUBDIRS) version packer
+.PHONY: check menuconfig $(SUBDIRS) version packer asmconf
 
 all:$(KCONFIG_CONFIG) version packer precmd $(LINKERFILE_OBJ) $(OBJS)
 	$(CC) $(ASMFLAGS) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
@@ -143,6 +143,10 @@ define CONVERT_config_asm =
     sed 's/^CONFIG/DEFC CONFIG/g' >> $2 && \
     echo -e "\nENDIF" >> $2
 endef
+
+asmconf: $(KCONFIG_CONFIG)
+	@echo "Converting $(KCONFIG_CONFIG) to $(OSCONFIG_ASM) ..."
+	@$(call CONVERT_config_asm,$(KCONFIG_CONFIG), $(OSCONFIG_ASM))
 
 menuconfig:
 	$(MENUCONFIG)
