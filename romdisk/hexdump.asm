@@ -147,7 +147,8 @@ hexdump_print_bc_chars:
     ldir
     pop bc
     ; Store a newline at the end of the buffer
-    ld (hl), '\n'
+    ld a, '\n'
+    ld (de), a
     ; Fill the buffer with the actual line to print
     ; Start by getting the current offset in the file, convert it to ASCII
     ld hl, (file_offset)
