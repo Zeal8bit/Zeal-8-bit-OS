@@ -15,6 +15,7 @@ nav:
     - Syscalls: details/syscalls.md
     - Drivers: details/drivers.md
     - Virtual File System: details/vfs.md
+  - Supported Targets: supported-targets.md
 
 theme:
   name: material
