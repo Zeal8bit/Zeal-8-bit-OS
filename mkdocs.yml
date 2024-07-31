@@ -8,6 +8,8 @@ edit_uri: edit/main/docs/
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Implementation Details:
+    - Memory Mapping: details/memory-mapping.md
 
 theme:
   name: material
@@ -28,3 +30,7 @@ theme:
       scheme: "slate"
       primary: "deep purple"
       accent: "deep purple"
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
