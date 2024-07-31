@@ -14,6 +14,7 @@ nav:
     - User Space: details/user-space.md
     - Syscalls: details/syscalls.md
     - Drivers: details/drivers.md
+    - Virtual File System: details/vfs.md
 
 theme:
   name: material
@@ -37,6 +38,10 @@ theme:
 
 markdown_extensions:
   - pymdownx.highlight
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: "mermaid"
+          class: "mermaid"
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - footnotes
   - admonition
