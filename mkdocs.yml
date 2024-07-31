@@ -12,6 +12,7 @@ nav:
     - Memory Mapping: details/memory-mapping.md
     - Kernel: details/kernel.md
     - User Space: details/user-space.md
+    - Syscalls: details/syscalls.md
 
 theme:
   name: material
@@ -37,3 +38,4 @@ markdown_extensions:
   - pymdownx.highlight
   - pymdownx.superfences
   - footnotes
+  - admonition
