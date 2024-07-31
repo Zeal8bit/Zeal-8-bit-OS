@@ -10,6 +10,7 @@ nav:
   - Getting Started: getting-started.md
   - Implementation Details:
     - Memory Mapping: details/memory-mapping.md
+    - Kernel: details/kernel.md
 
 theme:
   name: material
@@ -34,3 +35,4 @@ theme:
 markdown_extensions:
   - pymdownx.highlight
   - pymdownx.superfences
+  - footnotes
