@@ -1,1 +1,26 @@
-site_name: My Docs
+site_name: Zeal 8-bit OS
+# site_url: https://Zeal8bit.github.io/Zeal-8-bit-OS
+
+repo_name: Zeal8bit/Zeal-8-bit-OS
+repo_url: https://github.com/Zeal8bit/Zeal-8-bit-OS
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+
+  palette:
+    - media: "(prefers-color-scheme)"
+    - media: "(prefers-color-scheme: light)"
+      scheme: "default"
+      primary: "deep purple"
+      accent: "deep purple"
+    - media: "(prefers-color-scheme: dark)"
+      scheme: "slate"
+      primary: "deep purple"
+      accent: "deep purple"
