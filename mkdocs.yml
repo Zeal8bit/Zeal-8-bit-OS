@@ -11,6 +11,7 @@ nav:
   - Implementation Details:
     - Memory Mapping: details/memory-mapping.md
     - Kernel: details/kernel.md
+    - User Space: details/user-space.md
 
 theme:
   name: material
