@@ -40,4 +40,4 @@ Moreover, the OS can still be optimized in both speed and size. This is not the 
 
 To the kernel size, we have to add the drivers implementation size and the RAM used by them. Of course, this is highly dependent on the target machine itself, the features that are implemented and the amount of drivers we have.
 
-The OS is designed to work with an MMU, thus, the target must have 4 swappable virtual pages of 16KB each. The pages must be interchangeable. More info about it in the [Memory Mapping](memory-mapping.md) section.
+The OS is designed to work with an MMU, thus, the target must have 4 swappable virtual pages of 16KB each. The pages must be interchangeable. More info about it in the [Memory Mapping](details/memory-mapping.md) section.
