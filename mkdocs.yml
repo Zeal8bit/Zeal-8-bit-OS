@@ -13,6 +13,7 @@ nav:
     - Kernel: details/kernel.md
     - User Space: details/user-space.md
     - Syscalls: details/syscalls.md
+    - Drivers: details/drivers.md
 
 theme:
   name: material
