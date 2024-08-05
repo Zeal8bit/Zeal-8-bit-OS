@@ -54,6 +54,9 @@
         ; Clear the screen and reposition the cursor at the top left.
         CMD_CLEAR_SCREEN,
 
+        ; Resets the screen to the same state as on boot up
+        CMD_RESET_SCREEN, 
+
         ; Number of commands above
         CMD_COUNT
     }
