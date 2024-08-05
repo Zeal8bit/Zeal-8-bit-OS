@@ -30,44 +30,7 @@
     ; Initialize the video driver.
     ; This is called only once, at boot up
 video_init:
-    ; Map the VRAM to page 1
-    MMU_MAP_PHYS_ADDR(MMU_PAGE_1, VID_MEM_PHYS_ADDR_START)
-    ; Set the default palette
-    ld de, 0x4000 + VID_MEM_PALETTE_OFFSET
-    ld hl, palette
-    ld bc, palette_end - palette
-    ldir
-
-    ; Set the default video mode
-    ld a, DEFAULT_VIDEO_MODE
-    out (IO_CTRL_VID_MODE), a
-
-    ; Map the text controller to the banked I/O
-    ASSERT (BANK_IO_TEXT_NUM == 0)
-    MAP_TEXT_CTRL()
-
-    ; Reset the cursor position, the scroll value and the color, it should already be set to default
-    ; on coldboot, but maybe not on warmboot
-    ; A is already 0
-    out (IO_TEXT_CURS_CHAR), a
-    ld a, DEFAULT_CHARS_COLOR
-    out (IO_TEXT_COLOR), a
-    ld a, DEFAULT_CHARS_COLOR_INV
-    out (IO_TEXT_CURS_COLOR), a
-
-    ; Clear the screen and cursor (position and scroll)
-    call _video_ioctl_clear_screen
-
-    ; Make the cursor blink every 30 frames (~500ms)
-    ld a, DEFAULT_CURSOR_BLINK
-    out (IO_TEXT_CURS_TIME), a
-
-    ; Enable the screen
-    ld a, 0x80
-    out (IO_CTRL_STATUS_REG), a
-    ; Enable auto scroll Y as well as wait-on-wrap
-    ld a, DEFAULT_TEXT_CTRL
-    out (IO_TEXT_CTRL_REG), a
+    call _video_ioctl_reset_screen
 
     ; Set it at the default stdout
     ld hl, this_struct
@@ -84,25 +47,6 @@ video_init:
 
     ; Tail-call to zos_time_init
     jp zos_time_init
-
-palette:
-    DEFW 0x0000
-    DEFW 0x0015
-    DEFW 0x1540
-    DEFW 0x0555
-    DEFW 0xa800
-    DEFW 0xa815
-    DEFW 0xaaa0
-    DEFW 0xad55
-    DEFW 0x52aa
-    DEFW 0x52bf
-    DEFW 0x57ea
-    DEFW 0x57ff
-    DEFW 0xfaaa
-    DEFW 0xfabf
-    DEFW 0xffea
-    DEFW 0xffff
-palette_end:
 
 video_deinit:
     xor a   ; Success
@@ -302,11 +246,81 @@ _video_ioctl_clear_screen:
     out (IO_TEXT_CURS_X), a
     out (IO_TEXT_SCROLL_Y), a
     out (IO_TEXT_SCROLL_X), a
+_video_ioctl_restore_page1:
     ; Restore the virtual page
     ld a, (mmu_page_back)
     MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
     xor a
     ret
+
+
+    ; Resets/initialize the screen to use text mode and the default palette
+    ; Returns:
+    ;   A - Success
+_video_ioctl_reset_screen:
+    MMU_GET_PAGE_NUMBER(MMU_PAGE_1)
+    ld (mmu_page_back), a
+    ; Map the VRAM to page 1
+    MMU_MAP_PHYS_ADDR(MMU_PAGE_1, VID_MEM_PHYS_ADDR_START)
+    ; Set the default palette
+    ld de, 0x4000 + VID_MEM_PALETTE_OFFSET
+    ld hl, palette
+    ld bc, palette_end - palette
+    ldir
+
+    ; Set the default video mode
+    ld a, DEFAULT_VIDEO_MODE
+    out (IO_CTRL_VID_MODE), a
+
+    ; Map the text controller to the banked I/O
+    ASSERT (BANK_IO_TEXT_NUM == 0)
+    MAP_TEXT_CTRL()
+
+    ; Reset the cursor position, the scroll value and the color, it should already be set to default
+    ; on coldboot, but maybe not on warmboot
+    ; A is already 0
+    out (IO_TEXT_CURS_CHAR), a
+    ld a, DEFAULT_CHARS_COLOR
+    out (IO_TEXT_COLOR), a
+    ld a, DEFAULT_CHARS_COLOR_INV
+    out (IO_TEXT_CURS_COLOR), a
+
+    ; Clear the screen and cursor (position and scroll)
+    call _video_ioctl_clear_screen
+
+    ; Make the cursor blink every 30 frames (~500ms)
+    ld a, DEFAULT_CURSOR_BLINK
+    out (IO_TEXT_CURS_TIME), a
+
+    ; Enable the screen
+    ld a, 0x80
+    out (IO_CTRL_STATUS_REG), a
+    ; Enable auto scroll Y as well as wait-on-wrap
+    ld a, DEFAULT_TEXT_CTRL
+    out (IO_TEXT_CTRL_REG), a
+
+    ; Restore page1 and return success
+    jr _video_ioctl_restore_page1
+
+
+palette:
+    DEFW 0x0000
+    DEFW 0x0015
+    DEFW 0x1540
+    DEFW 0x0555
+    DEFW 0xa800
+    DEFW 0xa815
+    DEFW 0xaaa0
+    DEFW 0xad55
+    DEFW 0x52aa
+    DEFW 0x52bf
+    DEFW 0x57ea
+    DEFW 0x57ff
+    DEFW 0xfaaa
+    DEFW 0xfabf
+    DEFW 0xffea
+    DEFW 0xffff
+palette_end:
 
 
     ; Parameters:
@@ -335,6 +349,7 @@ _video_ioctl_cmd_table:
     DEFW _video_ioctl_set_cursor_xy
     DEFW _video_ioctl_set_colors
     DEFW _video_ioctl_clear_screen
+    DEFW _video_ioctl_reset_screen
 
 
     ; Write function, called every time user application needs to output chars
