@@ -6,6 +6,14 @@ ifdef CONFIG_KERNEL_TARGET_HAS_MMU
 	MMU_FILE = mmu.asm
 endif
 
+STAT_BYTES = stat
+ifeq ($(detected_OS),Darwin)
+	STAT_BYTES += -f %z
+# TODO: Support Windows?
+else
+	STAT_BYTES += -c %s
+endif
+
 # Add the source files that are common to MMU and no-MMU configuration
 SRCS := pio.asm i2c.asm keyboard.asm romdisk.asm $(MMU_FILE) interrupt_vect.asm eeprom.asm
 
@@ -37,8 +45,9 @@ endif
 # In our case, compile the programs that will be part of ROMDISK and create it.
 # After creation, get its size, thanks to `stat` command, and store it in a generated header file
 # named `romdisk_info_h.asm`
-PRECMD := (cd $(ZOS_PATH)/romdisk && make) && \
-          SIZE=$$(stat -c %s $(ZOS_PATH)/romdisk/disk.img) && \
+PRECMD := echo "Detected $(detected_OS) - $(STAT_BYTES)" && \
+          (cd $(ZOS_PATH)/romdisk && make) && \
+          SIZE=$$($(STAT_BYTES) $(ZOS_PATH)/romdisk/disk.img) && \
           (echo -e "IFNDEF ROMDISK_H\nDEFINE ROMDISK_H\nDEFC ROMDISK_SIZE=$$SIZE\nENDIF" > $(PWD)/include/romdisk_info_h.asm) && \
           unset SIZE
 
@@ -50,10 +59,10 @@ PRECMD := (cd $(ZOS_PATH)/romdisk && make) && \
 # After selecting the right binary, we have to truncate it to a size that will let us
 # easily concatenate the ROMDISK after it.
 # Of course, the final step is to concatenate the ROMDISK to the final binary after that.
-POSTCMD := @echo "RAM used by kernel: $$(du -bs $(BINDIR)/*KERNEL_BSS*.bin | cut -f1) bytes" && \
+POSTCMD := @echo "RAM used by kernel: $$($(STAT_BYTES)  $(BINDIR)/*KERNEL_BSS*.bin) bytes" && \
            rm $(BINDIR)/*KERNEL_BSS*.bin && \
-           echo "OS size: $$(du -bs $(FULLBIN) | cut -f1) bytes" && \
+           echo "OS size: $$($(STAT_BYTES)  $(FULLBIN)) bytes" && \
            cp $(FULLBIN) $(FULLBIN_W_ROMDISK) && \
            truncate -s $$(( $(CONFIG_ROMDISK_ADDRESS) - $(CONFIG_KERNEL_PHYS_ADDRESS) )) $(FULLBIN_W_ROMDISK) && \
            cat $(ZOS_PATH)/romdisk/disk.img >> $(FULLBIN_W_ROMDISK) && \
-           echo "Image size: $$(du -bs $(FULLBIN_W_ROMDISK) | cut -f1) bytes"
+           echo "Image size: $$($(STAT_BYTES) $(FULLBIN_W_ROMDISK)) bytes"

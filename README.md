@@ -100,7 +100,7 @@ At the moment, the project has only been assembled on Linux (Ubuntu 20.04 and 22
 
 * bash
 * git (to clone this repo)
-* make
+* make (GNU Make 4+)
 * python3 with pip3. Used for the `menuconfig`.
 * z88dk v2.2 (or later). Only its assembler, `z80asm`, is strictly required. The latest version of `z80asm` must be used as earlier versions don't have support for `MACRO`.
 
@@ -111,7 +111,18 @@ sudo apt install git python3 python3-pip
 pip3 install --ignore-installed --user kconfiglib
 ```
 
+On MacOS, the following commands can be used to install the dependencies.
+```
+brew install make
+brew install binutils
+```
+
 For installing Z88DK, please [check out their Github project](https://github.com/z88dk/z88dk).
+
+### Darwin / MacOS Requirements
+
+> [!IMPORTANT]
+> Use `gmake` instead of `make` whenever instructed to use `make` throughout.
 
 ## Configuring Zeal 8-bit OS
 
