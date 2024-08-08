@@ -1,5 +1,15 @@
 # Set the binaries
 SHELL := /bin/bash
+
+ifeq '$(findstring ;,$(PATH))' ';'
+    detected_OS := Windows
+else
+    detected_OS := $(shell uname 2>/dev/null || echo Unknown)
+    detected_OS := $(patsubst CYGWIN%,Cygwin,$(detected_OS))
+    detected_OS := $(patsubst MSYS%,MSYS,$(detected_OS))
+    detected_OS := $(patsubst MINGW%,MSYS,$(detected_OS))
+endif
+
 # If z88dk has been install through snap, the binary may be prefixed with "z88dk"
 # So choose any of z88dk-* or z88dk.z88dk-*, as long as one exists
 CC=$(shell which z88dk-z80asm z88dk.z88dk-z80asm | head -1)
