@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="md_images/zeal8bitos.png" alt="Zeal 8-bit OS logo" />
+    <img src="docs/md_images/zeal8bitos.png" alt="Zeal 8-bit OS logo" />
 </p>
 <p align="center">
     <a href="https://opensource.org/licenses/Apache-2.0">
@@ -280,7 +280,7 @@ The second page, page 1, is where user programs are copied and executed. Thus, a
 The fourth page, page 3, is used to store the OS data for both the kernel and the drivers. When loading a user program, this page is switched to RAM, so that it's usable by the program, when a syscall occurs, it's switched back to the kernel RAM. Upon loading a user program, the SP (Stack Pointer) is set to `0xFFFF`. However, this may change in the near future.
 
 To sum up, here is a diagram to show the usage of the memory:
-<img src="md_images/mapping.svg" alt="Memory mapping diagram"/>
+<img src="docs/md_images/mapping.svg" alt="Memory mapping diagram"/>
 
 *If the user program's parameters are pointing to a portion of memory in page 3 (last page), there is a conflict as the kernel will always map its RAM page inside this exact same page during a syscall. Thus, it will remap user's page 3 into page 2 (third page) to access the program's parameters. Of course, in case the parameters are pointers, they will be modified to let them point to the new virtual address (in other words, a pointer will be subtracted by 16KB to let it point to page 2).
 
@@ -296,7 +296,7 @@ Ideally, 48KB of RAM should be mapped starting at `0x4000` and would go up to `0
 * `KERNEL_RAM_START`: this marks the start address of the kernel RAM where the stack, all the variables used by the kernel AND drivers will be stored. Of course, it must be big enough to store all of these data. For information, the current kernel `BSS` section size is around 1KB. The stack depth depends on the target drivers' implementation. Allocating 1KB for the stack should be more than enough as long as no (big) buffers are stored on it. Overall allocating at least 3KB for the kernel RAM should be safe and future-proof.
 
 To sum up, here is a diagram to show the usage of the memory:
-<img src="md_images/mapping_nommu.svg" alt="Memory mapping diagram"/>
+<img src="docs/md_images/mapping_nommu.svg" alt="Memory mapping diagram"/>
 
 Regarding the user programs, the stack address will always be set to `KERNEL_RAM_START - 1` by the kernel before execution. It also corresponds to the address of its last byte available in its usable address space. This means that a program can determine the size of the available RAM by performing `SP - 0x4000`, which gives, in assembly:
 

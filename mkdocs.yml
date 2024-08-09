@@ -1,0 +1,49 @@
+site_name: Zeal 8-bit OS
+# site_url: https://Zeal8bit.github.io/Zeal-8-bit-OS
+
+repo_name: Zeal8bit/Zeal-8-bit-OS
+repo_url: https://github.com/Zeal8bit/Zeal-8-bit-OS
+edit_uri: edit/main/docs/
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Implementation Details:
+    - Memory Mapping: details/memory-mapping.md
+    - Kernel: details/kernel.md
+    - User Space: details/user-space.md
+    - Syscalls: details/syscalls.md
+    - Drivers: details/drivers.md
+    - Virtual File System: details/vfs.md
+  - Supported Targets: supported-targets.md
+  - System Calls: system-calls.md
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+
+  palette:
+    - media: "(prefers-color-scheme)"
+    - media: "(prefers-color-scheme: light)"
+      scheme: "default"
+      primary: "deep purple"
+      accent: "deep purple"
+    - media: "(prefers-color-scheme: dark)"
+      scheme: "slate"
+      primary: "deep purple"
+      accent: "deep purple"
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: "mermaid"
+          class: "mermaid"
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - footnotes
+  - admonition
