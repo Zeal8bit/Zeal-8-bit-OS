@@ -2,28 +2,28 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
-        INCLUDE "errors_h.asm"
-        INCLUDE "drivers_h.asm"
-        INCLUDE "video_h.asm"
-        INCLUDE "utils_h.asm"
-        INCLUDE "mmu_h.asm"
-        INCLUDE "time_h.asm"
-        INCLUDE "strutils_h.asm"
+    INCLUDE "errors_h.asm"
+    INCLUDE "drivers_h.asm"
+    INCLUDE "video_h.asm"
+    INCLUDE "utils_h.asm"
+    INCLUDE "mmu_h.asm"
+    INCLUDE "time_h.asm"
+    INCLUDE "strutils_h.asm"
 
-        EXTERN zos_sys_reserve_page_1
-        EXTERN zos_sys_restore_pages
-        EXTERN zos_sys_remap_de_page_2
-        EXTERN zos_vfs_set_stdout
+    EXTERN zos_sys_reserve_page_1
+    EXTERN zos_sys_restore_pages
+    EXTERN zos_sys_remap_de_page_2
+    EXTERN zos_vfs_set_stdout
 
 
-        DEFC DEFAULT_VIDEO_MODE = VID_MODE_TEXT_640
-        DEFC DEFAULT_CURSOR_BLINK = 30
-        DEFC DEFAULT_TEXT_CTRL = 1 << IO_TEXT_AUTO_SCROLL_Y_BIT | 1 << IO_TEXT_WAIT_ON_WRAP_BIT
+    DEFC DEFAULT_VIDEO_MODE = VID_MODE_TEXT_640
+    DEFC DEFAULT_CURSOR_BLINK = 30
+    DEFC DEFAULT_TEXT_CTRL = 1 << IO_TEXT_AUTO_SCROLL_Y_BIT | 1 << IO_TEXT_WAIT_ON_WRAP_BIT
 
-        MACRO MAP_TEXT_CTRL _
-            xor a
-            out (IO_MAPPER_BANK), a
-        ENDM
+    MACRO MAP_TEXT_CTRL _
+        xor a
+        out (IO_MAPPER_BANK), a
+    ENDM
 
 
     SECTION KERNEL_DRV_TEXT
@@ -32,16 +32,18 @@
 video_init:
     call _video_ioctl_reset_screen
 
+  IF CONFIG_TARGET_STDOUT_VIDEO
     ; Set it at the default stdout
     ld hl, this_struct
     call zos_vfs_set_stdout
+  ENDIF
 
     ; Register the timer-related routines
-    IF VIDEO_USE_VBLANK_MSLEEP
+  IF VIDEO_USE_VBLANK_MSLEEP
     ld bc, video_msleep
-    ELSE
+  ELSE
     ld bc, 0
-    ENDIF
+  ENDIF
     ld hl, video_set_vblank
     ld de, video_get_vblank
 
