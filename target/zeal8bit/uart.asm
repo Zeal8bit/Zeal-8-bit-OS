@@ -32,6 +32,8 @@
 uart_init:
         ld a, UART_BAUDRATE_DEFAULT
         ld (_uart_baudrate), a
+        xor a
+        ld (_uart_timeout), a
 
     IF CONFIG_TARGET_STDOUT_UART
         ; Initialize the PIO because UART is the first driver. It will initialize
@@ -129,6 +131,8 @@ uart_ioctl:
         jr z, _uart_ioctl_get_attr
         cp UART_CMD_SET_ATTR
         jr z, _uart_ioctl_set_attr
+        cp UART_SET_TIMEOUT
+        jr z, _uart_ioctl_set_timeout
         cp UART_CMD_SET_BAUDRATE
         jr z, _uart_ioctl_set_baud
 
@@ -171,6 +175,17 @@ _uart_ioctl_set_attr:
         xor a
         ret
 
+        ; Enable or disable the timeout, for now only 0 or non-0 is supported
+_uart_ioctl_set_timeout:
+        ld a, e
+        or a
+        jr z, _uart_ioctl_set_timeout_ready
+        ld a, 0xff
+_uart_ioctl_set_timeout_ready:
+        ld (_uart_timeout), a
+        ; Success
+        xor a
+        ret
 
 _uart_ioctl_set_baud:
         ; Command is correct, check that the parameter is correct
@@ -508,6 +523,7 @@ uart_send_byte_next_bit:
         ;   D - Baudrate (0: 57600, 1: 38400, 4: 19200, 10: 9600, ..., from uart_h.asm)
         ; Returns:
         ;   A - ERR_SUCCESS
+        ;   BC - Number of bytes received
         ; Alters:
         ;   A, BC, HL
 uart_receive_bytes:
@@ -515,40 +531,52 @@ uart_receive_bytes:
         ld a, b
         or c
         ret z
-        ; TODO: Implement a configurable timeout is ms, or a flag for blocking/non-blocking mode,
-        ; or an any-key-pressed-aborts-transfer action.
-        ; At the moment, block until we receive everything.
-        ENTER_CRITICAL()
         ; Length is not 0, we can continue
         push bc
+        ENTER_CRITICAL()
 _uart_receive_next_byte:
         push bc
         call uart_receive_byte
-        pop bc
-        ld (hl), a
+        ld (hl), b
         inc hl
+        pop bc
+        ; Check if a timeout occured
+        or a
+        ; Unlikely, use jr
+        jr nz, uart_receive_bytes_timeout
         dec bc
         ld a, b
         or c
         jp nz, _uart_receive_next_byte
-        ; Finished receiving all bytes, pop the total number of bytes and return
-        pop bc
+        ; No timeout, we can optimize a bit, A is already 0
         EXIT_CRITICAL()
+        pop bc
+        ret
+uart_receive_bytes_timeout:
+        EXIT_CRITICAL()
+        ; BC contains the remaining bytes to read, so the number of bytes
+        ; read up to now is Original BC - BC
+        pop hl
+        ; Carry is not set
+        sbc hl, bc
+        ; Store the result in BC
+        ld b, h
+        ld c, l
+        ; Success in all cases (even if timeout)
+        xor a
         ret
 
         ; Receive a byte on the UART with a given baudrate.
         ; Parameters:
         ;   D - Baudrate
         ; Returns:
-        ;   A - Byte received
+        ;   B - Byte received
+        ;   A - ERR_SUCCESS or ERR_TIMEOUT
         ; Alters:
         ;   A, B, E
 uart_receive_byte:
-        ld e, 8
-        ; A will contain the data read from PIO
-        xor a
         ; B will contain the final value
-        ld b, a
+        ld b, 0
         ; RX pin must be high (=1), before receiving
         ; the start bit, check this state.
         ; If the line is not high, then a transfer is occurring
@@ -557,12 +585,26 @@ uart_receive_wait_for_idle_anybaud:
         in a, (IO_PIO_SYSTEM_DATA)
         bit IO_UART_RX_PIN, a
         jp z, uart_receive_wait_for_idle_anybaud
-        ; Delay the reception
-        jp $+3
-        bit 0, a
+        ; Load the timeout value in E
+        ld a, (_uart_timeout)
+        or a
+        jp z, uart_receive_wait_start_bit_anybaud
+        ; Wait for the start with a timeout (stored in A)
+        ld e, a
+        inc e
+uart_receive_wait_start_bit_timeout:
+        dec e
+        jp z, uart_receive_timeout_error
+        in a, (IO_PIO_SYSTEM_DATA)
+        bit IO_UART_RX_PIN, a
+        jp nz, uart_receive_wait_start_bit_timeout
+        ; Start bit received! Reach the `uart_receive_start_bit_ok` label
+        ; in 37 - 14 - 10 = 13 T-states (12 is close enough)
+        jr uart_receive_start_bit_ok
+        ; Wait for the start bit without any timeout
 uart_receive_wait_start_bit_anybaud:
         in a, (IO_PIO_SYSTEM_DATA)
-        ; We can use AND and save one T-cycle, but this needs to be time accurate
+        ; We can use AND and save one T-state, but this needs to be time accurate
         ; So let's keep BIT.
         bit IO_UART_RX_PIN, a
         jp nz, uart_receive_wait_start_bit_anybaud
@@ -573,7 +615,8 @@ uart_receive_wait_start_bit_anybaud:
         ; This will let us read the bits incoming at the middle of their period
         jr $+2      ; For timing
         ld a, (hl)  ; For timing
-        ld a, (hl)  ; For timing
+uart_receive_start_bit_ok:
+        ld e, 8
         ; Check baudrate, if 0 (57600)
         ; Skip the wait_tstates_after_start routine
         ld a, d
@@ -607,8 +650,11 @@ uart_received_no_next_bit_anybaud:
         rrc b
         dec e
         jp nz, uart_receive_wait_next_bit_anybaud
-        ; Set the return value in A
-        ld a, b
+        ; Return success, B already contains the byte received
+        xor a
+        ret
+uart_receive_timeout_error:
+        ld a, ERR_TIMEOUT
         ret
 
         ; In case we are not in baudrate 57600, we have to wait about BAUDRATE * 86 - 17
@@ -754,6 +800,7 @@ _stdout_save_restore_position:
 
         SECTION DRIVER_BSS
 _uart_baudrate: DEFS 1
+_uart_timeout: DEFS 1
         ; When set to 1, bytes will be sent as-is to through UART. When set to 0,
         ; LF will NOT be convert to CRLF when sending bytes
 _uart_raw: DEFS 1
