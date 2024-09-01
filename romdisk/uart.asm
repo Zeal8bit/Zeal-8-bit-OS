@@ -1,8 +1,9 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>; JasonMo <jasonmo2009@hotmail.com>; 
+; SPDX-FileCopyrightText: 2023-2024 Zeal 8-bit Computer <contact@zeal8bit.com>; JasonMo <jasonmo2009@hotmail.com>;
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
         INCLUDE "zos_sys.asm"
+        INCLUDE "zos_serial.asm"
 
         SECTION TEXT
 
@@ -230,21 +231,40 @@ _uartrcv_main_nofile:
         call uart_open
         jp m, uart_error_pop
 
-        ; Set up and do read
+        ; Enable the timeout
+        ld h, a
+        ld c, SERIAL_SET_TIMEOUT
+        ld de, 1
+        IOCTL()
+        ; Check if an error occured
+        or a
+        jp nz, uart_error_pop
+
+        ; H already contains the SERIAL dev number
+        ld de, UART_BUFFER
+_uartrcv_read:
         pop bc  ; Pop size to read
         push bc ; Keep it on the stack
-        ld de, UART_BUFFER
-        ld h, a
         READ()
         ; Check read return
         or a
         jp nz, uart_error_pop
+        ; Check if the size is 0 (timeout occurred before receiving any data)
+        ld a, b
+        or c
+        jr z, _uartrcv_read
+_uartrcv_done:
+        ; Remove the size from the stack
+        pop de
+
         ; Close the UART driver
         CLOSE()
 
         ; Prepare for write: load H with either stdout or opened file
         ; Retrieve the filename from the stack (below the top)
-        pop de  ; Size in DE
+        ; Size in DE
+        ld d, b
+        ld e, c
         pop bc  ; Path in BC
         call _uartrcv_prep_output
         or a
