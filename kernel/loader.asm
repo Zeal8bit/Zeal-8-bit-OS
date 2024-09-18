@@ -200,7 +200,9 @@ _zos_load_file_checked:
         ld c, l
         ld h, d
         ld de, KERN_MMU_PAGE2_VIRT_ADDR
+        push hl
         call zos_vfs_read_internal
+        pop hl
         or a
         ; On error, close the opened file and return
         jp nz, _zos_load_failed_h_dev
