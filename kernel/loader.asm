@@ -20,13 +20,12 @@
         EXTERN _zos_user_page_1
         EXTERN _zos_user_sp
 
-        DEFC TWO_PAGES_SIZE_UPPER_BYTE = (KERN_MMU_VIRT_PAGES_SIZE >> 8) * 2
-
         ; Let's allocate at most 3 pages for a single program (48KB)
         DEFC KERNEL_PAGES_PER_PROGRAM    = 3
         DEFC KERNEL_STACK_ENTRY_SIZE     = KERNEL_PAGES_PER_PROGRAM + 2 ; 2 more bytes for Stack Pointer
         DEFC LOADER_OVERRIDE_PROGRAM     = 0
         DEFC LOADER_KEEP_PROGRAM_IN_MEM  = 1
+        DEFC LOADER_BIN_MAX_SIZE         = 0xC000 ; (48KB)
 
         SECTION KERNEL_TEXT
 
@@ -102,8 +101,7 @@ _zos_load_open_and_check_size:
         ld h, a
         push hl
         call zos_vfs_dstat_internal
-        ; Put the structure address in HL instead and store dev number in D.
-        ld hl, _file_stats
+        ; Store dev number in D.
         pop de
         ; Check if an error occurred while getting the info
         or a
@@ -111,35 +109,35 @@ _zos_load_open_and_check_size:
         ; Check the size field, if size field is not the first attribute, modify the code below
         ASSERT(file_size_t == 0)
         ; A is 0 if we reached here. The size is in little-endian!
-        ld c, (hl)
-        inc hl
-        ld b, (hl)
-        inc hl
-        ; Check that the size is not 0
-        ld a, b
-        or c
-        jr z, _zos_load_failed
-        ; Check that B, the 2nd lowest byte is less or equal to 0x80, if that's not the case,
-        ; it means that the file is bigger than 32K.
-        ld a, b
-        ; Optimize a bit, we make the assumption that pages are always 8-bit aligned
-        cp TWO_PAGES_SIZE_UPPER_BYTE
-        jr nc, _zos_load_failed ; File size must not exceed 32K, so the highest bytes must be 0
-        ; check that the upper bytes are 0
-        ld a, (hl)
-        inc hl
-        or (hl)
-        jr nz, _zos_load_failed
-        ; Success, A already contains 0
+        ; Make sure it doesn't exceed 48KB
+        ld hl, (_file_stats + 2)
+        ld a, h
+        or l
+        jr nz, _zos_load_too_big
+        ld hl, (_file_stats)
+        ; Optimize by only comparing the highest byte
+        ld a, h
+        cp LOADER_BIN_MAX_SIZE >> 8
+        jr nc, _zos_load_too_big
+        ; Size is valid, store it in BC and return 0
+        ld b, h
+        ld c, l
+        xor a
         ret
 zos_load_and_open_error:
         neg
         ret
+_zos_load_too_big:
+        ld e, ERR_NO_MORE_MEMORY
+        jr _zos_load_failed_close
 _zos_load_failed:
+        ld e, ERR_FAILURE
+_zos_load_failed_close:
         ; Close the opened dev (in D register)
         ld h, d
         call zos_vfs_close
-        ld a, ERR_FAILURE
+        ld a, e
+        or a
         ret
 
 
@@ -156,7 +154,7 @@ zos_load_file:
 zos_load_file_bc:
         call _zos_load_open_and_check_size
         ret nz
-        ; Reuse stat structure to fil the program parameters
+        ; Reuse stat structure to fill the program parameters
         ld hl, CONFIG_KERNEL_STACK_ADDR
         ld (_file_stats), hl
         ld hl, 0
@@ -164,53 +162,43 @@ zos_load_file_bc:
         ; Parameters:
         ;   D - Opened dev
         ;   BC - Size of the file
-        ;   [SP] - Address of the parameter
-        ;   [SP + 2] - Length of the parameter
 _zos_load_file_checked:
         ; BC contains the size of the file to copy, D contains the dev number.
         ; Only support program loading on 0x4000 at the moment
         ASSERT(CONFIG_KERNEL_INIT_EXECUTABLE_ADDR == 0x4000)
         ASSERT(KERN_MMU_PAGE1_VIRT_ADDR == 0x4000)
-        ; Map the user memory
-        ld a, (_allocate_pages)
-        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
-        ld a, (_allocate_pages + 1)
-        MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
-        ; Perform a read of a page size until we read less bytes than than KERN_MMU_VIRT_PAGES_SIZE
-        push bc
-        ld bc, KERN_MMU_VIRT_PAGES_SIZE
+        ; Calculate the number of loops to do: (BC + 0x3FFF) / 0x4000
+        ld hl, KERN_MMU_VIRT_PAGES_SIZE - 1
+        add hl, bc
+        ld a, h
+        rlca
+        rlca
+        and 0x3
+        ld b, a
+        ; Prepare the file descriptor and destination buffer
         ld h, d
-        ld de, KERN_MMU_PAGE1_VIRT_ADDR
+        ; DE will point to the allocated pages. All the pages will be
+        ; allocated in virtual page 1 to simplify the code below.
+        ld de, _allocate_pages
+_zos_load_file_loop:
+        ; Map the next page, the allocated pages are stored in DE
+        ld a, (de)
+        inc de
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
+        push bc
+        push de
         push hl
+        ld bc, KERN_MMU_VIRT_PAGES_SIZE
+        ld de, KERN_MMU_PAGE1_VIRT_ADDR
         call zos_vfs_read_internal
         pop hl
-        ; In any case, pop the file size in DE
         pop de
+        pop bc
         ; Check A for any error
         or a
         jr nz, _zos_load_failed_h_dev
-        ; Check if we still have data to read
-        ex de, hl
-        ; HL now contains the file size, D contains the opened dev.
-        ; Calculate Remaining size = file size - bytes read
-        sbc hl, bc
-        ; HL contains the remaining size, if we still have bytes, read again.
-        jp z, _zos_load_read_finish
-        ld b, h
-        ld c, l
-        ld h, d
-        ld de, KERN_MMU_PAGE2_VIRT_ADDR
-        push hl
-        call zos_vfs_read_internal
-        pop hl
-        or a
-        ; On error, close the opened file and return
-        jp nz, _zos_load_failed_h_dev
-        ; Put the opened dev in D again
-        ld d, h
-_zos_load_read_finish:
+        djnz _zos_load_file_loop
         ; The program is ready, close the file as we don't need it anymore
-        ld h, d
         call zos_vfs_close
         ; Get the parameters out of the stack before mapping the user program stack
         ld hl, (_file_stats)
@@ -221,6 +209,12 @@ _zos_load_read_finish:
         ; The stack may not be clean, but there is no need to pop the value as it won't be used:
         ; we are going to set the user stack and jump to the program.
         ; User program is loaded in RAM, allocate one last page for stack.
+        ; Map the user memory
+        ld hl, (_allocate_pages)
+        ld a, l
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
+        ld a, h
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ld a, (_allocate_pages + 2)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
         ; ============================================================================== ;
@@ -228,12 +222,10 @@ _zos_load_read_finish:
         ; ============================================================================== ;
         jp CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
 _zos_load_failed_h_dev:
-        push af ; Save error value
+        ; Save the error value, DE and BC will be preserved
+        ld d, a
         call zos_vfs_close
-        pop af
-        ; Pop the parameters out of the stack
-        pop hl
-        pop hl
+        ld a, d
         ret
 
 
@@ -266,12 +258,11 @@ zos_loader_ret:
         pop de
         pop bc
         ret
-
         ; Jump to this branch if we need to allocate new memory pages to store
         ; the user program in.
-        ; Parameters, Return and Alters is identical to `zos_loader_exec`
 zos_loader_exec_new_pages:
-        ; The top of the stack contains DE and BC registers
+        ; DE and BC still contain the file to laod and the string parameter,
+        ; they won't be altered by the following call
         call zos_loader_allocate_user_pages
         jr nz, zos_loader_ret
         call zos_loader_exec_internal
@@ -281,6 +272,13 @@ zos_loader_exec_new_pages:
         pop af
         jr zos_loader_ret
 
+
+        ; Override the current running program by loading a new one, whose name is in BC
+        ; Parameters:
+        ;   BC - File to load and execute
+        ;   DE - String parameter, can be NULL
+        ; Returns:
+        ;   A - error code on failure, doesn't return on success
 zos_loader_exec_internal:
         ld a, d
         or e
@@ -291,16 +289,17 @@ zos_loader_exec_internal:
         ; Get back DE parameter but in HL
         pop hl
         ret nz
-        ; Save the size of the binary as we will need it later
-        push bc
         ; Parameter was given, we have to copy it to the program stack
         ; D contains the opened dev, we should not alter it
         push de
+        ; Save the size of the binary as we will need it later
+        push bc
         ex de, hl
         call zos_sys_remap_de_page_2
         ex de, hl
         ; HL - String parameter
         call strlen
+        ; TODO: Check if the size of the binary + the size of the parameters are bigger than 48KB?
         ASSERT(CONFIG_KERNEL_STACK_ADDR > 0xC000 && CONFIG_KERNEL_STACK_ADDR <= 0xFFFF)
         ; Calculate the address of destination: bottom_of_stack - parameter_length - 1
         ex de, hl   ; Switch the address of the parameter to DE again
@@ -319,8 +318,8 @@ zos_loader_exec_internal:
         MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
         ; The parameters to send to the program have already been saved,
         ; Clean our stack and execute the program
-        pop de  ; D contains the opened dev
         pop bc  ; Program size in BC
+        pop de  ; D contains the opened dev
         jp _zos_load_file_checked
 
 
@@ -411,7 +410,7 @@ zos_loader_allocate_user_pages:
         ; Update the number of entries
         ld hl, _stack_entries
         inc (hl)
-        ; Return as a success
+        ; Return success
         xor a
 zos_loader_allocate_user_pages_ret:
         pop bc
