@@ -512,6 +512,7 @@ system_commands_begin:
         NEW_COMMAND("sleep", sleep_main)
         NEW_COMMAND("uartrcv", uartrcv_main)
         NEW_COMMAND("uartsnd", uartsnd_main)
+        NEW_COMMAND("xfer", xfer_main)
         ; Commands related to I2C
 ;        DEFS MAX_COMMAND_NAME, "i2cdetect"
 ;        DEFW i2cdetect_main
