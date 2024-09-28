@@ -16,6 +16,7 @@ nav:
     - Drivers: details/drivers.md
     - Virtual File System: details/vfs.md
   - Supported Targets: supported-targets.md
+  - System Calls: system-calls.md
 
 theme:
   name: material
