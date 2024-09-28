@@ -14,10 +14,11 @@ For more info, check the `README.md` files contained inside each supported compi
 
 Currently, assembly header files are provided for the following assemblers:
 
-* z88dk-z80asm. The directory `z88dk-z80asm` contains an assembly file that is meant to be included inside any assembly project. Of course, that project should be assembled with z88dk's `z80asm` assembler. 
+* z88dk-z80asm. The directory `z88dk-z80asm` contains assembly files that are meant to be included inside any z80asm assembly project.
+* gnu-as. The direcotry `gnu-as` contains assembly files that are meant to be included in any assembly project that is assembled with `z80-elf` assembler.
 
 ## Examples
 
 As its name states, the directory `examples`, contains code samples that can be compiled/assembled for Zeal 8-bit OS.
 
-For more info, check the `README.md` files contained inside each example directory. 
+For more info, check the `README.md` files contained inside each example directory.

@@ -469,7 +469,7 @@ This also means that when invoking the `exec` syscall in an assembly program, on
 
 ### Syscall documentation
 
-The syscalls are all documented in the header files provided for both assembly and C, you will find [assembly headers here](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/kernel_headers/z88dk-z80asm) and [C headers here](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/kernel_headers/sdcc/include) respectively.
+The syscalls are all documented in the header files provided for both assembly and C, you will find these header file in the `kernel_headers/` directory, check its [README file for more information](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/kernel_headers/README.md).
 
 ## Drivers
 

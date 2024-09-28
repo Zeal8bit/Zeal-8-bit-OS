@@ -1,0 +1,625 @@
+; SPDX-FileCopyrightText: 2024 Zeal 8-bit Computer <contact@zeal8bit.com>
+;
+; SPDX-License-Identifier: Apache-2.0
+
+    .include "zos_err.asm"
+
+    .equiv ZOS_SYS_HEADER, 1
+
+    ; @brief Opened device value for the standard output
+    .equ DEV_STDOUT, 0
+
+    ; @brief Opened device value for the standard input
+    .equ DEV_STDIN, 1
+
+    ; @brief Maximum length for a file/directory name
+    .equ FILENAME_LEN_MAX, 16
+
+    ; @brief Maximum length for a path
+    .equ PATH_MAX, 128
+
+    ; @note In the syscalls below, any pointer, buffer or structure address
+    ; provided with an explicit or implicit (sizeof structure) size must NOT
+    ; cross virtual page boundary, and must not be bigger than a virtual page
+    ; size.
+    ; For example, if we have two virtual pages located at 0x4000 and 0x8000
+    ; respectively, a buffer starting a 0x7F00 cannot be used with a size of
+    ; more than 256 bytes in the function below. Indeed, if the size is bigger,
+    ; the end of buffer would cross the second page, which starts at 0x8000. In
+    ; such cases, two or more calls to the desired syscall must be performed.
+
+    ; @brief Flags used to defined the modes to use when opening a file
+    ; Note on the behavior:
+    ;  - O_RDONLY: Can only read
+    ;  - O_WRONLY: Can only write
+    ;  - O_RDWR: Can both read and write, sharing the same cursor, writing will
+    ;  -         overwrite existing data.
+    ;  - O_APPEND: Needs writing. Before each write, the cursor will be
+    ;  -           moved to the end of the file, as if seek was called.
+    ;  -           So, if used with O_RDWR, reading after a write will read 0.
+    ;  - O_TRUNC: No matter if O_RDWR or O_WRONLY, the size is first set to
+    ;  -          0 before any other operation occurs.
+    .equ O_WRONLY_BIT, 0
+    .equ O_RDONLY, 0 << O_WRONLY_BIT
+    .equ O_WRONLY, 1 << O_WRONLY_BIT
+    .equ O_RDWR  , 2
+    .equ O_TRUNC , 1 << 2
+    .equ O_APPEND, 2 << 2
+    .equ O_CREAT , 4 << 2
+    ; Only makes sense for drivers, not files
+    .equ O_NONBLOCK, 1 << 5
+
+    ; @brief Directory entry size, in bytes.
+    ; Its content would be represented like this in C:
+    ; struct {
+    ;     uint8_t d_flags;
+    ;     char    d_name[FILENAME_LEN_MAX];
+    ; }
+    .equ ZOS_DIR_ENTRY_SIZE, 1 + FILENAME_LEN_MAX
+
+    ; @brief Date structure size, in bytes.
+    ; Its content would be represented like this in C:
+    ; struct {
+    ;     uint16_t d_year;
+    ;     uint8_t  d_month;
+    ;     uint8_t  d_day;
+    ;     uint8_t  d_date; // Range [1,7] (Sunday, Monday, Tuesday...)
+    ;     uint8_t  d_hours;
+    ;     uint8_t  d_minutes;
+    ;     uint8_t  d_seconds;
+    ; }
+    ; All the fields above are in BCD format.
+    .equ ZOS_DATE_SIZE, 17
+
+    ; @brief Stat file size, in bytes.
+    ; Its content would be represented like this in C:
+    ; struct {
+    ;     uint32_t   s_size; // in bytes
+    ;     zos_date_t s_date;
+    ;     char       s_name[FILENAME_LEN_MAX];
+    ; }
+    .equ ZOS_STAT_SIZE, 1 + ZOS_DATE_SIZE + FILENAME_LEN_MAX
+
+    ; @brief Whence values. Check `seek` syscall for more info
+    .equ SEEK_SET, 0
+    .equ SEEK_CUR, 1
+    .equ SEEK_END, 2
+
+    ; @brief Filesystems supported on Zeal 8-bit OS
+    .equ FS_RAWTABLE, 0
+
+    ; @brief Kernel configuration structure size, in bytes.
+    ; Its content would be represented like this in C:
+    ; struct {
+    ;     uint8_t c_target;     // Machine number the OS is running on, 0 means UNKNOWN
+    ;     uint8_t c_mmu;        // 0 if the MMU-less kernel is running, 1 else
+    ;     char    c_def_disk;   // Upper case letter for the default disk
+    ;     uint8_t c_max_driver; // Maximum number of driver loadable in the kernel
+    ;     uint8_t c_max_dev;    // Maximum number of opened devices in the kernel
+    ;     uint8_t c_max_files;  // Maximum number of opened files in the kernel
+    ;     uint16_t c_max_path;  // Maximum path length
+    ;     void*    c_prog_addr; // Virtual address where user programs are loaded
+    ;     void*    c_custom;    // Custom area, target-specific
+    ; } zos_config_t;
+    .equ ZOS_CONFIG_SIZE, 12
+
+    ; @brief Override caller program when invoking `exec`
+    .equ EXEC_OVERRIDE_PROGRAM, 0
+
+    ; @brief Keep the caller program in memory when invoking `exec`, until "child"
+    ; program finishes its execution
+    .equ EXEC_PRESERVE_PROGRAM, 1
+
+
+    ; @brief .macro to abstract the syscall instruction
+    .macro SYSCALL
+        rst 0x8
+    .endm
+
+
+    ; @brief Read from an opened device.
+    ;        Can be invoked with READ().
+    ;
+    ; Parameters:
+    ;   H  - Device to read from. This value must point to an opened device.
+    ;        Refer to `open()` for more info.
+    ;   DE - Buffer to store the bytes read from the opened device.
+    ;   BC - Size of the buffer passed, maximum size is a page size.
+    ; Returns:
+    ;   A  - ERR_SUCCESS on success, error value else
+    ;   BC - Number of bytes filled in DE.
+    .macro  READ  _
+        ld l, 0
+        SYSCALL
+    .endm
+
+
+    ; @brief Helper for the READ syscall when the opened dev value is known
+    ;        at assembly it.
+    ;        Can be invoked with S_READ1(dev).
+    ; Refer to READ() syscall for more info about the parameters and the returned values.
+    .macro S_READ1 dev
+        ld h, \dev
+        READ()
+    .endm
+
+    ; @brief Helper for the READ syscall when the opened dev and the buffer are known
+    ;        at assembly it.
+    ;        Can be invoked with S_READ2(dev, buf).
+    ; Refer to READ() syscall for more info about the parameters and the returned values.
+    .macro S_READ2 dev, buf
+        ld h, \dev
+        ld de, \buf
+        READ()
+    .endm
+
+    ; @brief Helper for the READ syscall when the opened dev, the buffer and the size
+    ;        are known at assembly it.
+    ;        Can be invoked with S_READ3(dev, buf, size).
+    ; Refer to READ() syscall for more info about the parameters and the returned values.
+    .macro S_READ3 dev, buf, len
+        ld h, \dev
+        ld de, \buf
+        ld bc, \len
+        READ()
+    .endm
+
+
+    ; @brief Write to an opened device.
+    ;        Can be invoked with WRITE().
+    ;
+    ; Parameters:
+    ;   H  - Number of the dev to write to.
+    ;   DE - Buffer to write to. The buffer must NOT cross page boundary.
+    ;   BC - Size of the buffer passed. Maximum size is a page size.
+    ; Returns:
+    ;   A  - ERR_SUCCESS on success, error value else
+    ;   BC - Number of bytes written
+    .macro  WRITE  _
+        ld l, 1
+        SYSCALL
+    .endm
+
+
+    ; @brief Helper for the WRITE syscall when the opened dev value is known
+    ;        at assembly it.
+    ;        Can be invoked with S_WRITE1(dev).
+    ; Refer to WRITE() syscall for more info about the parameters and the returned values.
+    .macro S_WRITE1 dev
+        ld h, \dev
+        WRITE()
+    .endm
+
+    ; @brief Helper for the WRITE syscall when the opened dev and the buffer are known
+    ;        at assembly it.
+    ;        Can be invoked with S_WRITE2(dev, buf).
+    ; Refer to WRITE() syscall for more info about the parameters and the returned values.
+    .macro S_WRITE2 dev, str
+        ld h, \dev
+        ld de, \str
+        WRITE()
+    .endm
+
+    ; @brief Helper for the WRITE syscall when the opened dev, the buffer and the size
+    ;        are known at assembly it.
+    ;        Can be invoked with S_WRITE3(dev, buf, size).
+    ; Refer to WRITE() syscall for more info about the parameters and the returned values.
+    .macro S_WRITE3 dev, str, len
+        ld h, \dev
+        ld de, \str
+        ld bc, \len
+        WRITE()
+    .endm
+
+
+    ; @brief Open the given file or driver.
+    ;        Drivers name shall not exceed 4 characters and must be preceded by # (5 characters in total)
+    ;        Names not starting with # will be considered as files.
+    ;        Path to the file to open, the path can be:
+    ;          - Relative to the current directory: file.txt
+    ;          - Absolute to the current disk: /path/to/file.txt
+    ;          - Absolute to the system: C:/path/to/file.txt
+    ;        Can be invoked with OPEN().
+    ;
+    ; Parameters:
+    ;   BC - Name: driver or file.
+    ;   H - Flags, can be O_RDWR, O_RDONLY, O_WRONLY, O_NONBLOCK, O_CREAT, O_APPEND, etc...
+    ;       It is possible to OR them.
+    ; Returns:
+    ;   A - Number of the newly opened dev on success, negated error value else.
+    .macro  OPEN  _
+        ld l, 2
+        SYSCALL
+    .endm
+
+
+    ; @brief Close an opened device. It is necessary to keep the least minimum
+    ;        of devices/files opened as the limit is set by the kernel and may be
+    ;        different between implementations.
+    ;        Can be invoked with CLOSE().
+    ;
+    ; Parameters:
+    ;   H - Number of the dev to close
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    .macro  CLOSE  _
+        ld l, 3
+        SYSCALL
+    .endm
+
+
+    ; @brief Return the stats of an opened file.
+    ;        The returned structure is defined above, check ZOS_STAT_SIZE description.
+    ;        Can be invoked with DSTAT().
+    ;
+    ; Parameters:
+    ;   H - Opened dev to get the stat of.
+    ;   DE - Address of the stat structure to fill on success.
+    ;        The memory pointed must be big enough to store the file information.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error else
+    .macro  DSTAT  _
+        ld l, 4
+        SYSCALL
+    .endm
+
+
+    ; @brief Return the stats of a file.
+    ;        The returned structure is defined above, check ZOS_STAT_SIZE description.
+    ;        Can be invoked with STAT().
+    ;
+    ; Parameters:
+    ;   BC - Path to the file.
+    ;   DE - Address of the stat structure to fill on success.
+    ;        The memory pointed must be big enough to store the file information.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error else
+    .macro  STAT  _
+        ld l, 5
+        SYSCALL
+    .endm
+
+
+    ; @brief Move the cursor of an opened file or an opened driver.
+    ;        In case of a driver, the implementation is driver-dependent. In case of
+    ;        a file, the cursor never moves further than the file size.
+    ;        If the given whence is SEEK_SET, and the given offset is bigger than the file,
+    ;        the cursor will be set to the end of the file.
+    ;        Similarly, if the whence is SEEK_END and the given offset is positive,
+    ;        the cursor won't move further than the end of the file.
+    ;        Can be invoked with SEEK().
+    ;
+    ; Parameters:
+    ;   H - Opened dev to reposition the cursor from, must refer to an opened driver.
+    ;   BCDE - 32-bit offset, signed if whence is SEEK_CUR/SEEK_END.
+    ;          Unsigned if SEEK_SET.
+    ;   A - Whence. When set to SEEK_SET, `offset` parameter is the new value of
+    ;       cursor in the file.
+    ;       When set to SEEK_CUR, `offset` represents a signed value to add to the
+    ;       current position in the file.
+    ;       When set to SEEK_END, `offset` represents a signed value to add to the
+    ;       last valid position in the file.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else.
+    ;   BCDE - Unsigned 32-bit offset. Resulting file offset.
+    .macro  SEEK  _
+        ld l, 6
+        SYSCALL
+    .endm
+
+
+    ; @brief Perform an input/output operation on an opened driver.
+    ;        The command and parameter are specific to the device drivers of destination.
+    ;        Make sure to check the documentation of the driver buffer calling this function.
+    ;        Can be invoked with IOCTL().
+    ;
+    ; Parameters:
+    ;   H - Dev number, must refer to an opened driver, not a file.
+    ;   C - Command number. This is driver-dependent, check the driver documentation for more info.
+    ;   DE - 16-bit parameter. This is also driver dependent. This can be used as a 16-bit value or
+    ;        as an address. Similarly to the buffers in `read` and `write` routines, if this is an
+    ;        address, it must not cross a page boundary.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    .macro  IOCTL  _
+        ld l, 7
+        SYSCALL
+    .endm
+
+
+    ; @brief Create a directory at the specified location.
+    ;        If one of the directories in the given path doesn't exist, this will fail.
+    ;        For example, if mkdir("A:/D/E/F") is requested where D exists but E doesn't, this syscall
+    ;        will fail and return an error.
+    ;        Can be invoked with MKDIR().
+    ;
+    ; Parameters:
+    ;   DE - Path of the directory to create, including the NULL-terminator. Must NOT cross boundaries.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else.
+    .macro  MKDIR  _
+        ld l, 8
+        SYSCALL
+    .endm
+
+
+    ; @brief Change the current working directory path.
+    ;        Can be invoked with CHDIR().
+    ;
+    ; Parameters:
+    ;   DE - Path to the new working directory. The string must be NULL-terminated.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else.
+    .macro  CHDIR  _
+        ld l, 9
+        SYSCALL
+    .endm
+
+
+    ; @brief Get the current working directory.
+    ;        Can be invoked with CURDIR().
+    ;
+    ; Parameters:
+    ;   DE - Buffer to store the current path to. The buffer must be big enough
+    ;        to store a least PATH_MAX bytes.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    .macro  CURDIR  _
+        ld l, 10
+        SYSCALL
+    .endm
+
+
+    ; @brief Open a directory given a path.
+    ;        The path can be relative, absolute to the disk or absolute to the
+    ;        system, just like open for files.
+    ;        Can be invoked with OPENDIR().
+    ;
+    ; Parameters:
+    ;   DE - Path to the directory to open, the string must be NULL-terminated.
+    ;        Like for all the above paths, it can be:
+    ;        * Relative to the current directory ("../dir", "dir1")
+    ;        * Absolute to the disk ("/dir1/dir2")
+    ;        * Absolute to the system ("A:/dir1")
+    ; Returns:
+    ;   A - Number for the newly opened dev on success, negated error value else.
+    .macro  OPENDIR  _
+        ld l, 11
+        SYSCALL
+    .endm
+
+
+    ; @brief Read the next entry from the given opened directory.
+    ;        Can be invoked with READDIR().
+    ;
+    ; Parameters:
+    ;   H  - Number of the dev to write to. If the given dev is not a directory,
+    ;        an error will be returned.
+    ;   DE - Buffer to store the entry data, the buffer must NOT cross page boundary.
+    ;        It must be big enough to hold at least ZOS_DIR_ENTRY_SIZE bytes.
+    ; Returns:
+    ;   A  - ERR_SUCCESS on success,
+    ;        ERR_NO_MORE_ENTRIES if all the entries have been browsed already,
+    ;        error value else.
+    .macro  READDIR  _
+        ld l, 12
+        SYSCALL
+    .endm
+
+
+    ; @brief Remove a file or an empty directory.
+    ;        Can be invoked with RM().
+    ;
+    ; Parameters:
+    ;   DE - Path to the file or directory to remove. Like the path above, it must be
+    ;        NULL-terminated, can be a relative, relative to the disk, or absolute path.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else.
+    .macro  RM  _
+        ld l, 13
+        SYSCALL
+    .endm
+
+
+    ; @brief Mount a new disk, given a driver, a letter and a file system.
+    ;        The letter assigned to the disk must not be in use.
+    ;        Can be invoked with MOUNT().
+    ;
+    ; Parameters:
+    ;   H - Opened dev number. It must be an opened driver, not a file. The dev can be closed
+    ;       after mounting, this will not affect the mounted disk.
+    ;   D - ASCII letter to assign to the disk (upper or lower)
+    ;   E - File system, check the FS_* .macro defined at the top of this file.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    .macro  MOUNT  _
+        ld l, 14
+        SYSCALL
+    .endm
+
+
+    ; @brief Exit the program and give back the hand to the kernel. If the caller program invoked
+    ;        EXEC() with `EXEC_PRESERVE_PROGRAM` as the mode, it will be reloaded from RAM after
+    ;        exiting the current program.
+    ;        Can be invoked with EXIT().
+    ;
+    ; Parameters:
+    ;   H - Return code to pass to caller program
+    ; Returns:
+    ;   None
+    .macro  EXIT  _
+        ld l, 15
+        SYSCALL
+    .endm
+
+
+    ; @brief Load and execute a program from a file name given as a parameter.
+    ;        The current program, invoking this syscall, can either be preserved in memory
+    ;        (only available when the kernel is compiled with MMU support!)
+    ;        until the sub-program finishes executing, or, it can be covered/overridden.
+    ;        In the first case, upon return, D register will contain the return value of the
+    ;        sub-program.
+    ;        The depth of sub-programs is defined and limited in the kernel. As such, it is not
+    ;        guaranteed that it will always be possible to execute a sub-program while keeping
+    ;        the current one in memory. It depends on the target and kernel configuration.
+    ;        Can be invoked with EXEC().
+    ;
+    ; Parameters:
+    ;   BC - File to load and execute. The string must be NULL-terminated and must not cross boundaries.
+    ;   DE - String argument to give to the program to execute, must be NULL-terminated. Can be NULL.
+    ;   H - Mode marking whether the current program shall be preserved in RAM or overwritten by sub-program.
+    ;       Can be either `EXEC_OVERRIDE_PROGRAM` or `EXEC_PRESERVE_PROGRAM`.
+    ; Returns:
+    ;   A - When invoked with `EXEC_OVERRIDE_PROGRAM`, returns only on error
+    ;       When invoked with `EXEC_PRESERVE_PROGRAM`, returns ERR_SUCCESS when the sub-program was executed
+    ;       successfully (regardless of its returned value), error code else. If error code is ERR_CANNOT_REGISTER_MORE,
+    ;       the maximum depth has been reached, the current program cannot execute a program while being preserved in
+    ;       memory. In that case, it shall either exit, either execute the sub-program with `EXEC_OVERRIDE_PROGRAM`.
+    ;   D - Sub-program exit value, when invoked with `EXEC_PRESERVE_PROGRAM`.
+    ; Alters:
+    ;   Contrarily to other syscalls, invoking EXEC() will not preserve AF, BC, DE, IX, IY.
+    ;   Only HL is guaranteed to be preserved.
+    .macro  EXEC  _
+        ld l, 16
+        SYSCALL
+    .endm
+
+
+    ; @brief Duplicate the given opened dev to a new index. This will only
+    ;        duplicate the "pointer" to the actual implementation. For example,
+    ;        duplicate the dev of an opened file and performing a seek on the it
+    ;        will affect both the old and the new dev.
+    ;        This can be handy to override the standard input or output.
+    ;        Can be invoked with DUP().
+    ;
+    ; Parameters:
+    ;   H - Dev number to duplicate.
+    ;   E - New number for the opened dev.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    .macro  DUP  _
+        ld l, 17
+        SYSCALL
+    .endm
+
+
+    ; @brief Sleep for a specified duration.
+    ;        Can be invoked with MSLEEP().
+    ;
+    ; Parameters:
+    ;   DE - 16-bit duration (maximum 65 seconds).
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else.
+    .macro  MSLEEP  _
+        ld l, 18
+        SYSCALL
+    .endm
+
+
+    ; @brief Routine to manually set/reset the time counter, in milliseconds.
+    ;        Can be invoked SETTIME().
+    ;
+    ; Parameters:
+    ;   H - ID of the clock (unused for now)
+    ;   DE - 16-bit counter value, in milliseconds.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, ERR_NOT_IMPLEMENTED if target doesn't implement
+    ;       this feature error code else.
+    .macro  SETTIME  _
+        ld l, 19
+        SYSCALL
+    .endm
+
+
+    ; @brief Get the time counter, in milliseconds.
+    ;        The granularity is dependent on the implementation/hardware, for example,
+    ;        it could be 1ms, 2ms, 16ms, etc.
+    ;        You should be aware of this when calling this syscall.
+    ;        Can be invoked with GETTIME().
+    ;
+    ; Parameters:
+    ;   H - Id of the clock (for future use, unused for now)
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, ERR_NOT_IMPLEMENTED if target doesn't implement
+    ;       this feature, error code else.
+    ;   DE - 16-bit counter value, in milliseconds.
+    .macro  GETTIME  _
+        ld l, 20
+        SYSCALL
+    .endm
+
+
+    ; @brief Set the system date, on targets where RTC is available.
+    ;        Can be invoked with SETDATE().
+    ;
+    ; Parameters:
+    ;   DE - Address of the date structure, as defined at the top of this file.
+    ;        The buffer must NOT cross page boundary.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, ERR_NOT_IMPLEMENTED if target doesn't implement
+    ;       this feature, error code else
+    .macro  SETDATE  _
+        ld l, 21
+        SYSCALL
+    .endm
+
+
+    ; @brief Get the system date, on targets where RTC is available.
+    ;        Can be invoked with GETDATE().
+    ;
+    ; Parameters:
+    ;   DE - Buffer to store the date structure in, the buffer must NOT cross page boundary.
+    ;        It must be big enough to hold at least ZOS_DATE_SIZE bytes.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, ERR_NOT_IMPLEMENTED if target doesn't implement
+    ;       this feature, error code else
+    .macro  GETDATE  _
+        ld l, 22
+        SYSCALL
+    .endm
+
+
+    ; @brief Map a physical address/region to a virtual address/region.
+    ;        Can be invoked with MAP().
+    ;
+    ; Parameters:
+    ;   DE - Destination address in virtual memory. This will be rounded down to the target closest
+    ;        page bound. For example, passing 0x5000 here, would in fact trigger a remap of the
+    ;        page starting at 0x4000 on a target that has 16KB virtual pages.
+    ;   HBC - Upper 24-bits of the physical address to map. If the target does not support
+    ;         the physical address given, an error will be returned.
+    ;         Similarly to the virtual address, the value may be rounded down to the closest page bound.
+    ; Returns:
+    ;   ERR_SUCCESS on success, error code else.
+    .macro  MAP  _
+        ld l, 23
+        SYSCALL
+    .endm
+
+
+    ; @brief Swap the given opened devs. This can be handy to temporarily override the
+    ;        standard input or output and restore it afterwards.
+    ;        Can be invoked with SWAP().
+    ;
+    ; Parameters:
+    ;   H - First dev number.
+    ;   E - Second dev number.
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    .macro  SWAP  _
+        ld l, 24
+        SYSCALL
+    .endm
+
+
+    ; @brief Get a read-only pointer to the kernel configuration.
+    ;
+    ; Parameters:
+    ;   PAIR - 16-bit register (HL, DE, BC) to store the configuration structure address in
+    ; Returns:
+    ;   PAIR - Address of the configuration structure. It is guaranteed that the structure won't
+    ;          be spread across two 256-byte pages. In other words, it is possible to browse the
+    ;          structure by performing 8-bit arithmetic (`inc l` for example).
+    .macro KERNEL_CONFIG PAIR
+        ld \PAIR, (0x0004)
+    .endm
