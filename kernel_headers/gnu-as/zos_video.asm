@@ -83,6 +83,3 @@
     .equ area_height_t, 1  ; Height of the screen in the current mode
     .equ area_count_t,  2  ; Number of entities on-screen (usually, width * height)
     .equ area_end_t,    4
-
-
-    ENDIF ; ZOS_VIDEO_H
