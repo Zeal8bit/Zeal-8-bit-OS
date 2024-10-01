@@ -1,17 +1,19 @@
-# Assembly header file for z88dk's z80asm assembler
+# Assembly header file for GNU's assembler (z80-elf)
 
-In this directory, you will find an assembly file, `zos_sys.asm`, that acts as an header file. Indeed, it shall be included by any assembly project targeting Zeal 8-bit OS.
+In this directory, you will find several assembly files that act as headers file. They can be included in any assembly file meant to be assembly with GNU's assembler `z80-elf-as`. Of course, the project should be targetting Zeal 8-bit OS.
 
-This file is fairly simple, it contains macros for all the syscalls available in Zeal 8-bit OS kernel. For more info about each of them, check the header file directly.
+These files contain macros for all the syscalls available in Zeal 8-bit OS kernel. For more info about each of them, check the header file directly.
 
 ## Usage
 
-The following line needs be added at the top of the assembly file using Zeal 8-bit OS syscalls:
+To include one of the files, use the `.include` directive, for example:
 ```
-    INCLUDE "zos_sys.asm"
+    .include "zos_sys.asm"
 ```
 
-When assembling, either copy this file in the project's directory, either provide the following option to `z80asm`:
+When assembling your porject, make sure to add this directory as an include directory. You can use the following command option:
 ```
-z88dk-z80asm -I<path_to_directory_containing_zos_sys.asm> 
+-I$ZOS_PATH/kernel_headers/gnu-as/
 ```
+
+Where `ZOS_PATH` is the environment variable that points to the root directory of Zeal 8-bit OS.
