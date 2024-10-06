@@ -119,6 +119,9 @@ _zos_load_open_and_check_size:
         ld a, h
         cp LOADER_BIN_MAX_SIZE >> 8
         jr nc, _zos_load_too_big
+        ; Check if the size is 0
+        or l
+        jr z, _zos_load_size_0
         ; Size is valid, store it in BC and return 0
         ld b, h
         ld c, l
@@ -129,6 +132,9 @@ zos_load_and_open_error:
         ret
 _zos_load_too_big:
         ld e, ERR_NO_MORE_MEMORY
+        jr _zos_load_failed_close
+_zos_load_size_0:
+        ld e, ERR_ENTRY_CORRUPTED
         jr _zos_load_failed_close
 _zos_load_failed:
         ld e, ERR_FAILURE

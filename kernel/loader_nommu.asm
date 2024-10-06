@@ -62,7 +62,7 @@ _zos_load_open_and_check_size:
         pop de
         ; Check if an error occurred while getting the info
         or a
-        jr nz, _zos_load_failed_err
+        jr nz, _zos_load_stat_failed
         ; Check the size field, if size field is not the first attribute, modify the code below
         ASSERT(file_size_t == 0)
         ; The size is in little-endian!
@@ -74,30 +74,41 @@ _zos_load_open_and_check_size:
         ld a, (hl)
         inc hl
         or (hl)
-        jr nz, _zos_load_failed
-        ; BC contains the size of the file, make sure it isn't bigger than USER_PROG_MAX_SIZE
+        jr nz, _zos_load_too_big
+        ; BC contains the size of the file:
+        ; Make sure it isn't 0
+        ld a, b
+        or c
+        jr z, _zos_load_size_0
+        ; Make sure it isn't bigger than USER_PROG_MAX_SIZE
         ld hl, USER_PROG_MAX_SIZE
         ; Carry is not set for sure
         sbc hl, bc
         ; If carry is set, BC is bigger than USER_PROG_MAX_SIZE
-        jr c, _zos_load_failed
+        jr c, _zos_load_too_big
         ; Success, set Z flag
         xor a
         ret
 zos_load_and_open_error:
         neg
         ret
-_zos_load_failed:
+_zos_load_stat_failed:
+        ld e, a
+        jr _zos_load_failed
+_zos_load_size_0:
+        ld e, ERR_ENTRY_CORRUPTED
+        jr _zos_load_failed
+_zos_load_too_big:
         ; File is too big
-        ld a, ERR_NO_MORE_MEMORY
-        ; Z flag must not be set in case of error
-        or a
-_zos_load_failed_err:
-        push af
+        ld e, ERR_NO_MORE_MEMORY
+        ; Fall-through
+_zos_load_failed:
         ; Close the opened dev (in D register)
         ld h, d
         call zos_vfs_close
-        pop af
+        ld a, e
+        ; Z flag must not be set in case of error
+        or a
         ret
 
 
