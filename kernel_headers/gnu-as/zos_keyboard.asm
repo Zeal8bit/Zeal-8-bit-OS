@@ -102,10 +102,10 @@
     .equ KB_KEY_BACKQUOTE,     '`'
     .equ KB_KEY_MINUS,         '-'
     .equ KB_KEY_EQUAL,         '='
-    .equ KB_KEY_BACKSPACE,     '\b'
+    .equ KB_KEY_BACKSPACE,     0x08 ; \b
     .equ KB_KEY_SPACE,         ' '
-    .equ KB_KEY_ENTER,         '\n'
-    .equ KB_KEY_TAB,           '\t'
+    .equ KB_KEY_ENTER,         0x0a ; \n
+    .equ KB_KEY_TAB,           0x09 ; \t
     .equ KB_KEY_COMMA,         ','
     .equ KB_KEY_PERIOD,        '.'
     .equ KB_KEY_SLASH,         '/'

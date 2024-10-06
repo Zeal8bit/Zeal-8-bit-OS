@@ -12,13 +12,13 @@
     ; Get the video driver capabilities, such as the supported modes, the supported
     ; colors, scrolling, etc...
     ; TODO: Define the attributes.
-    .equ CMD_GET_ATTR,      0        ; See attribute structure
+    .equ CMD_GET_ATTR, 0        ; See attribute structure
 
     ; Get the area bounds of the current display mode
     ; Parameter:
     ;   DE - Address of area_t structure (defined below)
     ;        It will be filled by the driver.
-    .equ CMD_GET_AREA,      1
+    .equ CMD_GET_AREA, 1
 
     ; Get the current position (X,Y) of the cursor. They represent an index,
     ; so they start at 0.
@@ -28,7 +28,7 @@
     .equ CMD_GET_CURSOR_XY, 2
 
     ; Set the (non-constant) attributes.
-    .equ CMD_SET_ATTR,      3
+    .equ CMD_SET_ATTR, 3
 
     ; Set the (X,Y) position of the cursor. If the given coordinate is out of bounds,
     ; the driver can either return an error or accept it and adjust it to the end
@@ -46,16 +46,16 @@
     ; Parameters:
     ;   D - Background color
     ;   E - Foreground color
-    .equ CMD_SET_COLORS,    5
+    .equ CMD_SET_COLORS, 5
 
     ; Clear the screen and reposition the cursor at the top left.
-    .equ CMD_CLEAR_SCREEN,  6
+    .equ CMD_CLEAR_SCREEN, 6
 
     ; Resets the screen to the same state as on boot up
     .equ CMD_RESET_SCREEN, 7
 
     ; Number of commands above
-    .equ CMD_COUNT         8
+    .equ CMD_COUNT, 8
 
 
     ; List of colors to pass to CMD_SET_COLORS command.
