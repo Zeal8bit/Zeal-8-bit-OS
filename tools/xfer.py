@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 #
 # SPDX-FileCopyrightText: 2024 Zeal 8-bit Computer <contact@zeal8bit.com>
 #
