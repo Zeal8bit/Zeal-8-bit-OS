@@ -124,6 +124,10 @@ For installing Z88DK, please [check out their Github project](https://github.com
 > [!IMPORTANT]
 > Use `gmake` instead of `make` whenever instructed to use `make` throughout.
 
+> [!TIP]
+> If you need to configure the path to `python3`, you can set the `PYTHON_BIN` environment variable
+> to the `bin/` directory.
+
 ## Configuring Zeal 8-bit OS
 
 After installing the dependencies listed above and cloning this repository, the first thing to do is to configure the OS. To do so, simply execute:
