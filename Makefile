@@ -15,7 +15,9 @@ endif
 CC=$(shell which z88dk-z80asm z88dk.z88dk-z80asm | head -1)
 DISASSEMBLER=$(shell which z88dk-dis z88dk.z88dk-dis | head -1)
 PYTHON=python3
-PYTHON_BIN=$(PYTHON) $(shell $(PYTHON) -m site --user-base)/bin
+ifndef PYTHON_BIN
+    PYTHON_BIN:=$(PYTHON) $(shell $(PYTHON) -m site --user-base)/bin
+endif
 export PATH := $(realpath packer)/:$(PATH)
 # Kconfig related
 export KCONFIG_CONFIG = os.conf
