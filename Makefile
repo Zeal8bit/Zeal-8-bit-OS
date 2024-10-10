@@ -20,13 +20,16 @@ ifndef PYTHON_BIN
 endif
 export PATH := $(realpath packer)/:$(PATH)
 # Kconfig related
-export KCONFIG_CONFIG = os.conf
+export KCONFIG_CONFIG = configs/zeal8bit.default
+ifeq ($(shell test ! -e os.conf || echo os.conf), os.conf)
+    export KCONFIG_CONFIG = os.conf
+endif
 ifdef config
     export KCONFIG_CONFIG = $(config)
 else
-    ifdef ZOS_CONFIG
+	ifdef ZOS_CONFIG
         export KCONFIG_CONFIG = $(ZOS_CONFIG)
-    endif
+	endif
 endif
 
 export MENUCONFIG_STYLE = aquatic
@@ -126,7 +129,7 @@ all:$(KCONFIG_CONFIG) asmconf version packer precmd $(LINKERFILE_OBJ) $(OBJS)
 version:
 	@echo Zeal 8-bit OS `git describe --tags` > version.txt
 	@[ -z "$(CONFIG_KERNEL_REPRODUCIBLE_BUILD)" ]  && \
-        echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt || true
+		echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt || true
 
 packer:
 	@echo "Building packer"
@@ -158,13 +161,13 @@ check:
 #    DEFM "test", 0
 # ENDM
 define CONVERT_config_asm =
-    echo -e "IFNDEF OSCONFIG_H\nDEFINE OSCONFIG_H\n" > $2 && \
-    cat $1 | \
-    grep "^CONFIG_" | \
-    sed 's/=y/=1/g' | sed 's/=n/=0/g' | \
-    sed 's/\(.*\)=\(".*"\)/MACRO \1\n    DEFM \2\nENDM/g' | \
-    sed 's/^CONFIG/DEFC CONFIG/g' >> $2 && \
-    echo -e "\nENDIF" >> $2
+	echo -e "IFNDEF OSCONFIG_H\nDEFINE OSCONFIG_H\n" > $2 && \
+	cat $1 | \
+	grep "^CONFIG_" | \
+	sed 's/=y/=1/g' | sed 's/=n/=0/g' | \
+	sed 's/\(.*\)=\(".*"\)/MACRO \1\n    DEFM \2\nENDM/g' | \
+	sed 's/^CONFIG/DEFC CONFIG/g' >> $2 && \
+	echo -e "\nENDIF" >> $2
 endef
 
 asmconf: $(KCONFIG_CONFIG)
@@ -172,6 +175,8 @@ asmconf: $(KCONFIG_CONFIG)
 	@$(call CONVERT_config_asm,$(KCONFIG_CONFIG), $(OSCONFIG_ASM))
 
 menuconfig:
+	@test -e os.conf || cp $(KCONFIG_CONFIG) os.conf
+	$(eval export KCONFIG_CONFIG = os.conf)
 	$(MENUCONFIG)
 
 alldefconfig:
