@@ -21,6 +21,14 @@ endif
 export PATH := $(realpath packer)/:$(PATH)
 # Kconfig related
 export KCONFIG_CONFIG = os.conf
+ifdef config
+    export KCONFIG_CONFIG = $(config)
+else
+    ifdef ZOS_CONFIG
+        export KCONFIG_CONFIG = $(ZOS_CONFIG)
+    endif
+endif
+
 export MENUCONFIG_STYLE = aquatic
 export OSCONFIG_ASM = include/osconfig.asm
 export ZOS_PATH := $(PWD)
@@ -88,7 +96,7 @@ endef
 # If the target is not defined, no os.conf file was created.
 # In that case, do not try to evaluate the build depenendies.
 ifdef CONFIG_TARGET
-$(eval $(call IMPORT_subunitmk,ASMSRCS,INCLUDEDIRS,PRECMD,POSTCMD))
+    $(eval $(call IMPORT_subunitmk,ASMSRCS,INCLUDEDIRS,PRECMD,POSTCMD))
 endif
 
 # Generate the .o files out of the .c files
@@ -103,11 +111,14 @@ LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
 .PHONY: check menuconfig $(SUBDIRS) version packer asmconf
 
-all:$(KCONFIG_CONFIG) version packer precmd $(LINKERFILE_OBJ) $(OBJS)
+all:$(KCONFIG_CONFIG) asmconf version packer precmd $(LINKERFILE_OBJ) $(OBJS)
 	$(CC) $(ASMFLAGS) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
 	@mv $(BINDIR)/$(BIN_GENERATED) $(FULLBIN)
-	@echo "OS binary: $(FULLBIN)"
 	@echo "Executing post commands..."
+	@echo "Config: $(KCONFIG_CONFIG)"
+	@echo "Kernel Physical Address: $(CONFIG_KERNEL_PHYS_ADDRESS)"
+	@echo "Host FS: $(CONFIG_ENABLE_EMULATION_HOSTFS)"
+	@echo "OS binary: $(FULLBIN)"
 	$(POSTCMD)
 
 # Generate a version file that will be used as a boilerplate when the system starts
@@ -115,7 +126,7 @@ all:$(KCONFIG_CONFIG) version packer precmd $(LINKERFILE_OBJ) $(OBJS)
 version:
 	@echo Zeal 8-bit OS `git describe --tags` > version.txt
 	@[ -z "$(CONFIG_KERNEL_REPRODUCIBLE_BUILD)" ]  && \
-	 echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt || true
+        echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt || true
 
 packer:
 	@echo "Building packer"
@@ -162,13 +173,9 @@ asmconf: $(KCONFIG_CONFIG)
 
 menuconfig:
 	$(MENUCONFIG)
-	@echo "Converting $(KCONFIG_CONFIG) to $(OSCONFIG_ASM) ..."
-	@$(call CONVERT_config_asm,$(KCONFIG_CONFIG), $(OSCONFIG_ASM))
 
 alldefconfig:
 	$(ALLDEFCONFIG)
-	@echo "Converting $(KCONFIG_CONFIG) to $(OSCONFIG_ASM) ..."
-	@$(call CONVERT_config_asm,$(KCONFIG_CONFIG), $(OSCONFIG_ASM))
 
 prepare_dirs:
 	@mkdir -p $(BINDIR)
@@ -180,4 +187,4 @@ fdump:
 	$(DISASSEMBLER) -o 0x0000 -x $(BINDIR)/$(MAPFILE) $(BINDIR)/$(BIN) > $(BINDIR)/os.dump
 
 clean:
-	rm -rf $(OSCONFIG_ASM) $(BINDIR) $(KCONFIG_CONFIG) version.txt
+	rm -rf $(OSCONFIG_ASM) $(BINDIR) version.txt
