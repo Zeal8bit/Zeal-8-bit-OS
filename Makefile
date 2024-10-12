@@ -21,7 +21,7 @@ endif
 export PATH := $(realpath packer)/:$(PATH)
 # Kconfig related
 export KCONFIG_CONFIG = configs/zeal8bit.default
-ifeq ($(shell test ! -e os.conf || echo os.conf), os.conf)
+ifneq ("$(wildcard os.conf)", "")
     export KCONFIG_CONFIG = os.conf
 endif
 ifdef config
