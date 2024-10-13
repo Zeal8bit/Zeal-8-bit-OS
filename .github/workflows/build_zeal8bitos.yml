@@ -36,11 +36,7 @@ jobs:
       - name: Build Zeal 8-bit OS (zeal8bit target)
         shell: bash
         run: |
-          make alldefconfig
-          echo 'CONFIG_ENABLE_EMULATION_HOSTFS=y' >> os.conf
-          make asmconf
-          z88dk-z80asm
-          make
+          make config=configs/zealemu.default
           mv build/os_with_romdisk.img build/$(git describe --tags).img
 
       - name: Update index.json
