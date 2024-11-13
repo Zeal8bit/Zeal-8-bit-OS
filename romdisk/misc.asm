@@ -6,6 +6,7 @@
     INCLUDE "zos_video.asm"
 
     EXTERN error_print
+    EXTERN byte_to_ascii
     EXTERN strlen
 
     SECTION TEXT
@@ -57,6 +58,7 @@ _exec_main_merge:
     ld (hl), ' '
     djnz _exec_main_merge
     pop bc
+    ; Fall-through
 
     ; Execute the program stored in BC with the parameters in DE
     PUBLIC exec_main_bc_de
@@ -72,6 +74,12 @@ exec_main_ret_success:
     ; Exec was a success, the returned value from sub-process is in D
     ld a, d
     ld (exec_sub_program_ret), a
+    or a
+    ; Exit on success
+    ret z
+    call byte_to_ascii
+    ld (exit_with_error_msg_param), de
+    S_WRITE3(DEV_STDOUT, exit_with_error_msg, exit_with_error_msg_end - exit_with_error_msg)
     ret
 exec_main_error:
     ; Do not alter the error to print
@@ -91,6 +99,11 @@ exec_main_error:
     inc bc
     jp error_print
 
+
+exit_with_error_msg: DEFM "Exited with error $"
+exit_with_error_msg_param: DEFS 2
+exit_with_error_msg_nl: DEFM "\n"
+exit_with_error_msg_end:
 
     ; Execute the program pointed by BC, this routien will automatically
     ; determine whether to override or preserve the current program, depending

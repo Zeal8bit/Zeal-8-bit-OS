@@ -187,21 +187,11 @@ _process_command_not_path:
         push bc
         ld bc, init_static_buffer
         ; Execute program whose name is pointed by BC
-        call try_exec_bc_de
+        call exec_main_bc_de
         ; Pop the original command name and command length
         pop bc
         pop hl
-        ; If an error occurred while executing, A will not be 0
-        ; FIXME: if the file exists but the maximum depth of program execution has been reached,
-        ; this routine will show "command not found" instead of "cannot register more".
-        ; This is because the kernel first checks the current depth before even checking if the
-        ; file exists.
-        or a
-        ; If exec was a success, the returned value from sub-process is in D
-        jr nz, _process_command_not_found_error
-        ; Pop the whole command length from the stack
-        pop bc
-        jp exec_main_ret_success
+        ret
 
 
         ; Reach this branch if a disk letter was given `A:`, `B:`, etc...
