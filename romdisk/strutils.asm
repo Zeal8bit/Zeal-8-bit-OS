@@ -487,9 +487,9 @@ dword_to_ascii:
         ret
 _dword_to_ascii_convert_store:
         call byte_to_ascii
-        ld (hl), d
-        inc hl
         ld (hl), e
+        inc hl
+        ld (hl), d
         inc hl
         ret
 
@@ -497,24 +497,24 @@ _dword_to_ascii_convert_store:
         ; Parameters:
         ;       A - Value to convert
         ; Returns:
-        ;       D - First character
-        ;       E - Second character
+        ;       E - First character
+        ;       D - Second character
         ; Alters:
         ;       A
         PUBLIC byte_to_ascii
 byte_to_ascii:
+        ld d, a
+        rlca
+        rlca
+        rlca
+        rlca
+        and 0xf
+        call _byte_to_ascii_nibble
         ld e, a
-        rlca
-        rlca
-        rlca
-        rlca
+        ld a, d
         and 0xf
         call _byte_to_ascii_nibble
         ld d, a
-        ld a, e
-        and 0xf
-        call _byte_to_ascii_nibble
-        ld e, a
         ret
 _byte_to_ascii_nibble:
         ; efficient routine to convert nibble into ASCII
@@ -580,9 +580,9 @@ date_to_ascii:
         ret
 _date_to_ascii_digits:
         call byte_to_ascii
-        ld (hl), d
-        inc hl
         ld (hl), e
+        inc hl
+        ld (hl), d
         inc hl
         inc bc
         ret

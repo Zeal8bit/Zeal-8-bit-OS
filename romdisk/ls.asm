@@ -18,7 +18,6 @@
         EXTERN strcpy
         EXTERN error_print
         EXTERN date_to_ascii
-        EXTERN byte_to_ascii
         EXTERN dword_to_ascii
         EXTERN dword_to_ascii_dec
 

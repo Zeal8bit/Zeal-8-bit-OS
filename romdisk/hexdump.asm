@@ -164,13 +164,13 @@ hexdump_print_bc_chars:
     ; Update the line buffer
     pop bc  ; high-byte of the address
     ld hl, LINE_BUFFER
-    ld (hl), b
-    inc hl
     ld (hl), c
     inc hl
-    ld (hl), d
+    ld (hl), b
     inc hl
     ld (hl), e
+    inc hl
+    ld (hl), d
     inc hl
     ld (hl), ':'
     inc hl
@@ -185,9 +185,9 @@ hexdump_print_chars_loop:
     ld a, (de)
     push de
     call byte_to_ascii
-    ld (hl), d
-    inc hl
     ld (hl), e
+    inc hl
+    ld (hl), d
     inc hl
     inc hl
     pop de

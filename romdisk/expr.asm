@@ -48,7 +48,7 @@ _expr_do_math:
         call parse_int ;strutils - accepts 16 bit dec or hex input at HL
         or a           ;0 is ok, 1 is overflow, 2 is bad digit
         jr nz,_expr_usage
- 
+
         ; Routine displaying the value of HL in decimal then hex
         ; Parameters:
         ;   HL - number to display
@@ -72,21 +72,21 @@ _expr_print_result:
         S_WRITE1(DEV_STDOUT)
         S_WRITE3(DEV_STDOUT, str_gap,3)
         pop hl
-        ld a,h
+        ld a, h
         call byte_to_ascii
-        ld a,l
-        ld hl,init_static_buffer
-        ld (hl),d
+        ld a, l
+        ld hl, init_static_buffer
+        ld (hl), e
         inc hl
-        ld (hl),e
+        ld (hl), d
         inc hl
         call byte_to_ascii
-        ld (hl),d
+        ld (hl), e
         inc hl
-        ld (hl),e
+        ld (hl), d
         inc hl
-        ld (hl),'\n'
-        S_WRITE3(DEV_STDOUT, init_static_buffer,5)
+        ld (hl), '\n'
+        S_WRITE3(DEV_STDOUT, init_static_buffer, 5)
         xor a
         ret
 
