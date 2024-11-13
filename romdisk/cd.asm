@@ -31,7 +31,10 @@ cd_main:
         ld e, (hl)
         inc hl
         ld d, (hl)
-        ; Path to the new dir in DE
+        ; Path to the new dir in DE.
+        ; Make this branch public to be able to perform `cd` directly if DE is already set.
+        PUBLIC cd_main_de
+cd_main_de:
         CHDIR()
         ERR_CHECK(_cd_error)
         ret
