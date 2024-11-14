@@ -54,7 +54,7 @@ SRCS_REL=$(patsubst %.c,%.rel,$(SRCS_OUT_DIR))
 
 .PHONY: all clean
 
-all: clean $(OUTPUT_DIR) $(OUTPUT_DIR)/$(BIN_HEX) $(OUTPUT_DIR)/$(BIN)
+all:: clean $(OUTPUT_DIR) $(OUTPUT_DIR)/$(BIN_HEX) $(OUTPUT_DIR)/$(BIN)
 	@bash -c 'echo -e "\x1b[32;1mSuccess, binary generated: $(OUTPUT_DIR)/$(BIN)\x1b[0m"'
 
 $(OUTPUT_DIR):
