@@ -525,6 +525,7 @@ system_commands_begin:
         NEW_COMMAND("clear", clear_main)
         NEW_COMMAND("cp", cp_main)
         NEW_COMMAND("date", date_main)
+        NEW_COMMAND("dir", ls_main)
         NEW_COMMAND("echo", echo_main)
         NEW_COMMAND("exec", exec_main)
         NEW_COMMAND("expr", expr_main)
