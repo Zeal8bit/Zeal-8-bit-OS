@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+/* SPDX-FileCopyrightText: 2023-2024 Zeal 8-bit Computer <contact@zeal8bit.com>
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -26,12 +26,12 @@ typedef enum {
     ERR_ALREADY_MOUNTED         = 17,
     ERR_READ_ONLY               = 18,
     ERR_BAD_MODE                = 19,
-    ERR_CANNOT_REGISTER_MORE    = 21,
-    ERR_NO_MORE_ENTRIES         = 22,
-    ERR_NO_MORE_MEMORY          = 23,
-    ERR_NOT_A_DIR               = 24,
-    ERR_NOT_A_FILE              = 25,
-    ERR_ENTRY_CORRUPTED         = 26,
-    ERR_DIR_NOT_EMPTY           = 27,
+    ERR_CANNOT_REGISTER_MORE    = 20,
+    ERR_NO_MORE_ENTRIES         = 21,
+    ERR_NO_MORE_MEMORY          = 22,
+    ERR_NOT_A_DIR               = 23,
+    ERR_NOT_A_FILE              = 24,
+    ERR_ENTRY_CORRUPTED         = 25,
+    ERR_DIR_NOT_EMPTY           = 26,
 } zos_err_t;
 
