@@ -1318,7 +1318,10 @@ _zos_zealfs_seek_loop:
     ; HL = 0xRaRa00
     ld h, a
     ld l, b  ; l = b = 0
+    ; Keep the address
+    push hl
     call RAM_EXE_READ
+    pop hl
     or a
     jr nz, _zos_zealfs_seek_pop_ret
     ; Load the next page index in A
@@ -1341,7 +1344,35 @@ _zos_zealfs_seek_pop_ret: ; we don't care in which registers we pop the stack
     pop hl
     ret
 _zos_zealfs_seek_corrupted:
-    ld a, ERR_ENTRY_CORRUPTED
+    ; FIXME: Check if currently in a read?
+    ; Make the assumption that this will only occur during a write, when the
+    ; current file size is a multiple of 255.
+    pop bc
+    ; BC is 0x0100 for sure
+    ; HL contains the byte that has just been read (H is the page, L is 0)
+    push hl
+    call zos_zealfs_new_page
+    pop hl
+    or a
+    ret nz
+    ; Write the new page index (D) as the first byte of the current page (H)
+    ld bc, 1
+    ld a, d
+    ld (RAM_BUFFER), a
+    call RAM_EXE_WRITE
+    ; Now write 0 as the first byte of the new page we allocated (used to be in D, now in RAM_BUFFER)
+    ; This will mark the end of the file.
+    ld hl, RAM_BUFFER
+    ld bc, 1
+    ld a, (hl)  ; Page to return in A
+    ld (hl), b  ; [HL] = 0
+    ld h, a
+    ld l, b     ; l = b = 0
+    push hl
+    call RAM_EXE_WRITE
+    pop de
+    ; Return success
+    xor a
     ret
 
 
@@ -1351,6 +1382,8 @@ _zos_zealfs_seek_corrupted:
     ;   [RAM_EXE_WRITE] - Must be populate already with driver's read routine
     ; Returns:
     ;   D - Index of the new page
+    ; Alters:
+    ;   A, BC, DE, HL
 zos_zealfs_new_page:
     ; Read the page_count, free_pages and pages bitmap from the header
     ld hl, zealfs_bitmap_size_t
