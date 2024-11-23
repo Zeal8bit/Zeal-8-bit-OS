@@ -13,3 +13,4 @@
 interrupt_vector_table:
         DEFW interrupt_default_handler
         DEFW interrupt_pio_handler
+        DEFW interrupt_pio_user_handler
