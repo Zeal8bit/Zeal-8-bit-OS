@@ -180,16 +180,20 @@ _process_command_not_path:
         inc hl
         ex de, hl
         call strcpy
-        ; Get the parameters back [SP + 2]
+        ; Get the parameters back from [SP + 2] and put them in DE
         pop hl
+        ; Keep the original command name on the stack
         ex (sp), hl
         ex de, hl
+        ; Do not alter the parameters (string) length
         push bc
         ld bc, init_static_buffer
         ; Execute program whose name is pointed by BC
         call exec_main_bc_de
         ; Pop the original command name and command length
         pop bc
+        pop hl
+        ; Pop the whole command length from the stack
         pop hl
         ret
 
