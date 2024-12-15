@@ -116,9 +116,23 @@ menu "Zeal 8-bit Computer configuration"
                 Use the UART driver as the standard output.
     endchoice
 
+    choice TARGET_KEYBOARD_INTERFACE
+        prompt "Keyboard interface"
+        default TARGET_KEYBOARD_PS2
+        help
+            Choose the hardware keyboard interface used on the motherboard
+
+        config TARGET_KEYBOARD_PS2
+            bool
+            prompt "PS/2"
+            help
+                A PS/2 keyboard is connected to the motherboard.
+    endchoice
+
 
     choice TARGET_KEYBOARD_LAYOUT
         prompt "PS/2 Keyboard layout"
+        depends on TARGET_KEYBOARD_PS2
         default TARGET_KEYBOARD_QWERTY
         help
             Choose the layout for the PS/2 keyboard.

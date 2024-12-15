@@ -2,13 +2,13 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
+        INCLUDE "osconfig.asm"
         INCLUDE "errors_h.asm"
         INCLUDE "drivers_h.asm"
         INCLUDE "pio_h.asm"
         INCLUDE "interrupt_h.asm"
 
         EXTERN video_vblank_isr
-        EXTERN keyboard_interrupt_handler
 
         SECTION KERNEL_DRV_TEXT
         PUBLIC pio_init
@@ -63,20 +63,23 @@ interrupt_pio_handler:
         ; this interrupt, so all pins shall be checked.
         in a, (IO_PIO_SYSTEM_DATA)
 
-        IF CONFIG_TARGET_ENABLE_VIDEO
+    IF CONFIG_TARGET_ENABLE_VIDEO
         ; Check if a V-blank interrupt occurred
         bit IO_VBLANK_PIN, a
         ; All the bits are active-low!
         call z, video_vblank_isr
-        ENDIF ; CONFIG_TARGET_ENABLE_VIDEO
+    ENDIF ; CONFIG_TARGET_ENABLE_VIDEO
+
+    IF CONFIG_TARGET_KEYBOARD_PS2
+        EXTERN keyboard_ps2_int_handler
 
         bit IO_KEYBOARD_PIN, a
-        call z, keyboard_interrupt_handler
+        call z, keyboard_ps2_int_handler
+    ENDIF
         exx
         ex af, af'
         ei
         reti
-
 
         ; Disable the interrupts for both PIO ports
 pio_deinit:

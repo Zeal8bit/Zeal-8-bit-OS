@@ -6,16 +6,33 @@
         INCLUDE "drivers_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "interrupt_h.asm"
-        INCLUDE "keyboard_h.asm"
         INCLUDE "mmu_h.asm"
         INCLUDE "stdout_h.asm"
+        INCLUDE "drivers/keyboard_h.asm"
 
-        DEFC KEYBOARD_FIFO_SIZE = 16
-        DEFC KEYBOARD_INTERNAL_BUFFER_SIZE = 80
+        DEFC KB_FIFO_SIZE = 16
+        DEFC KB_INTERNAL_BUFFER_SIZE = 80
+
+        DEFC KB_EVT_RELEASED = 1
+
+        ; Macros for modifier key flags
+        DEFC KB_FLAG_KEYP_BIT  = 0x7
+        DEFC KB_FLAG_CTRL_BIT  = 0x6
+        DEFC KB_FLAG_ALT_BIT   = 0x5
+        DEFC KB_FLAG_SHIFT_BIT = 0x4
+
+        DEFC KB_FLAG_MODE_MASK = 0b111
+        DEFC KB_BUF_MODE_MASK  = 0b11
+
 
         EXTERN zos_sys_reserve_page_1
         EXTERN zos_sys_restore_pages
         EXTERN zos_vfs_set_stdin
+
+        ; Implementation dependent, can be PS/2 or parallel or I2C
+        EXTERN keyboard_impl_upper
+        EXTERN keyboard_impl_init
+        EXTERN keyboard_impl_next_key
 
         ; Get the number the characters in the FIFO in register A and set the flags
         MACRO KB_FIFO_SIZE
@@ -26,6 +43,7 @@
         SECTION KERNEL_DRV_TEXT
         ; Initialize the keyboard driver. This is called only once, at boot up.
 keyboard_init:
+        call keyboard_impl_init
         ; Initialize the software FIFO
         ld hl, kb_fifo
         ld (kb_fifo_wr), hl
@@ -148,7 +166,8 @@ keyboard_read_cooked:
         ; because it is still be possible to go back and remove some characters.
 _keyboard_read_ignore:
         ; Let's force blocking read in cooked mode
-        call keyboard_next_pressed_key
+        xor a   ; Not in raw mode
+        call keyboard_next_key
         or a
         jr z, _keyboard_read_ignore
         ; Optimize KB_EVT_RELEASED == 1 case
@@ -167,10 +186,10 @@ _keyboard_read_ignore:
         ; an upper scan character if shift or caps lock is activated.
         ld a, (kb_flags)
         and 1 << KB_FLAG_SHIFT_BIT
-        call nz, keyboard_switch_to_upper
+        call nz, keyboard_impl_upper
         ; Check that the size has not reached the maximum
         ld a, (kb_buffer_size)
-        cp KEYBOARD_INTERNAL_BUFFER_SIZE - 1    ; Keep space for the last \n
+        cp KB_INTERNAL_BUFFER_SIZE - 1    ; Keep space for the last \n
         jr z, _keyboard_read_ignore     ; Ignore this character as the line is full already
         ; Line not full, append the character to the buffer
         ld c, a                         ; c contains the size of the buffer
@@ -404,7 +423,9 @@ keyboard_read_raw:
         ; Remaining buffer size is C, written bytes is B
 _keyboard_read_raw_loop:
         push bc
-        call keyboard_next_pressed_key
+        ; Set A to 1 for raw mode
+        ld a, 1
+        call keyboard_next_key
         ; If A is 0, there is no more characters (non-blocking mode), we have to return
         or a
         jr z, _keyboard_read_raw_no_more_keys
@@ -422,10 +443,10 @@ _keyboard_read_raw_loop:
         jr z, _keyboard_read_raw_loop_end
 _keyboard_read_raw_pressed:
         ld (hl), a
-        inc hl
-        ; Put back the user buffer in DE as it won't be altered by keyboard_next_pressed_key
-        ex de, hl
         inc b   ; Increment the number of bytes received
+        inc hl
+        ; Put back the user buffer in DE as it won't be altered by keyboard_next_key
+        ex de, hl
         ; Check if we still have some bytes in the keyboard FIFO
         ld a, (kb_fifo_size)
         or a
@@ -437,255 +458,68 @@ _keyboard_read_raw_loop_end:
         ; buffer is full.
         ; Return the size written (B) in BC
         ld c, b
-        ld b, 0
         xor a
+        ld b, a
         ret
 _keyboard_read_raw_no_more_keys:
         pop bc
         jr _keyboard_read_raw_loop_end
 
-        ; Check and convert the character pressed to upper if in base scan table
-        ; Parameters:
-        ;   B - Character received
-        ;   C - Scan table the character pressed was in
-        ;   HL - Address of the character in base scan
-        ; Returns:
-        ;   B - Upper character
-keyboard_switch_to_upper:
-        ld a, c
-        cp BASE_SCAN_TABLE
-        ret nz
-        ; Switch to upper scan table
-        ld bc, upper_scan - base_scan
-        add hl, bc
-        ld b, (hl)
-        ret
 
-        ; Returns the next key pressed on the keyboard. If no key was pressed,
-        ; it will wait for one.
+        ; Wait for the next key event (press or release)
         ; Parameters:
-        ;       None
+        ;   A - 1 if in raw mode, 0 else
         ; Returns:
-        ;       A - Pressed Key. If A is less than 128 (highest bit is 0),
-        ;           it contains an ASCII character, else, it shall be compared
-        ;           to the other characters code.
-        ;           In non-blocking mode, this can be 0 if no character was present
-        ;           in the FIFO. The other parameters can be ignored in that case.
-        ;       B - Event:
-        ;            - KB_EVT_PRESSED
-        ;            - KB_EVT_RELEASED
-        ;       C - Scan table the character is in:
-        ;            - BASE_SCAN_TABLE
-        ;            - UPPER_SCAN_TABLE
-        ;            - SPECIAL_TABLE
-        ;            - EXT_SCAN_TABLE
-        ;       HL - Address of the key pressed in the (base or special) scan
+        ;   A - 0 if no key available (non-blocking mode only!)
+        ;       Any positive value else
         ; Alters:
-        ;       A, BC
-        PUBLIC keyboard_next_pressed_key
-keyboard_next_pressed_key:
-        call wait_for_character
-        ; In non-blocking mode, A can be 0 (Z flag set), return in that case
-        ret z
-        ; We have at least one character in the FIFO, check if we have to resume a previous
-        ; step on hold (non-blocking mode)
-        ld hl, (kb_next_step)
-        ld a, h
-        or l
-        jr z, _no_pending_step
-        ; Clear the next step state
-        xor a
-        ld (kb_next_step), a
-        ld (kb_next_step + 1), a
-        jp (hl)
-_no_pending_step:
-        call keyboard_dequeue
-        ; Ignore FIFO empty, should not happen
-        ld a, h
-        cp KB_RELEASE_SCAN      ; Test if A is a "release" command
-        jp z, _release_char
-        ; Character is not a "release command"
-        ; Check if the character is a printable char
-        cp KB_PRINTABLE_CNT - 1
-        jp nc, _special_code ; jp nc <=> A >= KB_PRINTABLE_CNT - 1
-        ; Retrieve the character address in HL
-        ld hl, base_scan
-        ld c, BASE_SCAN_TABLE
-_dereference_hl_ret:
-        ADD_HL_A()
-        ld a, (hl)
-        ld b, KB_EVT_PRESSED
-        ret
-_special_code:
-        ; Load in HL special scan codes
-        ; Special character is still in A
-        cp KB_EXTENDED_SCAN
-        jp z, _extended_code
-        add -KB_SPECIAL_START
-        ld hl, special_scan
-        ld c, SPECIAL_SCAN_TABLE
-        jr _dereference_hl_ret
-_release_char:
-        call keyboard_next_pressed_key
-        ld b, KB_EVT_RELEASED
-        ; Only return if the former call to next_pressed_key didn't return A = 0
+        ;   A, HL, BC (DE must not be altered)
+keyboard_next_key:
+        ; Get a key from the implementation
+        push de
+        call keyboard_impl_next_key
+        pop de
         or a
+        ; If A is not zero, we received a char, we can return directly
         ret nz
-        ; We can reach here if the FIFO only contained the RELEASE scan code but not the
-        ; character afterwards, in that case, keep the current state on hold and return 0
-        call _keyboard_next_key_hold
-        ; We come back here after another character is available, the next call to keyboard_next_pressed_key
-        ; cannot return 0 in theory, so loop back
-        jr _release_char
-_extended_code:
-        ; In case the received character is a released (special) character
-        ; ignore it the same way it is done normally
-        call wait_for_character
-        ; If there is no character in the FIFO, save the current state and return
-        call z, _keyboard_next_key_hold
-        call keyboard_dequeue
-        ; By default, set B as EVT_PRESSED
-        ld b, KB_EVT_PRESSED
-        ; Ignore FIFO empty, should not happen
-        ld a, h
-        cp KB_RELEASE_SCAN
-        jr nz, _extended_not_release
-        ; We received release scan code, wait for the next character
-        call wait_for_character
-        call z, _keyboard_next_key_hold
-        call keyboard_dequeue
-        ld a, h
-        ld b, KB_EVT_RELEASED
-_extended_not_release:
-        ld c, EXT_SCAN_TABLE
-        ; For scan codes are particular:
-        ; - Right Alt
-        ; - Right Ctrl
-        ; - Keypad /
-        ; - Keypad Enter
-        ; - Print Screen
-        ; Treat them without any mapping
-        cp KB_MAPPED_EXT_SCANS
-        ; If result is negative, the received character is not mapped
-        ; in the array used below
-        jp c, _unmapped_ext_scans
-        sub KB_MAPPED_EXT_SCANS
-        ld hl, extended_scan
-        ADD_HL_A()
-        ld a, (hl)
-        ret
-_unmapped_ext_scans:
-        ; BC has already been set previously
-        cp KB_RIGHT_ALT_SCAN
-        jr z, _right_alt_ret_rcved
-        cp KB_RIGHT_CTRL_SCAN
-        jr z, _right_ctrl_rcved
-        cp KB_NUMPAD_DIV_SCAN
-        jr z, _numpad_div_rcved
-        cp KB_LEFT_SUPER_SCAN
-        jr z, _left_super_rcved
-        cp KB_NUMPAD_RET_SCAN
-        jr z, _numpad_ret_rcved
-        cp KB_PRT_SCREEN_SCAN
-        jr z, _print_screen_rcved
-        ld a, KB_UNKNOWN
-        ret
-_right_alt_ret_rcved:
-        ld a, KB_RIGHT_ALT
-        ret
-_right_ctrl_rcved:
-        ld a, KB_RIGHT_CTRL
-        ret
-_numpad_div_rcved:
-        ld a, KB_NUMPAD_DIV
-        ret
-_numpad_ret_rcved:
-        ld a, KB_NUMPAD_ENTER
-        ret
-_left_super_rcved:
-        ld a, KB_LEFT_SPECIAL
-        ret
-_print_screen_rcved:
-        ; Drop the next two characters (should be 0xE0 0x7C)
-        call wait_for_character
-        call z, _keyboard_next_key_hold
-        call keyboard_dequeue
-        call wait_for_character
-        call z, _keyboard_next_key_hold
-        call keyboard_dequeue
-        ld a, KB_PRINT_SCREEN
-        ret
-
-        ; Hold the current step by saving the return address and return 0
-_keyboard_next_key_hold:
-        pop hl
-        ld (kb_next_step), hl
-        xor a
-        ret
-
-
-        ; Wait for a keyboard key to be pressed.
-        ; Returns:
-        ;       A - New size of the keyboard FIFO
-        ;           In non-blocking mode, the returned value can be 0.
-        ;       Z flag - Set if A is 0
-        ; Alters:
-        ;       A
-wait_for_character:
-        ; If we are in non-blocking mode, return the length of the FIFO directly
+        ; Having no next key is valid if we are in non-blocking mode
         ld a, (kb_flags)
-        and KB_BLK_MODE_MASK
-        ; Before testing the flag, set A to the length of the FIFO
+        ; Result is zero in blocking mode
+        and KB_READ_NON_BLOCK
+        ; If in blocking mode (0), try again
+        jr z, keyboard_next_key
+        ; Non-blocking mode, we can return 0
+        xor a
+        ret
+
+
+        ; Get the size of the Keyboard FIFO
+        ; Parameters:
+        ;   -
+        ; Returns:
+        ;   A - Size of the FIFO
+        ;   Z/NZ flag - Set if A is 0
+        ; Alters:
+        ;   A
+        PUBLIC keyboard_fifo_size
+keyboard_fifo_size:
         ld a, (kb_fifo_size)
-        ; In non-blocking mode, we want the z flag to be set if the FIFO is empty
-        jr nz, _wait_for_character_update_flag_ret
-_wait_for_character_loop:
-        ; We are in blocking mode, wait for a character to arrive if the length is
-        ld a, (kb_fifo_size)
-        or a
-        jr z, _wait_for_character_loop
-_wait_for_character_update_flag_ret:
         or a
         ret
 
-    IF CONFIG_TARGET_KEYBOARD_DVORAK
-        INCLUDE "scan_dvorak.asm"
-    ELSE
-        INCLUDE "scan_qwerty.asm"
-    ENDIF
 
-special_scan:
-        DEFB '\b', 0, 0, KB_NUMPAD_1, 0, KB_NUMPAD_4, KB_NUMPAD_7, 0, 0, 0, KB_NUMPAD_0
-        DEFB KB_NUMPAD_DOT, KB_NUMPAD_2, KB_NUMPAD_5, KB_NUMPAD_6, KB_NUMPAD_8, KB_ESC
-        DEFB KB_NUMPAD_LOCK, KB_F11, KB_NUMPAD_PLUS, KB_NUMPAD_3, KB_NUMPAD_MINUS, KB_NUMPAD_MUL
-        DEFB KB_NUMPAD_9, KB_SCROLL_LOCK, 0, 0, 0, 0, KB_F7, 0, 0
-extended_scan:
-        DEFB KB_END, 0, KB_LEFT_ARROW, KB_HOME, 0, 0, 0, KB_INSERT, KB_DELETE, KB_DOWN_ARROW
-        DEFB 0, KB_RIGHT_ARROW, KB_UP_ARROW, 0, 0, 0, 0, KB_PG_DOWN, 0, 0, KB_PG_UP
-
-        ; Enqueue a value in the FIFO. If the FIFO is full, the oldest value
-        ; will be overwritten.
+        ; Enqeue a value in the keyboard FIFO. If the FIFO is empty, A will not be 0
         ; Parameters:
-        ;       A - Value to enqueue
+        ;       A - Value to enqueue in the FIFO
         ; Returns:
-        ;       None
+        ;       A - Non-zero value on success, 0 if FIFO empty
         ; Alters:
-        ;       A, D, HL
-        PUBLIC keyboard_interrupt_handler
-keyboard_interrupt_handler:
-        ; The kernel RAM may NOT BE MAPPED, we have to map it here
-        MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
-        ; Save former page in D, we need it to restore it
-        ld d, a
-        MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
-        ; Kernel RAM is now available!
-        ; In the keyboard interrupt handler, we will retrieve the key that has just been
-        ; pressed and put it in our FIFO
-        in a, (KB_IO_ADDRESS)
+        ;       A, HL
+        PUBLIC keyboard_enqueue
 keyboard_enqueue:
         ld hl, (kb_fifo_wr)
         ld (hl), a
-        ; Increment HL. We know that HL is aligned on KEYBOARD_FIFO_SIZE.
+        ; Increment HL. We know that HL is aligned on KB_FIFO_SIZE.
         ; So L can be incremented alone, but keep the upper bit like
         ; they are in the FIFO address
         inc l
@@ -694,41 +528,34 @@ keyboard_enqueue:
         ; For example, when HL is aligned on 16, L upper nibble
         ; must not change, thus we should have A AND 0xNF where
         ; N = L upper nibble
-        and KEYBOARD_FIFO_SIZE - 1
+        and KB_FIFO_SIZE - 1
         add kb_fifo & 0xff
         ld (kb_fifo_wr), a
         ; Check if the size needs update (i.e. FIFO not full)
         ld a, (kb_fifo_size)
-        cp KEYBOARD_FIFO_SIZE
+        cp KB_FIFO_SIZE
         ; In case the FIFO is full, we need to push read cursor forward
         jr z, _keyboard_queue_next_read
         ; Else, simply increment the size
         inc a
         ld (kb_fifo_size), a
-        ; Restore the original virtual page
-        ld a, d
-        MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
         ret
 _keyboard_queue_next_read:
         ld a, l
         ld (kb_fifo_rd), a
-        ; It is also possible to jump to the snipper of code above that
-        ; does the same thing, but it will only save us 1 or 2 bytes, not worth it
-        ; compared to the time we waste.
-        ld a, d
-        MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
         ret
 
-
-        ; Dequeue a value from the FIFO. If the FIFO is empty,
-        ; A will not be 0
+        ; Dequeue a value from the FIFO. If the FIFO is empty, 0 will be returned in
+        ; register A and Z flag will be set.
+        ; If the FIFO is not empty, A will contain the dequeued byte and Z will not be set.
         ; Parameters:
         ;       None
         ; Returns:
-        ;       A - Non-zero value on success, 0 if FIFO empty
-        ;       H - Value dequeued if A is success
+        ;       A - Value dequeued, 0 if the queue was empty
+        ;       Z/NZ - Set if queue was empty
         ; Alters:
         ;       A, HL
+        PUBLIC keyboard_dequeue
 keyboard_dequeue:
         ld hl, kb_fifo_size
         ; The following needs to be a critical section in order to prevent
@@ -738,13 +565,11 @@ keyboard_dequeue:
         ; decrement A, it becomes 4, and set it in kb_fifo_size, then
         ; we would have lost a byte!
         ; Disable interrupt to prevent this to happen.
-        xor a
-        ENTER_CRITICAL()
-        or (hl)
-        jp nz, _keyboard_dequeue_notempty
-        EXIT_CRITICAL()
-        ret
+        ld a, (hl)
+        or a
+        ret z
 _keyboard_dequeue_notempty:
+        ENTER_CRITICAL()
         dec (hl)
         ; We can now read safely from the FIFO, as we have our proper
         ; pointer to read, and because we are the only reader of the FIFO
@@ -754,10 +579,13 @@ _keyboard_dequeue_notempty:
         ; Increment L, the same way we did in enqueue
         inc l
         ld a, l
-        and KEYBOARD_FIFO_SIZE - 1
+        and KB_FIFO_SIZE - 1
         add kb_fifo & 0xff
         ld (kb_fifo_rd), a      ; Update lowest byte
         EXIT_CRITICAL()
+        ; Store the dequeued value in A
+        or 1    ; MAke sure Z flag is NOT set
+        ld a, h
         ret
 
 
@@ -767,21 +595,21 @@ kb_fifo_rd: DEFS 2
 kb_fifo_size: DEFS 1
         ; Check `keyboard_h.asm` file for all flags
 kb_flags: DEFS 1
-kb_internal_buffer: DEFS KEYBOARD_INTERNAL_BUFFER_SIZE
-        ASSERT(KEYBOARD_INTERNAL_BUFFER_SIZE < 256)
+kb_internal_buffer: DEFS KB_INTERNAL_BUFFER_SIZE
+        ASSERT(KB_INTERNAL_BUFFER_SIZE < 256)
 kb_buffer_size: DEFS 1
         ; Index of the cursor in the internal buffer
-        ; 0 <= cursor <= KEYBOARD_INTERNAL_BUFFER_SIZE - 1
+        ; 0 <= cursor <= KB_INTERNAL_BUFFER_SIZE - 1
 kb_buffer_cursor: DEFS 1
         ; State that will be updated according to the keys received in non-blocking mode
 kb_next_step: DEFS 2
 
         SECTION DRIVER_BSS_ALIGN16
         ALIGN 16
-kb_fifo: DEFS KEYBOARD_FIFO_SIZE
+kb_fifo: DEFS KB_FIFO_SIZE
         ; The FIFO size must be a power of two, and be less or equal to 256
-        ASSERT(KEYBOARD_FIFO_SIZE != 0 && KEYBOARD_FIFO_SIZE <= 256)
-        ASSERT((KEYBOARD_FIFO_SIZE & (KEYBOARD_FIFO_SIZE - 1)) == 0)
+        ASSERT(KB_FIFO_SIZE != 0 && KB_FIFO_SIZE <= 256)
+        ASSERT((KB_FIFO_SIZE & (KB_FIFO_SIZE - 1)) == 0)
 
 
 

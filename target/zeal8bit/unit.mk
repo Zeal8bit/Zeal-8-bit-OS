@@ -17,6 +17,11 @@ endif
 # Add the source files that are common to MMU and no-MMU configuration
 SRCS := pio.asm i2c.asm keyboard.asm romdisk.asm $(MMU_FILE) interrupt_vect.asm eeprom.asm
 
+# At the moment, only PS/2 keyboards are supported
+ifdef CONFIG_TARGET_KEYBOARD_PS2
+	SRCS += keyboard/ps2.asm
+endif
+
 # Add the suffix "_romdisk" to the full binary name
 FULLBIN_W_ROMDISK = $(basename $(FULLBIN))_with_romdisk.img
 
