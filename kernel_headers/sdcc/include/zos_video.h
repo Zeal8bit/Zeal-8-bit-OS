@@ -8,6 +8,36 @@
 #include <stdint.h>
 
 /**
+ * Defines from video.asm/video_h.asm
+ */
+#define VID_MODE_TEXT_640           0
+#define VID_MODE_TEXT_320           1
+#define VID_MODE_GFX_640_8BIT       4
+#define VID_MODE_GFX_320_8BIT       5
+#define VID_MODE_GFX_640_4BIT       6
+#define VID_MODE_GFX_320_4BIT       7
+
+// Save the current cursor position (single save only)
+#define IO_TEXT_SAVE_CURSOR_BIT     7
+// Restore the previously saved position
+#define IO_TEXT_RESTORE_CURSOR_BIT  6
+#define IO_TEXT_AUTO_SCROLL_X_BIT   5
+#define IO_TEXT_AUTO_SCROLL_Y_BIT   4
+// When the cursor is about to wrap to the next line (maximum amount of characters sent
+// to the screen), this flag can wait for the next character to come before resetting
+// the cursor X position to 0 and potentially scroll the whole screen.
+// Useful to implement an eat-newline fix.
+#define IO_TEXT_WAIT_ON_WRAP_BIT    3
+// On READ, tells if the previous PRINT_CHAR (or NEWLINE) triggered a scroll in Y
+// On WRITE, makes the cursor go to the next line
+#define IO_TEXT_SCROLL_Y_OCCURRED   0
+#define IO_TEXT_CURSOR_NEXTLINE     0
+
+#define DEFAULT_VIDEO_MODE          VID_MODE_TEXT_640
+#define DEFAULT_CURSOR_BLINK        30
+#define DEFAULT_TEXT_CTRL           (1 << IO_TEXT_AUTO_SCROLL_Y_BIT | 1 << IO_TEXT_WAIT_ON_WRAP_BIT)
+
+/**
  * Helper to construct a color that can be passed to CMD_SET_COLORS command
  */
 #define TEXT_COLOR(fg, bg) (void*) ((((bg) & 0xff) << 8) | (fg & 0xff))
