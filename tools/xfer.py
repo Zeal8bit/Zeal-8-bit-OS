@@ -32,6 +32,8 @@ def xfer_send():
     # Let's have a timeout of around one second
     ser = serial.Serial(args.ttynode, args.baudrate, timeout=args.baudrate)
 
+    print(f"Sending file {args.file} to {args.ttynode}...")
+
     # Get the file name and size
     file_name = os.path.basename(args.file)
     # Truncate the file name to 16 characters if too long
@@ -100,6 +102,8 @@ def xfer_send():
 def xfer_receive():
     # Blocking reads here, no timeout
     ser = serial.Serial(args.ttynode, args.baudrate)
+
+    print(f"Receiving file from {args.ttynode}...")
 
     packet = ser.read(PACKET_SIZE)
     if not packet:
