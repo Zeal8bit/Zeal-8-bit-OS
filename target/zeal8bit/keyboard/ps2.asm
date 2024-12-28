@@ -55,7 +55,7 @@ keyboard_impl_next_key:
     call keyboard_dequeue
     ; If no character, return
     ret z
-    ; We just got a character, in D, check if we have to resume a previous
+    ; We just got a character, in A, check if we have to resume a previous
     ; step on hold (non-blocking mode)
     ld b, a
     ld hl, (kb_next_step)
@@ -235,9 +235,7 @@ extended_scan:
 
     PUBLIC keyboard_ps2_int_handler
 keyboard_ps2_int_handler:
-    ; Kernel RAM is now available!
-    ; In the keyboard interrupt handler, we will retrieve the key that has just been
-    ; pressed and put it in our FIFO
+    ; Enqueue the PS/2 scan code we just received
     in a, (KB_IO_ADDRESS)
     jp keyboard_enqueue
 

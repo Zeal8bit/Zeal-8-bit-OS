@@ -512,7 +512,7 @@ keyboard_fifo_size:
         ; Parameters:
         ;       A - Value to enqueue in the FIFO
         ; Returns:
-        ;       A - Non-zero value on success, 0 if FIFO empty
+        ;       -
         ; Alters:
         ;       A, HL
         PUBLIC keyboard_enqueue
@@ -601,8 +601,6 @@ kb_buffer_size: DEFS 1
         ; Index of the cursor in the internal buffer
         ; 0 <= cursor <= KB_INTERNAL_BUFFER_SIZE - 1
 kb_buffer_cursor: DEFS 1
-        ; State that will be updated according to the keys received in non-blocking mode
-kb_next_step: DEFS 2
 
         SECTION DRIVER_BSS_ALIGN16
         ALIGN 16

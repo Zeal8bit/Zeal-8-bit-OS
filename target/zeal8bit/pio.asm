@@ -3,6 +3,7 @@
 ; SPDX-License-Identifier: Apache-2.0
 
         INCLUDE "osconfig.asm"
+        INCLUDE "mmu_h.asm"
         INCLUDE "errors_h.asm"
         INCLUDE "drivers_h.asm"
         INCLUDE "pio_h.asm"
@@ -59,6 +60,12 @@ interrupt_default_handler:
 interrupt_pio_handler:
         ex af, af'
         exx
+        ; The kernel RAM may NOT BE MAPPED, we have to map it here
+        MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
+        ; Save former page in D, we need it to restore it
+        ld d, a
+        MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
+
         ; Check which pin triggered the interrupt, multiple pins can trigger
         ; this interrupt, so all pins shall be checked.
         in a, (IO_PIO_SYSTEM_DATA)
@@ -76,6 +83,10 @@ interrupt_pio_handler:
         bit IO_KEYBOARD_PIN, a
         call z, keyboard_ps2_int_handler
     ENDIF
+
+        ld a, d
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
+
         exx
         ex af, af'
         ei
