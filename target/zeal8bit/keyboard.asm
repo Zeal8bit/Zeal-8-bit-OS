@@ -11,7 +11,7 @@
         INCLUDE "drivers/keyboard_h.asm"
 
         DEFC KB_FIFO_SIZE = 16
-        DEFC KB_INTERNAL_BUFFER_SIZE = 80
+        DEFC KB_INTERNAL_BUFFER_SIZE = 255
 
         DEFC KB_EVT_RELEASED = 1
 
