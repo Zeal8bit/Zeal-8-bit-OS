@@ -92,6 +92,27 @@ interrupt_pio_handler:
         ei
         reti
 
+
+        PUBLIC interrupt_pio_slow_hanlder
+interrupt_pio_slow_hanlder:
+        push af
+        push bc
+        push de
+        push hl
+        exx
+        ex af, af'
+        call interrupt_pio_handler
+        di
+        ex af, af'
+        exx
+        pop hl
+        pop de
+        pop bc
+        pop af
+        ei
+        ret
+
+
         ; Disable the interrupts for both PIO ports
 pio_deinit:
         ld a, IO_PIO_DISABLE_INT
