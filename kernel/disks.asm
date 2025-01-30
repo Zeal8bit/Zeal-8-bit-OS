@@ -32,7 +32,12 @@ _zos_disks_init_opened_files:
         ld (hl), a      ; Mark the first field to EMPTY
         add hl, de      ; Go to the next structure
         djnz _zos_disks_init_opened_files
+        ; Initialize ZealFS if compiled
+    IF CONFIG_KERNEL_ENABLE_ZEALFS_SUPPORT
+        jp zos_zealfs_init
+    ELSE
         ret
+    ENDIF
 
         ; Mount a disk (driver) to the given letter
         ; Parameters:

@@ -48,7 +48,7 @@
                 opn_file_driver_t  DS.B 2 ; Driver address
                 opn_file_size_t    DS.B 4 ; Little-endian
                 opn_file_off_t     DS.B 4 ; Offset in the file
-                opn_file_usr_t     DS.B 4 ; 4 bytes for the FS, can be used at it wants
+                opn_file_usr_t     DS.B 4 ; 4 bytes for the FS, can be used as it wants
                 opn_file_end_t     DS.B 1
         }
 

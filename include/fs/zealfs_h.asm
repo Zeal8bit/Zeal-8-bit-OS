@@ -10,6 +10,7 @@
     IF CONFIG_KERNEL_ENABLE_ZEALFS_SUPPORT
 
     ; Public routines. The descriptions are given in the implementation file.
+    EXTERN zos_zealfs_init
     EXTERN zos_zealfs_open
     EXTERN zos_zealfs_read
     EXTERN zos_zealfs_write
