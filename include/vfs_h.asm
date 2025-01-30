@@ -69,7 +69,7 @@
         DEFC STAT_STRUCT_SIZE = file_end_t
 
         ; Misc
-        DEFC VFS_WORK_BUFFER_SIZE = 64
+        DEFC VFS_WORK_BUFFER_SIZE = 128
 
         ; Public routines
         EXTERN zos_vfs_init
