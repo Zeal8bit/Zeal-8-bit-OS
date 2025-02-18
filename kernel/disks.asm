@@ -953,8 +953,8 @@ _zos_disk_close_dir:
         ld a, (hl)
         ; Only keep the filesystem number now
         DISKS_OPN_FILE_GET_FS()
-        ; Point to the user field
-        ld bc, opn_file_usr_t - opn_file_driver_t + 1
+        ; The user field for the directories start at `opn_file_size_t`
+        ld bc, opn_file_size_t - 1
         add hl, bc
         cp FS_HOSTFS
         call z, zos_fs_hostfs_close
