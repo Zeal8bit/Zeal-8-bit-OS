@@ -135,11 +135,9 @@ _video_ioctl_get_cursor_xy:
     call zos_sys_remap_de_page_2
     MAP_TEXT_CTRL()
     in a, (IO_TEXT_CURS_X)
+    ; The cursor in X may be equal to 80 (VID_640480_X_MAX)
+    ; if the hardware is waiting for a key to be pressed
     ld (de), a
-    sub VID_640480_X_MAX
-    jr nz, _video_ioctl_get_cursor_xy_no_reset
-    ld (de), a
-_video_ioctl_get_cursor_xy_no_reset:
     inc de
     in a, (IO_TEXT_CURS_Y)
     ld (de), a
