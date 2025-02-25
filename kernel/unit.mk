@@ -9,7 +9,7 @@ else
 endif
 
 # Filesystems related files
-SRCS += fs/rawtable.asm
+SRCS += fs/rawtable.asm fs/mbr.asm
 
 ifdef CONFIG_KERNEL_ENABLE_ZEALFS_SUPPORT
 	SRCS += fs/zealfs.asm
