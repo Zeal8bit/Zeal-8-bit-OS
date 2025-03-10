@@ -1494,6 +1494,9 @@ zos_zealfs_get_entry_addr_256:
 zos_zealfs_get_fat_entry:
     push hl
     push bc
+    ; Save the former parameter
+    ld hl, (DRIVER_DE_PARAM)
+    push hl
     ld hl, RAM_BUFFER
     ld (DRIVER_DE_PARAM), hl
     call zos_zealfs_get_page_addr_in_fat
@@ -1502,7 +1505,10 @@ zos_zealfs_get_fat_entry:
     call RAM_EXE_READ
     ld de, (RAM_BUFFER)
     pop af
-    ; If Z flag is set, we have to set D to 0 before returnig (pages are only 1 byte)
+    ; Restore the former parameter
+    pop hl
+    ld (DRIVER_DE_PARAM), hl
+    ; If Z flag is set, we have to set D to 0 before returning (pages are only 1 byte)
     pop bc
     pop hl
     ret nz
