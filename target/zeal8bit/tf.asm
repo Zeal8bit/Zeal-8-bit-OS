@@ -206,12 +206,13 @@ _tf_card_acmd41_done:
     SEND_COMMAND_R1(16, 512, 0xFF)
     jr z, _tf_card_wait_timeout
     ; Switch to a faster clock (25MHz)
-    ld a, 1
+    ld a, 2
     out (SPI_REG_CLK_DIV), a
     ; Disable CRC thanks to command 59
-    SEND_COMMAND_R1(59, 0, 0xFF)
-    jr z, _tf_card_wait_timeout
-    sra a
+    ; SEND_COMMAND_R1(59, 0, 0xFF)
+    ; jr z, _tf_card_wait_timeout
+    ; sra a
+    xor a
     ret z
 _tf_card_failure:
     ld a, TFCARD_ERR_FAILURE
@@ -414,12 +415,12 @@ tf_card_read_block:
     ; Send command 17
     ld a, TF_CMD_MASK | 17
     ; The following routine asserts the CS line but doesn't deassert it
-    ld b, 0
+    ld b, 0xFF
     call tf_send_command
-    jr z, _tf_card_read_block_timeout
+    jp z, _tf_card_read_block_timeout
     ; A contains the reply, make sure it is 0
     or a
-    jr nz, _tf_card_deassert_pop
+    jp nz, _tf_card_deassert_pop
     call spi_fill_fifo_dummy
     ; Set the next transaction length to 1
     ld a, 0x81 ; Reset indexes
@@ -440,7 +441,7 @@ _tf_card_wait_fe:
     ; FE received!
     ; Get the total amount of bytes to read (keep it in the stack)
     pop bc
-    ; Swap B anc C since `ini` alters B
+    push bc
     ld d, c
     ; Divide BC by 8 and store the result in B
     ld a, c
@@ -470,19 +471,44 @@ _tf_card_wait_fe:
 _tf_card_read_full:
     ld a, e
     out (SPI_REG_CTRL), a
-    ld a, b
+    ; Wait for completion
+wait_idle:
+    in a, (SPI_REG_CTRL)
+    rrca    ; Check bit 0, must be 0 too
+    jr c, wait_idle
     ; Read the received byte
-    ini
-    ini
-    ini
-    ini
-    ini
-    ini
-    ini
-    ini
-    ; Restore B
-    ld b, a
-    ; Derement the number of 8-byte block to read
+    in a, (SPI_REG_RAM_FROM + 0)
+    ld (hl), a
+    inc hl
+
+    in a, (SPI_REG_RAM_FROM + 1)
+    ld (hl), a
+    inc hl
+
+    in a, (SPI_REG_RAM_FROM + 2)
+    ld (hl), a
+    inc hl
+
+    in a, (SPI_REG_RAM_FROM + 3)
+    ld (hl), a
+    inc hl
+
+    in a, (SPI_REG_RAM_FROM + 4)
+    ld (hl), a
+    inc hl
+
+    in a, (SPI_REG_RAM_FROM + 5)
+    ld (hl), a
+    inc hl
+
+    in a, (SPI_REG_RAM_FROM + 6)
+    ld (hl), a
+    inc hl
+
+    in a, (SPI_REG_RAM_FROM + 7)
+    ld (hl), a
+    inc hl
+
     djnz _tf_card_read_full
     ; No more 8-byte blocks to read
 _tf_card_read_remaining:
@@ -490,12 +516,23 @@ _tf_card_read_remaining:
     and 7
     jr z, _tf_card_read_success
     ld b, a
-    ; Start the transfer
+    ; Start the transfer, we will read 8 bytes even if we need less
     ld a, e
     out (SPI_REG_CTRL), a
     ; Get the data
-    inir
+    ld c, SPI_REG_RAM_FROM
+_rem_read:
+    ini
+    jr z, _tf_card_read_success
+    inc c
+    jr _rem_read
 _tf_card_read_success:
+    ; Original length, check how many bytes we have to ignore
+    pop bc
+    ld hl, 512
+    or a    ; clear carry
+    sbc hl, bc
+    call nz, _tf_read_ignore
     ; Success!
     ld a, SPI_REG_CTRL_CS_END
     out (SPI_REG_CTRL), a
@@ -507,6 +544,29 @@ _tf_card_read_block_timeout:
 _tf_card_deassert_pop:
     pop bc
     jp _tf_send_command_get_reply_deassert
+
+
+    ; Ignore the number of bytes contained in HL
+    ; Parameters:
+    ;   HL - Number of bytes to ignore
+    ;   E - Control register value to start a transfer
+_tf_read_ignore:
+    ; Divide HL by 8, round down sicne it means we read the L % 8 byte above
+    ld a, l
+    srl h
+    rra
+    srl a
+    srl a
+    ; Number of 8-byte blocks to read in B
+    ld b, a
+_ignore_loop:
+    ld a, e
+    out (SPI_REG_CTRL), a
+    ; Wait around 5.1us
+    ex (sp), hl
+    ex (sp), hl
+    djnz _ignore_loop
+    ret
 
 
     ; Open function, called every time a file is opened on this driver
