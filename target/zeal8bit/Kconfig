@@ -127,6 +127,13 @@ menu "Zeal 8-bit Computer configuration"
             prompt "PS/2"
             help
                 A PS/2 keyboard is connected to the motherboard.
+
+        config TARGET_KEYBOARD_PARL
+            bool
+            prompt "Parallel"
+            help
+                A parallel keyboard is connected.
+
     endchoice
 
 
