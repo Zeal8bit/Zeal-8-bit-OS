@@ -85,42 +85,17 @@ menu "Zeal 8-bit Computer configuration"
         help
             Implements a virtual file system that will use the host machine FS when the OS is run under the Zeal 8-bit Computer emulator
 
-
-    config TARGET_ENABLE_VIDEO
-        bool
-        prompt "Enable video driver" if KERNEL_TARGET_HAS_MMU
-        default "y" if KERNEL_TARGET_HAS_MMU
-        default "n" if !KERNEL_TARGET_HAS_MMU
-        help
-            Import the video driver in the kernel compilation. If this option is disabled, the UART will become the default
-            standard output.
-
-    choice TARGET_STDOUT
-        prompt "Standard output driver"
-        default TARGET_STDOUT_VIDEO if TARGET_ENABLE_VIDEO
-        default TARGET_STDOUT_UART if !TARGET_ENABLE_VIDEO
-        help
-            Choose the which driver will act as the standard output.
-
-        config TARGET_STDOUT_VIDEO
-            bool
-            prompt "Video driver"
-            depends on TARGET_ENABLE_VIDEO
-            help
-                Use the (FPGA-based) video board as the standard output.
-
-        config TARGET_STDOUT_UART
-            bool
-            prompt "UART driver"
-            help
-                Use the UART driver as the standard output.
-    endchoice
-
     choice TARGET_KEYBOARD_INTERFACE
         prompt "Keyboard interface"
         default TARGET_KEYBOARD_PS2
         help
             Choose the hardware keyboard interface used on the motherboard
+
+        config TARGET_KEYBOARD_NONE
+            bool
+            prompt "None"
+            help
+                No keyboard support
 
         config TARGET_KEYBOARD_PS2
             bool
@@ -155,6 +130,63 @@ menu "Zeal 8-bit Computer configuration"
             prompt "Dvorak"
             help
                 Use Dvorak layout.
+    endchoice
+
+    choice TARGET_MOUSE_INTERFACE
+        prompt "Mouse interface"
+        default TARGET_MOUSE_NONE
+        help
+            Choose the hardware mouse interface if connected to the motherboard.
+
+        config TARGET_MOUSE_NONE
+            bool
+            prompt "None"
+            help
+                No mouse support
+
+        config TARGET_MOUSE_PS2
+            bool
+            prompt "PS/2"
+            help
+                A PS/2 mouse is connected to the motherboard (v1.4.0 and above)
+
+        config TARGET_MOUSE_EXT
+            bool
+            prompt "User port"
+            help
+                A PS/2 mouse is connected to the user port.
+
+    endchoice
+
+
+    config TARGET_ENABLE_VIDEO
+        bool
+        prompt "Enable video driver" if KERNEL_TARGET_HAS_MMU
+        default "y" if KERNEL_TARGET_HAS_MMU
+        default "n" if !KERNEL_TARGET_HAS_MMU
+        help
+            Import the video driver in the kernel compilation. If this option is disabled, the UART will become the default
+            standard output.
+
+    choice TARGET_STDOUT
+        prompt "Standard output driver"
+        default TARGET_STDOUT_VIDEO if TARGET_ENABLE_VIDEO
+        default TARGET_STDOUT_UART if !TARGET_ENABLE_VIDEO
+        help
+            Choose the which driver will act as the standard output.
+
+        config TARGET_STDOUT_VIDEO
+            bool
+            prompt "Video driver"
+            depends on TARGET_ENABLE_VIDEO
+            help
+                Use the (FPGA-based) video board as the standard output.
+
+        config TARGET_STDOUT_UART
+            bool
+            prompt "UART driver"
+            help
+                Use the UART driver as the standard output.
     endchoice
 
 

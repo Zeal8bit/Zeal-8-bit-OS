@@ -7,7 +7,6 @@
 
     INCLUDE "drivers/keyboard_h.asm"
 
-    DEFC KB_IO_ADDRESS = 0xE8
 
     DEFGROUP {
         BASE_SCAN_TABLE,

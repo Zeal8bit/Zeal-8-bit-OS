@@ -8,9 +8,10 @@
     INCLUDE "utils_h.asm"
     INCLUDE "drivers/keyboard_h.asm"
 
-    DEFC KB_RST_ADDRESS     = 0xE0
-    DEFC KB_CUR_ADDRESS     = 0xE2
-    DEFC KB_NXT_ADDRESS     = 0xE3
+    ; Parallel port should be 0xC0-0xCF
+    DEFC KB_RST_ADDRESS     = 0xC0
+    DEFC KB_CUR_ADDRESS     = 0xC2
+    DEFC KB_NXT_ADDRESS     = 0xC3
     DEFC KB_EVT_PRESSED     = 0
     DEFC KB_EVT_RELEASED    = 1
 
@@ -55,9 +56,9 @@ keyboard_impl_init:
     PUBLIC keyboard_impl_next_key
 keyboard_impl_next_key:
     ; If in RAW mode, sleep for a while to prevent bouncing
-    ; ld de, 1
-    ; or a
-    ; call nz, zos_time_msleep
+    ld de, 16
+    or a
+    call z, zos_time_msleep
 
     ld hl, kb_previous_state
     ld b, 10

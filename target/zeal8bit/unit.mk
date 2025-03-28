@@ -15,12 +15,12 @@ else
 endif
 
 # Add the source files that are common to MMU and no-MMU configuration
-SRCS := pio.asm i2c.asm keyboard.asm romdisk.asm $(MMU_FILE) interrupt_vect.asm eeprom.asm
+SRCS := pio.asm i2c.asm romdisk.asm $(MMU_FILE) interrupt_vect.asm eeprom.asm
 
 ifdef CONFIG_TARGET_KEYBOARD_PS2
-	SRCS += keyboard/ps2.asm
-else
-	SRCS += keyboard/parl.asm
+	SRCS += keyboard.asm keyboard/ps2.asm
+else ifdef CONFIG_TARGET_KEYBOARD_PARL
+	SRCS += keyboard.asm keyboard/parl.asm
 endif
 
 # Add the suffix "_romdisk" to the full binary name
@@ -47,9 +47,11 @@ ifdef CONFIG_TARGET_ENABLE_COMPACTFLASH
 	SRCS += compactflash.asm
 endif
 
-# ifdef CONFIG_TARGET_EXTERNAL_MOUSE
-SRCS += extmouse.asm
-# endif
+ifdef CONFIG_TARGET_MOUSE_PS2
+	SRCS += intmouse.asm
+else ifdef CONFIG_TARGET_MOUSE_EXT
+	SRCS += extmouse.asm
+endif
 
 # Command to be executed before compiling the whole OS.
 # In our case, compile the programs that will be part of ROMDISK and create it.

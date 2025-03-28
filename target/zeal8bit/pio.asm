@@ -84,6 +84,13 @@ interrupt_pio_handler:
         call z, keyboard_ps2_int_handler
     ENDIF
 
+    IF CONFIG_TARGET_MOUSE_PS2
+        EXTERN mouse_int_handler
+
+        bit IO_KEYBOARD_PIN, a
+        call z, mouse_int_handler
+    ENDIF ; CONFIG_TARGET_MOUSE_PS2
+
         ld a, d
         MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
 
@@ -121,6 +128,9 @@ pio_close:
 pio_seek:
         ld a, ERR_NOT_SUPPORTED
         ret
+
+        SECTION DRIVER_BSS
+page_backup: DEFS 1
 
         SECTION KERNEL_DRV_VECTORS
 NEW_DRIVER_STRUCT("GPIO", \

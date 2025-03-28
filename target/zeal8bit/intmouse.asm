@@ -12,9 +12,7 @@
     INCLUDE "log_h.asm"
     INCLUDE "pio_h.asm"
 
-    ; DEFC MOUSE_IO_ADDRESS = IO_PIO_USER_DATA
-    DEFC MOUSE_IO_ADDRESS = 0xC8
-
+    DEFC MOUSE_IO_ADDRESS = 0xE8
 
     SECTION KERNEL_DRV_TEXT
 intmouse_init:
@@ -23,18 +21,18 @@ intmouse_init:
 
     PUBLIC mouse_int_handler
 mouse_int_handler:
-    ld a, '!'
-    out (0xa0), a
-retry:
     ; Received byte in B
     in a, (MOUSE_IO_ADDRESS)
     ld b, a
+@retry:
     ; Read until deassert
     in a, (IO_PIO_SYSTEM_DATA)
     bit IO_KEYBOARD_PIN, a
-    jr z, retry
+    jr nz, @deasserted
+    in a, (MOUSE_IO_ADDRESS)
+    jp @retry
+@deasserted:
 
-    ld b, a
     ; Check if we have to reset the buffer
     ld hl, s_size
     ld a, (hl)
@@ -81,29 +79,30 @@ intmouse_deinit:
     ; Alters:
     ;       This function can alter any register.
 intmouse_read:
-    ; Check if the CF is accessed as a disk or a block (not implemented)
     or a
     jp z, intmouse_not_implemented
     ld hl, s_size
-    ld a, 3
-    ld bc, 4
-    ; Critical section?
+    ld a, 4
+    ld b, 0
 _read_wait:
-    cp (hl)
-    jr nc, _read_wait
     di
+    cp (hl)
+    jr z, _read_ready
+    ei
+    jr _read_wait
+_read_ready:
     ; Reset the size and read the buffer
-    ld a, (hl)
-    sub 4
-    ld (hl), a
-    ; ld (hl), 0
-    ld hl, s_buffer
-    ldir
+    ld (hl),  b ; [HL] = 0
+    ; ASSUMPTION: s_buffer = s_size + 1
+    inc hl
+    ldi
+    ldi
+    ldi
+    ldi
     ; Read the buffer and reset the size
     ei
-    ; Return 4
-    ld c, a
-    ld b, 0
+    ; Return 4 bytes
+    ld bc, 4
     ; Success
     xor a
     ret
@@ -120,8 +119,8 @@ intmouse_not_implemented:
 
 
     SECTION KERNEL_BSS
-s_buffer: DEFS 4
 s_size: DEFS 1
+s_buffer: DEFS 4
 
 
     SECTION KERNEL_DRV_VECTORS

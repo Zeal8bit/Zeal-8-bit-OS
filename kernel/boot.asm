@@ -29,6 +29,9 @@
 
         PUBLIC zos_entry
 zos_entry:
+        ; DEBUG
+        in a, (0xC0)
+
         ; Before setting up the stack, we need to configure the MMU.
         ; This must be a macro and not a function as the SP has not been set up yet.
         ; This is also valid for no-MMU target that need to set up the memory beforehand.

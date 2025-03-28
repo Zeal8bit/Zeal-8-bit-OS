@@ -13,4 +13,6 @@
 interrupt_vector_table:
         DEFW interrupt_default_handler
         DEFW interrupt_pio_handler
+    IF CONFIG_TARGET_MOUSE_EXT
         DEFW interrupt_pio_user_handler
+    ENDIF
