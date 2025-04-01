@@ -66,6 +66,7 @@ tf_init:
     ld hl, 0
     ; Size of the data to read (the rest will be ignored)
     ld bc, 512
+    xor a   ; No cache
     call tf_card_read_block
 
     ; Check the MBR for a ZealFS partition
@@ -404,10 +405,42 @@ spi_wait_idle:
 
     ; Read a block from the TF card.
     ; Parameters:
+    ;   A - Use the cache when not zero, do not use hte cache when 0
     ;   DEHL - 32-bit address of the block
-    ;   BC - Number of bytes to read and store in the buffer (at most 512 bytes)
+    ;   BC - When cache is not used, number of bytes to read and store in the buffer (at most 512 bytes)
     ;   [rd_block_arg] - Buffer address
+    ; Returns:
+    ;   A - 0 in case of success, error code else
 tf_card_read_block:
+    ; If we must not use the cache, ignore the cache test
+    or a
+    jr z, @_read_no_cache
+    ; Check if the current block is the same as the former one
+    push hl
+    push de
+    ld bc, (cache_block_addr)
+    sbc hl, bc  ; Carry is 0 for sure (or a)
+    jr nz, @_read_different_block
+    ld bc, (cache_block_addr + 2)
+    ex de, hl
+    sbc hl, bc  ; Carry is 0 since they are equal
+    pop de
+    pop hl
+    jr nz, @_read_different_block_popped
+    ; Same as before, no need to go throught the routine again, let's exit with success
+    xor a
+    ret
+@_read_different_block:
+    ; The block we are going to read is different than the former one, save it
+    pop de
+    pop hl
+@_read_different_block_popped:
+    ld (cache_block_addr), hl
+    ld (cache_block_addr + 2), de
+    ; Set the size to 512 if the cache must be used
+    ld bc, 512
+    ; Continue the routine normally
+@_read_no_cache:
     push bc
     ; Map the SPI controller
     ld a, SPI_CONTROLLER_IDX
@@ -720,7 +753,7 @@ tf_read_not_aligned:
     push hl
     push de
     push bc ; Amount of bytes to read from the sector (not necessarily from the beginning!)
-    ld bc, 512
+    ld a, 1   ; Use the cache
     call tf_card_read_block
     ; Check for errors during the read block
     or a
@@ -808,6 +841,7 @@ _tf_read_remaining:
     ; DEHL points to the next sector in TF card, rd_block_arg contains
     ; the valid user buffer.
     ; BC contains the valid remaining size
+    xor a   ; Do not use the cache
     call tf_card_read_block
     or a
     jr nz, _tf_read_error
@@ -829,6 +863,7 @@ tf_card_read_multiple_blocks:
     push hl
     push de
     ld bc, 512
+    xor a   ; Do not use the cache
     call tf_card_read_block
     pop de
     pop hl
@@ -886,6 +921,8 @@ _tf_start_lba: DEFS 4
     ; Parameters related to block read
 rd_block_arg: DEFS 2
 rd_buf: DEFS 512
+cache_block_addr: DEFS 4
+
     ; Marks whether the inserted tf card is following the v2 specification or not
 tf_old_spec: DEFB 0
 
