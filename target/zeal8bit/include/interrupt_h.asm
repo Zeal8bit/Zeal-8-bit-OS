@@ -21,5 +21,6 @@
         EXTERN interrupt_vector_table
         EXTERN interrupt_default_handler
         EXTERN interrupt_pio_handler
+        EXTERN interrupt_user_handler
 
         ENDIF

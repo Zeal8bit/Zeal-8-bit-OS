@@ -146,6 +146,12 @@ menu "Zeal 8-bit Computer configuration"
             help
                 A parallel keyboard is connected.
 
+        config TARGET_KEYBOARD_ALCATEL
+            bool
+            prompt "Alcatel SMS keyboard"
+            help
+                The Alcatel SMS keyboard is connected to the user port.
+
     endchoice
 
 

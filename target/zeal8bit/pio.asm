@@ -8,6 +8,7 @@
         INCLUDE "drivers_h.asm"
         INCLUDE "pio_h.asm"
         INCLUDE "interrupt_h.asm"
+        INCLUDE "utils_h.asm"
 
         EXTERN video_vblank_isr
 
@@ -44,6 +45,19 @@ pio_init:
         ld a, ERR_SUCCESS
         ret
 
+
+        ; Register an ISR for the user port.
+        ; Parameters:
+        ;   HL - Address of the ISR to register
+        ; Returns:
+        ;   A - ERR_SUCCESS on success
+        PUBLIC pio_register_user_port_isr
+pio_register_user_port_isr:
+        ld (pio_user_isr), hl
+        xor a
+        ret
+
+
         ; Routine called after all drivers have been initialized
         PUBLIC target_drivers_hook
 target_drivers_hook:
@@ -55,8 +69,10 @@ target_drivers_hook:
         ; let's say it is the case as only the PIO is the only driver
         ; implemented that uses the interrupts
         PUBLIC interrupt_default_handler
-        PUBLIC interrupt_pio_handler
 interrupt_default_handler:
+        nop
+        ; Fall-through
+        PUBLIC interrupt_pio_handler
 interrupt_pio_handler:
         push af
         ; Check which pin triggered the interrupt, as soon as possible, multiple pins can trigger
@@ -97,6 +113,31 @@ interrupt_pio_handler:
         ei
         reti
 
+
+        ; Interrupt handler for the user port, this will only be used if any other driver uses the user port.
+        PUBLIC interrupt_user_handler
+interrupt_user_handler:
+        ex af, af'
+        exx
+
+        ; Same as above
+        MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
+        ld d, a
+        MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
+
+        ; Make the assumption that an ISR has been registered
+        push de
+        ld hl, (pio_user_isr)
+        CALL_HL()
+
+        pop af
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
+        exx
+        ex af, af'
+        ei
+        reti
+
+
         ; Disable the interrupts for both PIO ports
 pio_deinit:
         ld a, IO_PIO_DISABLE_INT
@@ -126,6 +167,11 @@ pio_close:
 pio_seek:
         ld a, ERR_NOT_SUPPORTED
         ret
+
+
+        SECTION DRIVER_BSS
+pio_user_isr: DEFS 2
+
 
         SECTION KERNEL_DRV_VECTORS
 NEW_DRIVER_STRUCT("GPIO", \

@@ -32,6 +32,7 @@
 
     ; Interrupt vector
     DEFC IO_INTERRUPT_VECT = 0x02
+    DEFC IO_USER_INTR_VECT = 0x04
 
     ; PIO User port macros
     DEFC IO_PIO_USER_DATA = IO_PIO_DATA_A
@@ -75,5 +76,9 @@
     ; NOTE: 0 means monitored!
     ; DEFC IO_PIO_SYSTEM_INT_MASK = ~((1 << IO_KEYBOARD_PIN) | (1 << IO_VBLANK_PIN)) & 0xff
     DEFC IO_PIO_SYSTEM_INT_MASK = ~(1 << IO_KEYBOARD_PIN) & 0xff
+
+
+    ; Register an ISR for the user port
+    EXTERN pio_register_user_port_isr
 
     ENDIF

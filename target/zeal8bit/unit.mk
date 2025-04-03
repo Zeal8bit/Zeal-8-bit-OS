@@ -15,12 +15,14 @@ else
 endif
 
 # Add the source files that are common to MMU and no-MMU configuration
-SRCS := pio.asm i2c.asm keyboard.asm romdisk.asm $(MMU_FILE) interrupt_vect.asm eeprom.asm
+SRCS := pio.asm i2c.asm romdisk.asm $(MMU_FILE) interrupt_vect.asm eeprom.asm
 
 ifdef CONFIG_TARGET_KEYBOARD_PS2
-	SRCS += keyboard/ps2.asm
-else
-	SRCS += keyboard/parl.asm
+	SRCS += keyboard.asm keyboard/ps2.asm
+else ifdef CONFIG_TARGET_KEYBOARD_ALCATEL
+	SRCS += keyboard.asm keyboard/alcatel_sms_keyboard.asm
+else ifdef CONFIG_TARGET_KEYBOARD_PARL
+	SRCS += keyboard.asm keyboard/parl.asm
 endif
 
 # Add the suffix "_romdisk" to the full binary name

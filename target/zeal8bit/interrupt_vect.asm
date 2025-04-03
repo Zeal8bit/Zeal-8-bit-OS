@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023-2025 Zeal 8-bit Computer <contact@zeal8bit.com>
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -12,4 +12,5 @@
         ALIGN 256
 interrupt_vector_table:
         DEFW interrupt_default_handler
-        DEFW interrupt_pio_handler
+        DEFW interrupt_pio_handler      ; PIO System port handler
+        DEFW interrupt_user_handler     ; PIO User port handler
