@@ -1534,14 +1534,18 @@ zos_zealfs_clear_fat_entry:
     ;   HL - Last page of current directory
     ;   DE - New allocated page
     ;   [RAM_EXE_WRITE]  - Must be populate already with driver's write routine
-    ;   [DRIVER_DE_PARAM] - Must be set to RAM_BUFFER
     ; Returns:
-    ;   None
+    ;   [DRIVER_DE_PARAM] - RAM_BUFFER
     ; Alters:
     ;   A, BC, DE, HL
 zos_zealfs_set_fat_entry:
-    ld (RAM_BUFFER), de
+    ; Put the last page of directory in DE and new allocated page in HL
     ex de, hl
+    ; Store the new page (to write), in the temporary buffer
+    ld (RAM_BUFFER), hl
+    ld hl, RAM_BUFFER
+    ; Set this buffer as the parameter to the driver write function
+    ld (DRIVER_DE_PARAM), hl
     call zos_zealfs_get_page_addr_in_fat
     ld bc, 1
     jr z, zos_zealfs_set_fat_entry_single_byte
@@ -1612,8 +1616,12 @@ zos_zealfs_browse_start:
     push de
     push bc
     call zos_zealfs_seek
+    ; In most cases, we won't have any error
+    or a
+    jp z, _zos_zealfs_browse_continue
+    ; Check if the entry is corrupted or if we got a real internal error
     cp ERR_ENTRY_CORRUPTED
-    jr nz, _zos_zealfs_seek_entry_not_corrupted
+    jp nz, _zos_zealfs_browse_seek_error
     ; It can happen that A is ERR_ENTRY_CORRUPTED if the file we are trying to write to has
     ; a size multiple of the page size. In this case, we have to allocate a new page and link
     ; it to the last page of the file, currently in DE
@@ -1622,9 +1630,9 @@ zos_zealfs_browse_start:
     or a
     ; 0 means error in this case
     jp z, _zos_zealfs_seek_corrupted
-_zos_zealfs_seek_entry_not_corrupted:
-    or a
-    jr nz, _zos_zealfs_browse_seek_error
+    ; No error, the new page is in DE, set the offset to 0 as the page is new and empty
+    ld bc, 0
+    ; Fall-through
 _zos_zealfs_browse_continue:
     ; Store the current page and the offset in RAM_CUR_CONTEXT
     ;   DE - Current page of the file
@@ -1699,7 +1707,7 @@ _zos_zealfs_browse_loop:
     ; If the page is 0, we have to call our callback
     ld a, d
     or e
-    ; The callback can alter any register
+    ; The callback can alter any register, it returns the new page in DE
     call z, RAM_EXE_PAGE_0
     ; Check A (in case we entered the routine above)
     or a
@@ -1747,8 +1755,14 @@ _zos_zealfs_browse_read_error:
     ; Exit:
     ;   A - 1 in case of success, 0 else
     ;   DE - New page index
-    ; Returns to: _zos_zealfs_browse_BC_bytes
+    ; Alters:
+    ;   Any register
 _zos_zealfs_browse_allocate:
+    push hl
+    ; Save the DRIVER_PARAM since it'll be overwritten
+    ld hl, (DRIVER_DE_PARAM)
+    ; Make former HL value back on top of the stack
+    ex (sp), hl
     push hl
     ; Start by allocating a page, this routine will update the bitmap and disk header
     call zos_zealfs_new_page
@@ -1759,6 +1773,9 @@ _zos_zealfs_browse_allocate:
     push de
     call zos_zealfs_set_fat_entry
     pop de
+    ; HL can still be altered, use it to restore the DRIVER PARAM
+    pop hl
+    ld (DRIVER_DE_PARAM), hl
     ld a, 1
     ret
 _zos_zealfs_browse_allocate_error:
@@ -2014,7 +2031,7 @@ _zos_zealfs_new_page_found:
     ; B - Bit index of the free page in the byte
     ; E - Byte index in the bitmap chunk
     ; The address of the byte that was modified is in HL, make it
-    ; the paramter for the driver's WRITE function
+    ; the parameter for the driver's WRITE function
     ld (DRIVER_DE_PARAM), hl
     ; Pop the size to read from the stack
     ld a, b
@@ -2265,9 +2282,8 @@ _zos_zealfs_new_entry_full:
     ; Parameters:
     ;   HL - Last page of current directory
     ;   DE - New allocated page
-    ld hl, RAM_BUFFER
-    ld (DRIVER_DE_PARAM), hl
     ld hl, (RAM_CUR_PAGE)
+    ; DRIVER_DE_PARAM will be set by the routine
     call zos_zealfs_set_fat_entry
     pop de
     ; New page is in DE, calculate the physical address and store the result in RAM_FREE_ENTRY
