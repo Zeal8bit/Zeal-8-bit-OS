@@ -339,8 +339,10 @@ tf_card_get_response:
     ret
 
 
+    ; Returns:
+    ;   SPI RAM Length - 8
 spi_fill_fifo_dummy:
-    ld a, 0x88 ; Clear the FIFO too
+    ld a, 0x88 ; Clear the FIFO and set the length to 8
     out (SPI_REG_RAM_LEN), a
     ; Use a loop to save space
     ld a, 0xff
@@ -405,7 +407,7 @@ spi_wait_idle:
 
     ; Read a block from the TF card.
     ; Parameters:
-    ;   A - Use the cache when not zero, do not use hte cache when 0
+    ;   A - Use the cache when not zero, do not use the cache when 0
     ;   DEHL - 32-bit address of the block
     ;   BC - When cache is not used, number of bytes to read and store in the buffer (at most 512 bytes)
     ;   [rd_block_arg] - Buffer address
@@ -450,7 +452,7 @@ tf_card_read_block:
     ; The following routine asserts the CS line but doesn't deassert it
     ld b, 0xFF
     call tf_send_command
-    jp z, _tf_card_read_block_timeout
+    jp z, _tf_card_cmd_timeout
     ; A contains the reply, make sure it is 0
     or a
     jp nz, _tf_card_deassert_pop
@@ -571,13 +573,12 @@ _tf_card_read_success:
     out (SPI_REG_CTRL), a
     xor a
     ret
-_tf_card_read_block_timeout:
+_tf_card_cmd_timeout:
     ; TODO: Wait for (more) reply
     ld a, TFCARD_ERR_TIMEOUT
 _tf_card_deassert_pop:
     pop bc
     jp _tf_send_command_get_reply_deassert
-
 
     ; Ignore the number of bytes contained in HL
     ; Parameters:
@@ -602,6 +603,136 @@ _ignore_loop:
     ret
 
 
+    ; Write a 512 bytes block to the TF card and wait for completion.
+    ; Parameters:
+    ;   DEHL - 32-bit address of the block
+    ;   BC - Buffer address
+    ; Returns:
+    ;   A - 0 in case of success, error code else
+    ; Alters:
+    ;   A
+tf_card_write_block:
+    ; Make sure the caller doesn't see its registers altered
+    push bc
+    push de
+    push hl
+    call @tf_card_write_block_internal
+    pop hl
+    pop de
+    pop bc
+    ; In case of error, return directly
+    or a
+    ret nz
+    ; Else, check if the software cache needs to be updated
+    push af
+    push hl
+    push de
+    push bc
+    ; Check if the cached sector is the same as the one we just wrote
+    ld bc, (cache_block_addr)
+    sbc hl, bc  ; Carry is 0 for sure (or instruction above)
+    jr nz, @no_cache_update
+    ld hl, (cache_block_addr + 2)
+    sbc hl, de
+    jr nz, @no_cache_update
+    ; Cache must be updated, copy the user buffer to the cache.
+    pop hl
+    push hl
+    ld de, rd_buf
+    ld bc, 512
+    ldir
+@no_cache_update:
+    pop bc
+    pop de
+    pop hl
+    pop af
+    ret
+@tf_card_write_block_internal:
+    ; Save the buffer address for later
+    push bc
+    ; Map the SPI controller
+    ld a, SPI_CONTROLLER_IDX
+    out (IO_MAPPER_BANK), a
+    ; Send command 24 (Single Write Block)
+    ld a, TF_CMD_MASK | 24
+    ; The following routine asserts the CS line but doesn't deassert it
+    ld b, 0xFF
+    call tf_send_command
+    jp z, _tf_card_cmd_timeout
+    ; A contains the reply, make sure it is 0
+    or a
+    jp nz, _tf_card_deassert_pop
+    ; Before sending the actual data, send a few dummy bytes (7) and the 0xFE flag
+    call spi_fill_fifo_dummy
+    ld a, 0xFE
+    out (SPI_REG_RAM_FROM + 7), a
+    ; RAM length is already set to 8 by the routine above, start the transaction
+    ld a, SPI_REG_CTRL_START | SPI_REG_CTRL_CS_START
+    out (SPI_REG_CTRL), a
+    ; Start transferring the data, we need the original buffer. We can only send the bytes, 8 by 8
+    ; Parameters:
+    ;   HL - Buffer with the data to send
+    ;   D - Number of loops to perform (512/8 = 64)
+    ;   E - Start transaction flags
+    ;   C - Address of the auto-increment RAM: SPI_REG_RAM_FIFO
+    pop hl
+    ld d, 64
+    ld e, SPI_REG_CTRL_START | SPI_REG_CTRL_CS_START
+    ld c, SPI_REG_RAM_FIFO
+@write_loop:
+    ; Fill the RAM with the next 8 bytes
+    ld b, 8
+    otir
+    ; RAM index has been reset to 0 for the next loop iteration
+    ; Send the bytes on the SPI bus
+    ld a, e
+    out (SPI_REG_CTRL), a
+    ; In theory this takes some time to perform, and we should check the busy bit, in practice, since the clock is
+    ; running at 25MHz, it will take ~26 microseconds (320ns/byte), so we don't need to wait and we can start
+    ; filling the RAM again from teh beginning.
+    dec d
+    jp nz, @write_loop
+    ; In theory, we need to send 2 bytes for the CRC and check the response. In practice, sicne we will send dummy
+    ; bytes until the write is performed, fill the RAM with dummy bytes right now.
+    call spi_fill_fifo_dummy
+    ; Send 3 bytes: 16-bit CRC and one response byte
+    ld a, 3
+    out (SPI_REG_RAM_LEN), a
+    ld a, e
+    out (SPI_REG_CTRL), a
+    ; This will take ~1us, waste 10 T-states: 7 t-states instruction + 4 t-states for the (next) instruction fetch
+    ld a, (hl)
+    in a, (SPI_REG_RAM_FROM + 2)
+    ; Make sure the reply is 5, the upper 3 bits must be discarded (it can be 0xe5, tested on real hardware)
+    and 0x1f
+    cp 5
+    jr nz, @write_error
+    ; Wait for the card to release the data line (wait for 0xFF)
+    ; Clear the indexes
+    ld a, 0x88
+    out (SPI_REG_RAM_LEN), a
+@wait_for_ff:
+    ; Start the transfer
+    ld a, e
+    out (SPI_REG_CTRL), a
+    ; Wait for idle
+@wait_idle:
+    in a, (SPI_REG_CTRL)
+    rrca    ; Check bit 0, must be 0 too
+    jr c, @wait_idle
+    ; Check the last response byte
+    in a, (SPI_REG_RAM_FROM + 7)
+    ; If A is 0xFF, it is a success, no need to loop anymore!
+    inc a
+    jr nz, @wait_for_ff
+    ; Write is a success, A is already 0
+    jp _tf_send_command_get_reply_deassert
+@write_error:
+    ld a, ERR_FAILURE
+    ; De-assert the CS line and return
+    jp _tf_send_command_get_reply_deassert
+
+
     ; Open function, called every time a file is opened on this driver
     ; Note: This function should not attempt to check whether the file exists or not,
     ;       the filesystem will do it. Instead, it should perform any preparation
@@ -623,7 +754,7 @@ tf_deinit:
 
 
     ; Get the sector out of a 32-bit address.
-    ; WARNING: Made the assumption that pages are 512 bytes big!
+    ; WARNING: Made the assumption that sectors are 512 bytes big!
     ; Parameters:
     ;   DEHL - 32-bit address to get the block from
     ; Returns:
@@ -803,7 +934,14 @@ tf_read_now_aligned:
     ; Get the sector address in DEHL
     pop de
     pop hl
-    jp _tf_read_address_aligned_sector_ready
+    ; Increment the sector to read
+    inc hl
+    ; Check for carry since DEHL is a 32-bit value
+    ld a, h
+    or l
+    jr nz, _tf_read_address_aligned_sector_ready
+    inc de
+    jr _tf_read_address_aligned_sector_ready
 
 tf_read_address_aligned:
     ; Jump here if the address to read is aligned on a sector size (512)
@@ -888,6 +1026,217 @@ _multiple_blocks_loop_no_carry:
     ret
 
 
+    ; API: Same as the read routine.
+tf_write:
+    ; Check if the TF is accessed as a disk or a block (not implemented)
+    or a
+    jp nz, tf_not_implemented
+    ; Save the parameters temporarily
+    ld (_tf_buffer), de
+    ld (_tf_total_size), bc
+    ; Prepare the parameter for `read_block` function
+    ld hl, rd_buf
+    ld (rd_block_arg), hl
+    ; Get the upper 32-bit of the address to read in DEHL
+    pop de
+    pop hl
+    ; Check if the address is aligned on a sector size (512), A is 0 already
+    or l
+    jr nz, @tf_write_not_aligned
+    bit 0, h
+    jp z, @tf_write_aligned
+@tf_write_not_aligned:
+    ; Address is not aligned read the current sector in a temporary buffer that we will populate
+    ; with the user data.
+    push hl
+    ld (_tf_offset_low), hl
+    ; Get the sector address in DEHL
+    call tf_get_sector
+    ; The size of the data to read is the minimum between given size and the remaining size
+    ; on the current sector. Calculate the remaining part of the sector.
+    ex (sp), hl
+    ; Put the sector's remaining size in HL
+    call tf_remaining_sector_size
+    ; Put the minimum between the remaining size and the size requested by the user in BC
+    call tf_min
+    ; Get back the block address from the top of the stack, discard remaining sector size
+    pop hl
+    ; Size of the data to read in BC (the rest will be ignored)
+    ; Destination buffer it in `rd_block_arg` too.
+    push hl
+    push de
+    push bc ; Amount of bytes to read from the sector (not necessarily from the beginning!)
+    ld a, 1   ; Use the cache
+    call tf_card_read_block
+    ; Check for errors during the read block
+    or a
+    jp nz, _tf_read_error_pop
+    ; Calculate the offset to copy from (HL & 511) + rd_buf
+    ld bc, rd_buf
+    ; Only keep H's lowest bit
+    ld hl, (_tf_offset_low)
+    ld a, h
+    and 1
+    ld h, a
+    add hl, bc
+    ; Destination buffer in HL, get the source in DE and exchange them
+    ld de, (_tf_buffer)
+    ex de, hl
+    ; Get the size to transfer from the user buffer to the temporary buffer
+    pop bc
+    push bc
+    ldir
+    pop bc
+    ; HL contains the rest of the data to write to the TF card
+    ld (_tf_buffer), hl
+    ; Subtract this amount of bytes to the remaining buffer size
+    ld hl, (_tf_total_size)
+    or a
+    sbc hl, bc
+    ; Save the remaining size in BC
+    ld b, h
+    ld c, l
+    ; Get back the sector address
+    pop de
+    pop hl
+    ; Make sure BC is not altered
+    push bc
+    ld bc, rd_buf
+    call tf_card_write_block
+    pop bc
+    ; The stack is clean, return on error
+    or a
+    ret nz
+    ; If no more bytes to write, success
+    ld a, b
+    or c
+    jr z, @tf_write_success
+    ; We already have the block address and the remaining bytes to read (BC), `_tf_buffer` is up to date,
+    ; we can jump to @tf_write_address_aligned_sector_ready, we just have to increment the block address
+    inc hl
+    ld a, h
+    or l
+    jr nz, @tf_write_address_aligned_sector_ready
+    inc de
+    jr @tf_write_address_aligned_sector_ready
+@tf_write_aligned:
+    ; Jump here if the given address to write is aligned on a sector size (512)
+    ; The size is in BC
+    ; The physical address to read is in DEHL, calculate the block address
+    call tf_get_sector
+    ; Parameters:
+    ; DEHL - Block address
+    ; BC - Bytes to read
+@tf_write_address_aligned_sector_ready:
+    ; Store in A the number of blocks to read, divide BC by 512
+    push bc
+    ld a, b
+    srl a
+    ; If A is 0, we have no full sector to write
+    jr z, @tf_write_remaining
+    ; We have to write A blocks, put the user buffer in BC
+    ld bc, (_tf_buffer)
+    call tf_card_write_multiple_blocks
+    ; Put the next buffer that may contain data in the same variable
+    ld (_tf_buffer), bc
+    or a
+    jp nz, _tf_read_error_pop_once
+@tf_write_remaining:
+    ; Check if there are some byes remaining (BC = BC & 511)
+    pop bc
+    ld a, b
+    and 1
+    ld b, a
+    ; Check if BC is 0
+    or c
+    jr z, @tf_write_success
+    ; We still have to read some bytes (< 512), user buffer is in `_tf_buffer`
+    ; DEHL points to the next sector in TF card
+    ; BC contains the valid remaining size
+    xor a   ; Do not use the cache
+    call tf_card_write_small_aligned_block
+    or a
+    ld a, ERR_FAILURE
+    ret nz
+@tf_write_success:
+    ; Return success
+    xor a
+    ld bc, (_tf_total_size)
+    ret
+
+
+    ; Write a block that is aligned on 512 but with less data than the block size (512)
+    ; Parameters:
+    ;   DEHL - Block address to write
+    ;   BC - Size of the data to write
+    ;   [_tf_buffer] - User buffer (source of data)
+    ;   [rd_block_arg] - Temporary buffer to use (should be set to rd_buf by the caller)
+    ; Returns:
+    ;   A - 0 on success, error code else
+tf_card_write_small_aligned_block:
+    push hl
+    push de
+    push bc
+    ; Read the block from the tf card into a temporary buffer
+    ld a, 1
+    call tf_card_read_block
+    ; Pop the size
+    pop bc
+    ; Check if any error occurred
+    or a
+    jr nz, @pop_ret
+    ; Read was a success, replace the data in the temporary buffer by the user buffer
+    ld de, rd_buf
+    ld hl, (_tf_buffer)
+    ldir
+    ; Write the block with the new data
+    pop de
+    pop hl
+    ld bc, rd_buf
+    ; Tail-call since the stack is clean now
+    jp tf_card_write_block
+@pop_ret:
+    pop de
+    pop hl
+    ret
+
+
+    ; Write multiple blocks startign at the given block address (physical address / 512)
+    ; The given buffer (BC) must be at least as A * 512 bytes big
+    ; Parameters:
+    ;   DEHL - Block address to write
+    ;   A - Number of blocks to write
+    ;   BC - User buffer (source buffer)
+    ; Returns:
+    ;   A - 0 on success, error code else
+    ;   BC - Next user buffer to write
+    ;   DEHL - Next block address to write (in case of success only)
+tf_card_write_multiple_blocks:
+    ; Push the counter on the stack
+    push af
+    call tf_card_write_block
+    or a
+    jr nz, @pop_ret
+    ; Increment the block address to write
+    inc hl
+    ; Check for carry (<=> HL == 0)
+    ld a, h
+    or l
+    jr nz, @no_carry
+    inc de
+@no_carry:
+    ; Increment the buffer by 512 (B += 2)
+    inc b
+    inc b
+    ; Success, decrement the number of blocks to process
+    pop af
+    dec a
+    jr nz, tf_card_write_multiple_blocks
+    ; Success, A is already 0
+    ret
+@pop_ret:
+    pop hl
+    ret
 
 
 tf_seek:
@@ -895,19 +1244,6 @@ tf_ioctl:
 tf_not_implemented:
     ld a, ERR_NOT_IMPLEMENTED
     ret
-
-    ; API: Same as the read routine but for write. Not supported for CF (yet?).
-tf_write:
-    or a
-    ld a, ERR_READ_ONLY
-    ; Directly return if the stack is cleaned
-    ret nz
-    ; Clean the stack
-    pop hl
-    pop hl
-    ret
-
-
 
     SECTION KERNEL_BSS
 
