@@ -21,7 +21,7 @@ CC=$(shell which z88dk-z80asm z88dk.z88dk-z80asm | head -1)
 # and move them manually
 INCLUDES=-I$(ZOS_PATH)/kernel_headers/z88dk-z80asm -I$(ZOS_PATH)/kernel_headers/z88dk-z80asm/include
 LIBS=-L$(ZOS_PATH)/kernel_headers/z88dk-z80asm/lib
-ASMFLAGS=$(INCLUDES) $(LIBS) -lstrutils.lib -m -b
+ASMFLAGS=$(INCLUDES) $(LIBS) -lstrutils.lib -lzealline.lib -m -b
 
 
 .PHONY: all clean

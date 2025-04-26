@@ -29,55 +29,70 @@
         ; Start the actual code
         SECTION TEXT
         DEFC PROMPT_CHAR = '>'
+        DEFC ESCAPE_CHAR = 0x1B
 
         EXTERN error_print
+        EXTERN parse_exec_cmd
+        EXTERN zealline_init
+        EXTERN zealline_get_line
+        EXTERN zealline_set_prompt
+        EXTERN zealline_add_history
 
         MACRO ERR_CHECK goto_label
                 or a
                 jr nz, goto_label
         ENDM
 
-        EXTERN parse_exec_cmd
+        ; copies the prompt_prefix into the prompt
+        ; Parameters:
+        ;       None
+        ; Returns:
+        ; Alters: HL, A
+        MACRO SETUP_PROMPT_PREFIX _
+                ld hl, prompt
+                REPTI char, ESCAPE_CHAR, 'c', TEXT_COLOR_BLACK, TEXT_COLOR_LIGHT_GRAY
+                        ld (hl), char
+                        inc hl
+                ENDR
+        ENDM
 
+
+main:
+        call zealline_init
+        SETUP_PROMPT_PREFIX()
 next_command:
-        ; Set STDIN mode to cooked
-        call set_stdin_mode
-        ; Set the STDOUT color before printing the directory
-        ld e, CURDIR_COLOR
-        call set_out_color
-        ; Get and print the current directory (keep it in a variable)
-        call get_current_dir
+        call setup_prompt
         ERR_CHECK(error_current_dir)
-        ; Print the current directory
-        ld h, DEV_STDOUT
-        WRITE()
-        ERR_CHECK(error_printing_dir)
-        ; Reset the text color
-        ld e, TEXT_COLOR
-        call set_out_color
+
+        ld hl, prompt
+        call zealline_set_prompt     ; HL - ptr to prompt
+
         ; Read from the stdin
         ld de, bigbuffer
-        ld bc, bigbuffer_end - bigbuffer
-        ld h, DEV_STDIN
-        READ()
+        ld bc, bigbuffer_end - bigbuffer        ; B should be 0, C should be the max length
+        call zealline_get_line
+
+        ld ix, bc
+        S_WRITE3(DEV_STDOUT, newline_char, 1)
+        ld bc, ix
+
+
         ERR_CHECK(error_reading_stdin)
-        ; The command line size has been put in BC, in theory, BC cannot be 0,
-        ; because there is \n at the end in any case. However, let's be safe,
-        ; and check for 0 and 1. Remove the final \n too.
+        ; The command line size has been put in BC, BC can also be 0,
         ld a, b
         or c
         jp z, next_command
-        ; Check that BC is not 1 and remove the final \n
-        dec bc
-        ld a, b
-        or c
-        jp z, next_command
-        ld h, d
-        ld l, e
-        add hl, bc
-        ld (hl), 0
+
+        ; parse_exec_cmd modfied the data in bigbuffer
+        ; that is why we add the history here. If we would do that after exec() we could only
+        ; add it if the exit code is 0, for example.
+        ld hl, bigbuffer
+        call zealline_add_history
+
         ; We can now parse the command line
+        ld de, bigbuffer
         call parse_exec_cmd
+
         jp next_command
 
 
@@ -88,14 +103,6 @@ error_current_dir:
 str_curdir_err:
         DEFM "error getting curdir: "
 str_curdir_err_end:
-
-error_printing_dir:
-        ld de, str_print_err
-        ld bc, str_print_err_end - str_print_err
-        jr call_err_loop
-str_print_err:
-        DEFM "error printing: "
-str_print_err_end:
 
 error_reading_stdin:
         ld de, str_rdstdin_err
@@ -112,85 +119,41 @@ err_loop:
         jr $
 
 
-        ; Set STDIN mode to cooked
-set_stdin_mode:
-        ld h, DEV_STDIN
-        ld c, KB_CMD_SET_MODE
-        ld e, KB_MODE_COOKED
-        IOCTL()
-        or a
-        ret z
-        ; Error, the target doesn't support RAW mode
-        ld de, _set_stdin_err
-        ld bc, _set_stdin_err_end - _set_stdin_err
-        jr call_err_loop
-_set_stdin_err: DEFM "error stdin mode: "
-_set_stdin_err_end:
-
-
-        ; Set the current text color for the standard output
-        ; Parameters:
-        ;   E - Foreground color to use
-set_out_color:
-        ld h, DEV_STDOUT
-        ld c, CMD_SET_COLORS
-        ld d, BG_COLOR
-        IOCTL()
-        ret
-
-
         ; Get the current directory from the kernel, retrieve its size,
-        ; append the PROMPT_CHAR and save the new length in curdir_len
+        ; append the PROMPT_CHAR and prompt_suffix and save the new length in curdir_len
         ; Parameters:
         ;       None
         ; Returns:
-        ;       DE - Current directory string
-        ;       BC - Length of the string
         ;       A - ERR_SUCCESS on success, error code else
         ; Alters:
-        ;       A, BC, DE
-get_current_dir:
+        ;       A, DE, HL
+setup_prompt:
         ; Get the current directory
         ld de, curdir
         CURDIR()
         or a
         ret nz
-        call promptlen
-        ld (curdir_len), bc
+        ld hl, de
+_setup_prompt_loop:
+        cp (hl)
+        jp z, _setup_prompt_loop_end
+        inc hl
+        jp _setup_prompt_loop
+_setup_prompt_loop_end:
+        ; copy prompt_char and the prompt_prefix and a null-byte
+        REPTI char, PROMPT_CHAR, ESCAPE_CHAR, 'c', TEXT_COLOR_BLACK, TEXT_COLOR_WHITE, 0x0
+                ld (hl), char
+                inc hl
+        ENDR
         xor a   ; Success
         ret
 
-        ; Get the length of the current path and append PROMPT_CHAR to it
-        ; Parameters:
-        ;       DE - String to get the length of
-        ; Returns:
-        ;       BC - Size of the string in DE, after appending PROMPT_CHAR
-        ; Alters:
-        ;       A
-promptlen:
-        push de
-        ex de, hl
-        xor a
-        ld b, a
-        ld c, a
-_promptlen_loop:
-        cp (hl)
-        jp z, _promptlen_loop_end
-        inc hl
-        inc bc
-        jp _promptlen_loop
-_promptlen_loop_end:
-        ld (hl), PROMPT_CHAR
-        inc hl
-        ld (hl), a      ; NULL-terminated
-        inc bc
-        ex de, hl
-        pop de
-        ret
+        SECTION DATA
+newline_char: DEFM "\n"
 
         SECTION BSS
-curdir: DEFS PATH_MAX + 1
-curdir_len: DEFS 2
+prompt: DEFS 4                  ; matches the length of prompt_prefix
+curdir: DEFS PATH_MAX + 1 + 4   ; ... + sizeof(nullbyte) + sizeof(prompt_suffix)
 bigbuffer: DEFS 81
 bigbuffer_end:
         ; Allocate a few more bytes so that we can append some characters
