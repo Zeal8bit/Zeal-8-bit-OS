@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023-2025 Zeal 8-bit Computer <contact@zeal8bit.com>
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -8,6 +8,8 @@
     DEFINE ZEALFS_H
 
     IF CONFIG_KERNEL_ENABLE_ZEALFS_SUPPORT
+
+    DEFC ZEALFS_VERSION = 2
 
     ; Public routines. The descriptions are given in the implementation file.
     EXTERN zos_zealfs_init
