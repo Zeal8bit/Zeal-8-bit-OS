@@ -1071,7 +1071,7 @@ zos_disk_is_opnfile:
         ret z
 zos_disk_invalid_filedev:
         ; Error, not an opened file, Z flag is not set
-        ld a, ERR_INVALID_FILEDEV
+        ld a, ERR_NOT_A_FILE
         ret
 
         ; Routine checking that the opened dev is a file OR a directory.
