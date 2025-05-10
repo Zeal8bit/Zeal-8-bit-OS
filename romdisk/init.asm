@@ -5,7 +5,9 @@
         INCLUDE "zos_sys.asm"
         INCLUDE "zos_video.asm"
         INCLUDE "zos_keyboard.asm"
-        INCLUDE "strutils_h.asm"
+	INCLUDE "strutils_h.asm"
+        INCLUDE "zealline.asm"
+
 
         DEFC BG_COLOR     = TEXT_COLOR_BLACK
         DEFC CURDIR_COLOR = TEXT_COLOR_LIGHT_GRAY
@@ -72,10 +74,11 @@ next_command:
         ld bc, bigbuffer_end - bigbuffer        ; B should be 0, C should be the max length
         call zealline_get_line
 
-        ld ix, bc
+        push af
+        push bc
         S_WRITE3(DEV_STDOUT, newline_char, 1)
-        ld bc, ix
-
+        pop bc
+        pop af
 
         ERR_CHECK(error_reading_stdin)
         ; The command line size has been put in BC, BC can also be 0,
@@ -133,7 +136,7 @@ setup_prompt:
         CURDIR()
         or a
         ret nz
-        ld hl, de
+        ex de, hl
 _setup_prompt_loop:
         cp (hl)
         jp z, _setup_prompt_loop_end
@@ -150,10 +153,11 @@ _setup_prompt_loop_end:
 
         SECTION DATA
 newline_char: DEFM "\n"
+prompt: DEFM ESCAPE_CHAR, 'c', TEXT_COLOR_BLACK, TEXT_COLOR_LIGHT_GRAY ; == prompt_prefix
+curdir: DEFS PATH_MAX + 1 + 4   ; ... + sizeof(nullbyte) + sizeof(prompt_suffix)
+
 
         SECTION BSS
-prompt: DEFS 4                  ; matches the length of prompt_prefix
-curdir: DEFS PATH_MAX + 1 + 4   ; ... + sizeof(nullbyte) + sizeof(prompt_suffix)
 bigbuffer: DEFS 81
 bigbuffer_end:
         ; Allocate a few more bytes so that we can append some characters
