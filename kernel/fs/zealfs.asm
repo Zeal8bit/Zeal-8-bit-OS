@@ -166,6 +166,24 @@ _zos_zealfs_page_size_loop:
     ld h, a
     ret
 
+    ; Same as above, but returns the upper bytes in BC
+    ; Parameters:
+    ;   [RAM_FS_HEADER] - Filled with FS header
+    ; Returns:
+    ;   BC - Header size in bytes / 256
+    ; Alters:
+    ;   A, BC, HL
+_zos_zealfs_page_size_upper:
+    call _zos_zealfs_page_size
+    ld c, h
+    ; Check if the result is 0 (64K)
+    ld b, 0
+    inc c
+    dec c
+    ret nz
+    inc b
+    ret
+
 
     ; Get the offset (address on the disk) of the root directories entries.
     ; The address is always < 64KB, since the maximum page size is 64KB.
@@ -603,6 +621,12 @@ _zos_zealfs_check_flags:
     ;   DE - Unknown
     ;   B - Flags to open the file with
     ;   [SP] - Driver address
+    ; -----------------------------------
+    ; Check if we are trying to open a directory
+    ld a, (RAM_BUFFER + zealfs_entry_flags)
+    rrca
+    jp c, zos_zeal_open_with_dir
+    ; Opening a file, we can continue
     ; Check if the flags include O_TRUNC
     ld a, b
     ; Check if O_TRUNC was passed, if that was the case, the size has to be shrunk to 0
@@ -722,7 +746,6 @@ _zos_helper_offset_from_user_field:
     ex de, hl
     ret
 
-    ; v3 - DONE
     ; Get the stats of a file from a disk that has a ZealFS filesystem
     ; This includes the date, the size and the name. More info about the stat structure
     ; in `vfs_h.asm` file.
@@ -760,7 +783,7 @@ zos_zealfs_stat:
     or a
     ret nz
     ASSERT(file_date_t == 4)
-    ; We can optimize if we know that date structure follows the size
+    ; We can optimize since we know that date structure follows the size
     ld hl, RAM_BUFFER + zealfs_entry_date
     ld bc, DATE_STRUCT_SIZE
     ldir
@@ -769,12 +792,25 @@ zos_zealfs_stat:
     ASSERT(STAT_STRUCT_NAME_LEN == FS_NAME_LENGTH)
     ld bc, FS_NAME_LENGTH
     ldir
+    ; Check if we just read a directory, if yes, set the size to a page size
+    ld a, (RAM_BUFFER + zealfs_entry_flags)
+    and 1
+    ; If A is 0, the entry was a file, we can return success (= 0)
+    ret z
+    ; Make the stat structure point to the size
+    ex de, hl
+    ld bc, -STAT_STRUCT_SIZE
+    add hl, bc
+    ex de, hl
+    ld hl, RAM_BUFFER + zealfs_entry_size
+    REPT FS_SIZE_WIDTH
+        ldi
+    ENDR
     ; Success, we can return
     xor a
     ret
 
 
-    ; v3 - DONE
     ; Close an opened file. On ZealFS this doesn't do anything special apart from
     ; calling the driver's close routine.
     ; Note: _vfs_work_buffer can be used at our will here
@@ -960,6 +996,13 @@ _zos_zealfs_rm_mark_as_free:
 
     ;============= D I R E C T O R I E S   R O U T I N E S ================;
 
+    ; Routine that pops the driver address from the stack and continues allocating
+    ; a directory. This branch is used when `open` was invoked with a directory
+    ; and not a file.
+zos_zeal_open_with_dir:
+    pop bc
+    jr _zos_zealfs_opendir_allocate
+
     ; Open a directory from a ZealFS-formatted disk.
     ; The opened dir structure to return can be allocated thanks to `zos_disk_allocate_opndir`.
     ; Parameters: (Guaranteed not NULL by caller)
@@ -983,8 +1026,7 @@ zos_zealfs_opendir:
     pop bc  ; Driver address in BC
     ; If the Z flag is not set, an error occurred and A was set
     ret nz
-    ; Do not pop DE right now, it contains a context
-    ; A must also be - here as the entry (directory) must exist
+    ; A must also be 0 here as the entry (directory) must exist
     or a
     ret nz
     ; Check that the entry is a directory and not a file!
@@ -994,6 +1036,7 @@ zos_zealfs_opendir:
     rrca
     ld a, ERR_NOT_A_DIR
     ret nc
+_zos_zealfs_opendir_allocate:
     ; Allocate a directory descriptor, BC already contains the driver address
     ld a, FS_ZEALFS
     call zos_disk_allocate_opndir
@@ -1482,7 +1525,6 @@ zos_zealfs_get_entry_addr_256:
     ret
 
 
-    ; v3 - DONE
     ; Get the next page of a given page from the FAT
     ; Parameters:
     ;   DE - Page to get the next page of
@@ -2224,8 +2266,8 @@ _zos_zealfs_new_entry_resume:
     ; Populate the flags first, we will need BC for this (we have to pop first...)
     pop bc
     pop hl
-    ; Start page is in DE, keep it on the stack
-    push de
+    ; Start page is in DE, store it in the buffer directly
+    ld (RAM_BUFFER + zealfs_entry_start), de
     ld a, b
     or 0x80
     ; Fill the RAM_BUFFER with the new entry
@@ -2237,28 +2279,20 @@ _zos_zealfs_new_entry_resume:
     ; Populate the name now, copy from HL to structure
     ld bc, FS_NAME_LENGTH
     call strncpy
-    ; HL can be re-used, use it instead of DE to point to the RAM buffer
-    ex de, hl
-    add hl, bc  ; Skip the name[] array in the buffer
-    ; Get the start page from the stack
-    pop de
-    ld (hl), e
-    inc hl
-    ld (hl), d
-    inc hl
-    ; Set the size to 0 for both files and directories
-    ; FIXME: Prevent size of 0 for the directories?
+    ; HL can be re-used, set the size to 0 for files, page size for directories
     xor a
-    ld (hl), a
-    inc hl
-    ld (hl), a
-    inc hl
-    ld (hl), a
-    inc hl
-    ld (hl), a
-    inc hl
-    ; HL points to the date now, get the current date if a clock is available
-    ex de, hl
+    ld b, a ; BC = 0
+    ld c, a
+    ; Lowest byte and highest byte are both 0 is all cases
+    ld (RAM_BUFFER + zealfs_entry_size), a
+    ld (RAM_BUFFER + zealfs_entry_size + 3), a
+    ; Check the flags to know whether we are creating a file or dir
+    ld a, (RAM_BUFFER)
+    and 1
+    call nz, _zos_zealfs_page_size_upper
+    ld (RAM_BUFFER + zealfs_entry_size + 1), bc
+    ; Make DE points to the date and get the current date if a clock is available
+    ld de, RAM_BUFFER + zealfs_entry_date
     call zos_date_getdate_kernel
     ; Do not check the return code, in the worst case, the structure is clean already
     ; Write back this new file entry to the disk, at the free entry offset
