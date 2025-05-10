@@ -242,6 +242,8 @@ _video_ioctl_clear_screen:
     call _video_vram_set
     ; Screen has been cleared, reset the scrolling value and the cursor position
     xor a
+    ; Map the text I/O controller, which is also 0
+    out (IO_MAPPER_BANK), a
     out (IO_TEXT_CURS_Y), a
     out (IO_TEXT_CURS_X), a
     out (IO_TEXT_SCROLL_Y), a
