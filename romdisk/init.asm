@@ -5,6 +5,7 @@
         INCLUDE "zos_sys.asm"
         INCLUDE "zos_video.asm"
         INCLUDE "zos_keyboard.asm"
+        INCLUDE "zealline.asm"
 
         DEFC BG_COLOR     = TEXT_COLOR_BLACK
         DEFC CURDIR_COLOR = TEXT_COLOR_LIGHT_GRAY
@@ -32,33 +33,14 @@
 
         EXTERN error_print
         EXTERN parse_exec_cmd
-        EXTERN zealline_init
-        EXTERN zealline_get_line
-        EXTERN zealline_set_prompt
-        EXTERN zealline_add_history
 
         MACRO ERR_CHECK goto_label
                 or a
                 jr nz, goto_label
         ENDM
 
-        ; copies the prompt_prefix into the prompt
-        ; Parameters:
-        ;       None
-        ; Returns:
-        ; Alters: HL, A
-        MACRO SETUP_PROMPT_PREFIX _
-                ld hl, prompt
-                REPTI char, ESCAPE_CHAR, 'c', TEXT_COLOR_BLACK, TEXT_COLOR_LIGHT_GRAY
-                        ld (hl), char
-                        inc hl
-                ENDR
-        ENDM
-
-
 main:
         call zealline_init
-        SETUP_PROMPT_PREFIX()
 next_command:
         call setup_prompt
         ERR_CHECK(error_current_dir)
@@ -71,10 +53,11 @@ next_command:
         ld bc, bigbuffer_end - bigbuffer        ; B should be 0, C should be the max length
         call zealline_get_line
 
-        ld ix, bc
+        push af
+        push bc
         S_WRITE3(DEV_STDOUT, newline_char, 1)
-        ld bc, ix
-
+        pop bc
+        pop af
 
         ERR_CHECK(error_reading_stdin)
         ; The command line size has been put in BC, BC can also be 0,
@@ -132,7 +115,7 @@ setup_prompt:
         CURDIR()
         or a
         ret nz
-        ld hl, de
+        ex de, hl
 _setup_prompt_loop:
         cp (hl)
         jp z, _setup_prompt_loop_end
@@ -149,10 +132,11 @@ _setup_prompt_loop_end:
 
         SECTION DATA
 newline_char: DEFM "\n"
+prompt: DEFM ESCAPE_CHAR, 'c', TEXT_COLOR_BLACK, TEXT_COLOR_LIGHT_GRAY ; == prompt_prefix
+curdir: DEFS PATH_MAX + 1 + 4   ; ... + sizeof(nullbyte) + sizeof(prompt_suffix)
+
 
         SECTION BSS
-prompt: DEFS 4                  ; matches the length of prompt_prefix
-curdir: DEFS PATH_MAX + 1 + 4   ; ... + sizeof(nullbyte) + sizeof(prompt_suffix)
 bigbuffer: DEFS 81
 bigbuffer_end:
         ; Allocate a few more bytes so that we can append some characters
