@@ -19,7 +19,7 @@ CC=$(shell which z88dk-z80asm z88dk.z88dk-z80asm | head -1)
 # On some versions of z88dk, -Oxxx switch does not generate the init_TEXT.bin file,
 # it only creates empty init.bin. Generate all the binaries in the current directory
 # and move them manually
-ASMFLAGS=-I$(ZOS_PATH)/kernel_headers/z88dk-z80asm -m -b
+ASMFLAGS=-I$(ZOS_PATH)/kernel_headers/z88dk-z80asm -m -b -lzealline.lib
 
 
 .PHONY: all clean
