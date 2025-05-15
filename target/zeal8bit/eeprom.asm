@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023-2025 Zeal 8-bit Computer <contact@zeal8bit.com>
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -11,12 +11,12 @@
     INCLUDE "interrupt_h.asm"
     INCLUDE "i2c_h.asm"
     INCLUDE "log_h.asm"
+    INCLUDE "fs/zealfs_h.asm"
 
     DEFC I2C_EEPROM_DISK_LETTER = 'B'
     DEFC I2C_EEPROM_ADDRESS = 0x50
     DEFC I2C_MAX_WRITE_SIZE = 64
     DEFC I2C_PAGE_BOUND_MASK = I2C_MAX_WRITE_SIZE - 1
-    DEFC ZEALFS_VERSION = 1
 
     SECTION KERNEL_DRV_TEXT
 eeprom_init:

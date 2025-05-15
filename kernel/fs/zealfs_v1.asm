@@ -92,6 +92,9 @@
 
     SECTION KERNEL_TEXT
 
+zos_zealfs_init:
+    ret
+
     ; Like the routine below, browse the absolute path given in HL until the last name is reached.
     ; It will check that all the names on the path corresponds to folders that actually exist on
     ; the disk.
@@ -466,7 +469,7 @@ zos_zealfs_read:
     ;   A, BC, DE, HL
     PUBLIC zos_zealfs_write
 zos_zealfs_write:
-    ld a, 0
+    xor a
     jp zos_zealfs_browse_file
 
 
@@ -1015,6 +1018,10 @@ zos_zealfs_browse_start:
     ld (RAM_EXE_PAGE_0), a
     ld (RAM_EXE_OPER + 1), hl
     pop hl
+    ; Return success if BC is 0
+    ld a, b
+    or c
+    ret z
     ; Seek the file in order to get the physical address of the current offset.
     ; This routine will also fill the driver's read and write routines in RAM (RAM_EXE_*)
     push de

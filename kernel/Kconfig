@@ -144,4 +144,26 @@ menu "Kernel configuration"
                         it can be mounted.
                         Disable this option if you don't have any disk using ZealFS or if you want to reduce
                         kernel size. (saves around 1.3KB)
+
+        choice
+            prompt "ZealFS version"
+            depends on KERNEL_ENABLE_ZEALFS_SUPPORT
+            default KERNEL_ZEALFS_V1
+            help
+                Select the version of ZealFS to use in the kernel. ZealFS v1 supports
+                a maximum file system size of 64KB, while ZealFS v2 (experimental)
+                supports up to 4GB.
+
+            config KERNEL_ZEALFS_V1
+                bool "ZealFS v1"
+                help
+                    Use ZealFS version 1, which supports file systems up to 64KB in size.
+
+            config KERNEL_ZEALFS_V2
+                bool "ZealFS v2 [EXPERIMENTAL]"
+                help
+                    Use ZealFS version 2, which supports file systems up to 4GB in size.
+                    Note: This version is experimental and may not be stable.
+        endchoice
+
 endmenu
