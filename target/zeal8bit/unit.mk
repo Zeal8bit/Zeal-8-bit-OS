@@ -47,6 +47,10 @@ ifdef CONFIG_TARGET_ENABLE_COMPACTFLASH
 	SRCS += compactflash.asm
 endif
 
+ifdef CONFIG_TARGET_ENABLE_TFCARD
+	SRCS += tf.asm
+endif
+
 # Command to be executed before compiling the whole OS.
 # In our case, compile the programs that will be part of ROMDISK and create it.
 # After creation, get its size, thanks to `stat` command, and store it in a generated header file

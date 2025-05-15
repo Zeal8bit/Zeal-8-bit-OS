@@ -46,6 +46,18 @@ menu "Zeal 8-bit Computer configuration"
             Computer target.
             Disable this option to test no-MMU kernel. Video driver will be disabled, standard output will be done through UART.
 
+
+    config TARGET_ENABLE_TFCARD
+        bool
+        prompt "Enable TF/microSD card driver [EXPERIMENTAL]"
+        default n
+        depends on KERNEL_ENABLE_MBR_SUPPORT && KERNEL_ZEALFS_V2
+        help
+            Import the TF card driver in the kernel compilation. If this option is enabled, the TF card will be seen
+            as a disk by the kernel.
+            NOTE: ZealFS v2 and MBR are required!
+
+
     config TARGET_ENABLE_COMPACTFLASH
         bool
         prompt "Enable CompactFlash driver (EXPERIMENTAL)"
