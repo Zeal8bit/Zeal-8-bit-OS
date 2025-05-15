@@ -166,4 +166,12 @@ menu "Kernel configuration"
                     Note: This version is experimental and may not be stable.
         endchoice
 
+        config KERNEL_ENABLE_MBR_SUPPORT
+            bool "Enable MBR support"
+            default n
+            help
+                If this option is enabled, the kernel will include support for reading and
+                parsing Master Boot Record (MBR) partition tables. Disable this option if
+                MBR support is not required to reduce kernel size.
+
 endmenu

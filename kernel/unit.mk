@@ -11,6 +11,10 @@ endif
 # Filesystems related files
 SRCS += fs/rawtable.asm
 
+ifdef CONFIG_KERNEL_ENABLE_MBR_SUPPORT
+	SRCS += fs/mbr.asm
+endif
+
 ifdef CONFIG_KERNEL_ENABLE_ZEALFS_SUPPORT
 	ifdef CONFIG_KERNEL_ZEALFS_V1
 		SRCS += fs/zealfs_v1.asm
