@@ -70,7 +70,7 @@
     ;     uint8_t  d_seconds;
     ; }
     ; All the fields above are in BCD format.
-    DEFC ZOS_DATE_SIZE = 17
+    DEFC ZOS_DATE_SIZE = 8
 
     ; @brief Stat file size, in bytes.
     ; Its content would be represented like this in C:

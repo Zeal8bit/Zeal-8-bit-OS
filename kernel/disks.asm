@@ -281,6 +281,10 @@ zos_disk_open_file:
         ;       A, BC, DE, HL
         PUBLIC zos_disk_stat
 zos_disk_stat:
+        ; Check if it's a directory or a file
+        ld a, (hl)
+        and DISKS_OPN_FILE_FLAGS_MASK
+        ld (_disks_stat_type), a
         ; Load the filesystem from the opened file address
         inc hl
         ld a, (hl)
@@ -290,6 +294,13 @@ zos_disk_stat:
         inc hl
         ld b, (hl)
         inc hl
+        ; Store the FS on the stack and check the entry, if the entry is a directory,
+        ; the FS has to fill all the fields.
+        push af
+        ld a, (_disks_stat_type)
+        cp DISKS_OPN_DIR_MAGIC_FREE
+        jr z, _zos_disk_stat_dir
+        ; Stat a file, fill the size in the structure
         push bc
         ; Retrieve the size and save it inside the structure.
         ; DE already points to the structure's size field
@@ -297,11 +308,14 @@ zos_disk_stat:
         ld bc, file_date_t - file_size_t
         ldir
         ; Make HL point to the user field now
-        REPT opn_file_usr_t - opn_file_off_t
+    REPT opn_file_usr_t - opn_file_off_t
         inc hl
-        ENDR
+    ENDR
         ; Pop the driver address from the stack
         pop bc
+_zos_disk_stat_dir:
+        ; Get the file system back in A
+        pop af
         ; We have a very few file systems, no need for a lookup table AT THE MOMENT
         cp FS_RAWTABLE
         jp z, zos_fs_rawtable_stat
@@ -316,6 +330,19 @@ zos_disk_stat:
         ; The filesystem has not been found, memory corruption?
         ld a, ERR_INVALID_FILESYSTEM
         ret
+
+        ; Check whether the opened device that is getting `stat` is a directory or a file
+        ; Parameters:
+        ;   None
+        ; Returns:
+        ;   Z flag  - Opened device is a file
+        ;   NZ flag - Opened device is a directory
+        PUBLIC zos_disk_stat_is_dir
+zos_disk_stat_is_dir:
+        ld a, (_disks_stat_type)
+        cp DISKS_OPN_FILE_MAGIC_FREE
+        ret
+
 
         ; Read bytes from an opened file.
         ; Parameters:
@@ -1371,6 +1398,8 @@ zos_disk_add_offset_bc:
 _disks_default: DEFS 1
 _disks: DEFS DISKS_MAX_COUNT * 2
 _disks_fs: DEFS DISKS_MAX_COUNT
+        ; Store the type of file that is being stat-ed
+_disks_stat_type: DEFS 1
         ; Structure containing the opened file structure.
         ; Check disk_h.asm file for more info about this
         ; structure.

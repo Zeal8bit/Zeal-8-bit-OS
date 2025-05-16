@@ -35,6 +35,9 @@
         EXTERN zos_disk_rm
         EXTERN zos_disks_get_driver_and_fs
 
+        ; Public routine but meant to be used by the file systems
+        EXTERN zos_disk_stat_is_dir
+
         ; Structure of an opened file (and directory)
         ; The first field, the magic will also be used to determine
         ; whether an opened "dev" is a file or not.
