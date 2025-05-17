@@ -229,14 +229,18 @@ The kernel itself supports the following features:
 * File systems ("rawtable" and ZealFS implemented yet)
 * Modular build system, simplifying adding files and targets to the compilation
 
-The only supported target at the moment is *Zeal 8-bit computer*, the port is not complete yet, the implemented features are:
+Currently, the only fully supported target is the *Zeal 8-bit Computer*. The port is nearly complete, and the following features have been implemented:
 * Video 640x480 text-mode
 * UART as video card replacement (text mode)
 * UART for sending and receiving data
 * MMU and no-MMU build, configurable in the `menuconfig`
 * PS/2 keyboard
+* Parallel keyboard
 * I2C
 * EEPROM (I2C)
+* Real-Time Clock (I2C)
+* CompactFlash [RO]
+* microSD/TF card [R/W][EXPERIMENTAL]
 * GPIO (partial)
 * Free space in ROM used as a read-only `romdisk`, storing `init.bin` binary
 * Linker script
@@ -586,7 +590,7 @@ Even though the OS is completely ROM-able and doesn't need any file system or di
 
 * The first "file system", which is already implemented, is called "rawtable". As its name states, it represents the succession of files, not directories, in a storage device, in no particular order. The file name size limit is the same as the kernel's: 16 characters, including the optional `.` and extension. If we want to compare it to C code, it would be an array of structures defining each file, followed by the file's content in the same order. A romdisk packer source code is available in the `packer/` at the root of this repo. Check [its README](packer/README.md) for more info about it.
 
-* The second file system, which is also implemented, is named ZealFS. Its main purpose is to be embedded in very small storages, from 8KB up to 64KB. It is readable and writable, it supports files and directories. [More info about it in the dedicated repository](https://github.com/Zeal8bit/ZealFS).
+* The second file system, also implemented, is ZealFS (v1). Designed for compact storage solutions ranging from 8KB to 64KB, it supports both reading and writing, as well as files and directories. [Learn more in the dedicated repository](https://github.com/Zeal8bit/ZealFS). **Note:** ZealFS v2 is also available but not enabled by default. You can activate it via `menuconfig`. This updated version supports partitions up to 4GB while maintaining minimal metadata overhead, making it ideal for small flash memory devices.
 
 * The third file system that would be nice to have on Zeal 8-bit OS is FAT16. Very famous, already supported by almost all desktop operating systems, usable on CompactFlash and even SD cards, this is almost a must-have. It has **not** been implemented yet, but it's planned. FAT16 is not perfect though as it is not adapted for small storage, this is why ZealFS is needed.
 
@@ -620,11 +624,13 @@ What still needs to be implemented, in no particular order:
   * <s>RTC driver</s>
 * Video API
   * <s>Text mode</s> **Done** (ABI/API implemented)
-  * Graphic mode
+  * _Graphic mode*_
 * GPIO user interface/API
-* Sound support
+* _Sound support*_
 * Hardware timers, based on V-blank and H-blank signals
-* *SD card support* (Not implemented in hardware yet)
+* <s>SD card support</s> **Done**, can be enabled in the menuconfig
+
+*: an external library is already available for that, [check Zeal VideoBoard SDK](https://github.com/Zeal8bit/Zeal-VideoBoard-SDK)
 
 ## TRS-80 Model-I
 
