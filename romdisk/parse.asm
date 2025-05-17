@@ -3,6 +3,7 @@
 ; SPDX-License-Identifier: Apache-2.0
 
         INCLUDE "zos_sys.asm"
+        INCLUDE "strutils_h.asm"
 
         SECTION TEXT
 
@@ -18,11 +19,6 @@
             DEFW entrypoint
         ENDM
 
-        EXTERN strlen
-        EXTERN strltrim
-        EXTERN memsep
-        EXTERN strcmp
-        EXTERN strcpy
         EXTERN error_print
         EXTERN init_static_buffer
         EXTERN exec_main_bc_de

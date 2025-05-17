@@ -4,11 +4,11 @@
 
 
         INCLUDE "zos_sys.asm"
+        INCLUDE "strutils_h.asm"
 
         SECTION TEXT
 
         EXTERN error_print
-        EXTERN strlen
 
         MACRO ERR_CHECK goto_label
                 or a

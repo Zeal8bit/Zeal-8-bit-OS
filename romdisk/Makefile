@@ -2,7 +2,7 @@
 BIN=init.bin
 # Source files to assemble
 SRCS=init.asm parse.asm  cat.asm ls.asm less.asm opt.asm mkdir.asm cd.asm rm.asm \
-	 errors.asm uart.asm strutils.asm date.asm cp.asm misc.asm hexdump.asm \
+	 errors.asm uart.asm date.asm cp.asm misc.asm hexdump.asm \
 	 sleep.asm expr.asm echo.asm xfer.asm
 # Output directory to place binaries in
 BUILDIR=build
@@ -19,7 +19,9 @@ CC=$(shell which z88dk-z80asm z88dk.z88dk-z80asm | head -1)
 # On some versions of z88dk, -Oxxx switch does not generate the init_TEXT.bin file,
 # it only creates empty init.bin. Generate all the binaries in the current directory
 # and move them manually
-ASMFLAGS=-I$(ZOS_PATH)/kernel_headers/z88dk-z80asm -m -b
+INCLUDES=-I$(ZOS_PATH)/kernel_headers/z88dk-z80asm -I$(ZOS_PATH)/kernel_headers/z88dk-z80asm/include
+LIBS=-L$(ZOS_PATH)/kernel_headers/z88dk-z80asm/lib
+ASMFLAGS=$(INCLUDES) $(LIBS) -lstrutils.lib -m -b
 
 
 .PHONY: all clean

@@ -5,6 +5,7 @@
     INCLUDE "zos_sys.asm"
     INCLUDE "zos_video.asm"
     INCLUDE "zos_keyboard.asm"
+    INCLUDE "strutils_h.asm"
 
     DEFC BYTES_PER_LINE = 16
     DEFC FILE_BUFFER = init_static_buffer
@@ -13,13 +14,9 @@
     DEFC LINE_BUFFER = init_static_buffer_end - (BYTES_PER_LINE * 5)
     DEFC LINE_BUFFER_SIZE = (BYTES_PER_LINE * 5)
 
-
-    EXTERN is_print
-    EXTERN byte_to_ascii
     EXTERN error_print
     EXTERN init_static_buffer
     EXTERN init_static_buffer_end
-
 
     SECTION TEXT
 

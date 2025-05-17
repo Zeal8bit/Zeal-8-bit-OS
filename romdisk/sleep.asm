@@ -3,11 +3,11 @@
 ; SPDX-License-Identifier: Apache-2.0
 
         INCLUDE "zos_sys.asm"
+        INCLUDE "strutils_h.asm"
 
         SECTION TEXT
 
         EXTERN error_print
-        EXTERN parse_int
 
         MACRO ERR_CHECK goto_label
                 or a

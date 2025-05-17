@@ -5,16 +5,12 @@
 
         INCLUDE "zos_sys.asm"
         INCLUDE "zos_err.asm"
+        INCLUDE "strutils_h.asm"
 
         SECTION TEXT
 
         EXTERN error_print
-        EXTERN parse_int
-        EXTERN strlen
-        EXTERN strltrim
-        EXTERN byte_to_ascii
         EXTERN init_static_buffer
-        EXTERN dword_to_ascii_dec
 
         MACRO ERR_CHECK goto_label
                 or a

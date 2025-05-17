@@ -3,6 +3,7 @@
 ; SPDX-License-Identifier: Apache-2.0
 
         INCLUDE "zos_sys.asm"
+        INCLUDE "strutils_h.asm"
 
         SECTION TEXT
 
@@ -15,11 +16,7 @@
 
         ; Routine to parse the options given in the command line
         EXTERN get_options
-        EXTERN strcpy
         EXTERN error_print
-        EXTERN date_to_ascii
-        EXTERN dword_to_ascii
-        EXTERN dword_to_ascii_dec
 
         ; A static buffer that can be used across the commands implementation
         EXTERN init_static_buffer

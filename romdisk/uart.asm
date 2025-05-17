@@ -1,15 +1,14 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>; JasonMo <jasonmo2009@hotmail.com>; 
+; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>; JasonMo <jasonmo2009@hotmail.com>;
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
         INCLUDE "zos_sys.asm"
+    INCLUDE "strutils_h.asm"
 
         SECTION TEXT
 
         EXTERN open_error
         EXTERN error_print
-        EXTERN strlen
-        EXTERN parse_int
         EXTERN init_static_buffer
         EXTERN init_static_buffer_end
         DEFC STATIC_BUFFER = init_static_buffer

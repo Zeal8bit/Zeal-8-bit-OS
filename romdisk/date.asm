@@ -3,12 +3,11 @@
 ; SPDX-License-Identifier: Apache-2.0
 
         INCLUDE "zos_sys.asm"
+        INCLUDE "strutils_h.asm"
 
         SECTION TEXT
 
         EXTERN error_print
-        EXTERN date_to_ascii
-        EXTERN parse_dec_digit
 
         ; A static buffer that can be used by any command implementation
         EXTERN init_static_buffer
@@ -174,7 +173,7 @@ read_bcd_pair:
         inc hl
         cp  a ; set Z
         ret
-_bad_num: 
+_bad_num:
         or 1 ; reset Z
         ret
 

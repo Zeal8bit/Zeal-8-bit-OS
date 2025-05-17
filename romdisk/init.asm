@@ -5,6 +5,7 @@
         INCLUDE "zos_sys.asm"
         INCLUDE "zos_video.asm"
         INCLUDE "zos_keyboard.asm"
+        INCLUDE "strutils_h.asm"
 
         DEFC BG_COLOR     = TEXT_COLOR_BLACK
         DEFC CURDIR_COLOR = TEXT_COLOR_LIGHT_GRAY

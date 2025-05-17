@@ -4,10 +4,9 @@
 
     INCLUDE "zos_sys.asm"
     INCLUDE "zos_video.asm"
+    INCLUDE "strutils_h.asm"
 
     EXTERN error_print
-    EXTERN byte_to_ascii
-    EXTERN strlen
 
     SECTION TEXT
 
