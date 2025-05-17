@@ -565,7 +565,7 @@ zos_zealfs_open:
     inc hl
     ld a, (hl)
     or a
-    jr z, _zos_zealfs_not_file_error
+    jp z, _zos_zealfs_opendir_root
     ; Not empty path, we can continue
     push de
     push bc
@@ -667,9 +667,6 @@ _zos_zealfs_open_load_hl:
     ; Mark A as success
     xor a
     ret
-_zos_zealfs_not_file_error:
-    ld a, ERR_NOT_A_FILE
-    ret
 _zos_zealfs_error_no_such_entry:
     ld a, ERR_NO_SUCH_ENTRY
 _zos_zealfs_error:
@@ -748,14 +745,42 @@ _zos_helper_offset_from_user_field:
     ; in `vfs_h.asm` file.
     ; Parameters:
     ;   BC - Driver address, guaranteed not NULL by the caller.
-    ;   HL - Opened file structure address, pointing to the user field.
-    ;   DE - Address of the STAT_STRUCT to fill EXCEPT the first field (size)
+    ;   HL - Opened file structure address:
+    ;           * Pointing to `opn_file_usr_t` for files
+    ;           * Pointing to `opn_file_size_t` for directories
+    ;   DE - Address of the STAT_STRUCT to fill:
+    ;           * Pointing to `file_date_t` for files
+    ;           * Pointing to `file_size_t` for directories
     ; Returns:
     ;   A - ERR_SUCCESS on success, error code else
     ; Alters:
     ;   A, BC, DE, HL (Can alter any of the fields)
     PUBLIC zos_zealfs_stat
 zos_zealfs_stat:
+    ; Check if we are trying to stat a directory
+    call zos_disk_stat_is_dir
+    jr z, _zos_stat_file
+    ; Check the opened file structure for the current directory address:
+    ; if the entry address is 0, stat was called on the root `/`, handle it.
+    ld a, 8
+    ADD_HL_A()
+    ; HL now points to the opn_file_usr_t field
+    push hl
+    ld a, (hl)
+    inc hl
+    or (hl)
+    inc hl
+    or (hl)
+    inc hl
+    or (hl)
+    pop hl
+    jp z, zos_disk_stat_fill_root
+    ; Stat structure is pointing to size, make it point to the date
+    inc de
+    inc de
+    inc de
+    inc de
+_zos_stat_file:
     ; Start by setting up the read function for the driver. Driver address must
     ; be in HL
     push de
@@ -794,6 +819,7 @@ zos_zealfs_stat:
     and 1
     ; If A is 0, the entry was a file, we can return success (= 0)
     ret z
+_debug_me:
     ; Make the stat structure point to the size
     ex de, hl
     ld bc, -STAT_STRUCT_SIZE

@@ -64,6 +64,11 @@ zos_fs_rawtable_open:
         ; Check if it is a valid name for rawtable FS, in other words, check if
         ; it contains a '/', excluding the first one (all the paths are absolute)
         inc hl
+        ; Check if we are trying to open the root directory
+        ld a, (hl)
+        or a
+        jp z, _zos_fs_rawtable_path_valid
+        ; Not root directory
         ld a, '/'
         push hl
         call strchrnul
@@ -281,6 +286,9 @@ _zos_fs_rawtable_open_entry_found:
         ;       A, BC, DE, HL (Can alter any of the fields)
         PUBLIC zos_fs_rawtable_stat
 zos_fs_rawtable_stat:
+        ; Check directly if we are stating a directory since we only support one
+        call zos_disk_stat_is_dir
+        jp nz, zos_disk_stat_fill_root
         ; We will only need the read function out of the driver, so get it,
         ; then we will be able to re-use two registers freely.
         ; The driver address must be in DE, the result will be in HL, save them
@@ -333,6 +341,7 @@ _zos_fs_rawtable_stat_return:
         ; Success, we can exit safely
         xor a   ; Optimization for ERR_SUCCESS
         ret
+
 
         ; Read bytes of an opened file, which is located on a disk that is
         ; using the rawtable filesystem.

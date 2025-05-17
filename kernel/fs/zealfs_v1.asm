@@ -320,7 +320,7 @@ zos_zealfs_open:
     inc hl
     ld a, (hl)
     or a
-    jr z, _zos_zealfs_not_file_error
+    jp z, _zos_zealfs_opendir_root
     ; Not empty path, we can continue
     push de
     push bc
@@ -369,6 +369,11 @@ _zos_zealfs_check_flags:
     ;   DE - Context of the file
     ;   B - Flags to open the file with
     ;   [SP] - Driver address
+    ; -----------------------------------
+    ; Check if we are trying to open a directory
+    ld a, (RAM_BUFFER + zealfs_entry_flags)
+    rrca
+    jp c, zos_zeal_open_with_dir
     ; Check if the flags include O_TRUNC
     ld a, b
     ; Check if O_TRUNC was passed, if that was the case, the size has to be shrunk to 0
@@ -478,14 +483,45 @@ zos_zealfs_write:
     ; in `vfs_h.asm` file.
     ; Parameters:
     ;   BC - Driver address, guaranteed not NULL by the caller.
-    ;   HL - Opened file structure address, pointing to the user field.
-    ;   DE - Address of the STAT_STRUCT to fill EXCEPT the first field (size)
+    ;   HL - Opened file structure address:
+    ;           * Pointing to `opn_file_usr_t` for files
+    ;           * Pointing to `opn_file_size_t` for directories
+    ;   DE - Address of the STAT_STRUCT to fill:
+    ;           * Pointing to `file_date_t` for files
+    ;           * Pointing to `file_size_t` for directories
     ; Returns:
     ;   A - ERR_SUCCESS on success, error code else
     ; Alters:
     ;   A, BC, DE, HL (Can alter any of the fields)
     PUBLIC zos_zealfs_stat
 zos_zealfs_stat:
+    ; Check if we are trying to stat a directory
+    call zos_disk_stat_is_dir
+    jr z, _zos_stat_file
+_debug_me:
+    ; Check the opened file structure for the current directory address:
+    ; if the page index is 0, stat was called on the root `/`, handle it.
+    inc hl
+    inc hl
+    ld a, (hl)
+    or a
+    jp z, zos_disk_stat_fill_root
+    ; Make HL point to the offset on disk field (skip page index and iterator)
+    inc hl
+    inc hl
+    ; Stat structure is pointing to size, set it to 0x100, and make it point to the date
+    xor a
+    ld (de), a
+    inc de
+    inc a
+    ld (de), a
+    inc de
+    dec a
+    ld (de), a
+    inc de
+    ld (de), a
+    inc de
+_zos_stat_file:
     ; Start by setting up the read function for the driver. Driver address must
     ; be in HL
     push de
@@ -696,6 +732,15 @@ _zos_zealfs_rm_mark_as_free:
 
     ;============= D I R E C T O R I E S   R O U T I N E S ================;
 
+
+    ; Routine that pops the driver address from the stack and continues allocating
+    ; a directory. This branch is used when `open` was invoked with a directory
+    ; and not a file.
+zos_zeal_open_with_dir:
+    pop bc
+    jr _zos_zealfs_opendir_allocate
+
+
     ; Open a directory from a ZealFS-formatted disk.
     ; The opened dir structure to return can be allocated thanks to `zos_disk_allocate_opndir`.
     ; Parameters: (Guaranteed not NULL by caller)
@@ -730,6 +775,7 @@ zos_zealfs_opendir:
     rrca
     ld a, ERR_NOT_A_DIR
     ret nc
+_zos_zealfs_opendir_allocate:
     ; We arrive here with the parameters:
     ;   DE - Address of the directory on the disk
     ;   BC - Disk driver address
