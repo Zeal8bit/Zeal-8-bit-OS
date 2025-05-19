@@ -33,6 +33,7 @@
         EXTERN keyboard_impl_upper
         EXTERN keyboard_impl_init
         EXTERN keyboard_impl_next_key
+        EXTERN strlen
 
         ; Get the number the characters in the FIFO in register A and set the flags
         MACRO KB_FIFO_SIZE
@@ -57,7 +58,6 @@ keyboard_open:
         ret
 
 
-keyboard_write:
 keyboard_seek:
         ld a, ERR_NOT_SUPPORTED
         ret
@@ -86,6 +86,63 @@ keyboard_ioctl:
         ret
 _keyboard_invalid_parameter:
         ld a, ERR_INVALID_PARAMETER
+        ret
+
+
+        ; Calculate the minimum between HL and BC and store it in BC
+keyboard_min_hl_bc:
+        or a
+        sbc hl, bc
+        ret nc
+        add hl, bc
+        ld b, h
+        ld c, l
+        ret
+
+
+        ; Write to the internal cooked buffer.
+        ; Parameters:
+        ;       DE - Source buffer.
+        ;       BC - Size to write in bytes. Guaranteed to be equal to or smaller than 16KB.
+        ;       A  - Should be DRIVER_OP_NO_OFFSET in our case (as not registered as a disk)
+        ; Returns:
+        ;       A  - ERR_SUCCESS if success, error code else
+        ;       BC - Number of bytes read.
+        ; Alters:
+        ;       This function can alter any register.
+keyboard_write:
+        ; If the parameter is 0, return
+        ld a, b
+        or c
+        ret z
+        ld a, (kb_flags)
+        and KB_BUF_MODE_MASK
+        cp KB_MODE_COOKED
+        jr nz, _write_bad_mode
+        ; Cooked mode, copy the minimum between BC and KB_INTERNAL_BUFFER_SIZE
+        ; Calculate the minimum between the string length and the given length
+        push bc
+        ex de, hl
+        call strlen
+        ex de, hl
+        pop hl
+        call keyboard_min_hl_bc
+        ld hl, KB_INTERNAL_BUFFER_SIZE
+        call keyboard_min_hl_bc
+        push bc
+        ld a, c
+        ld (kb_buffer_size), a
+        ld (kb_buffer_cursor), a
+        ; Copy (B)C bytes to the internal buffer
+        ld hl, kb_internal_buffer
+        ex de, hl
+        ldir
+        ; Success
+        xor a
+        pop bc
+        ret
+_write_bad_mode:
+        ld a, ERR_BAD_MODE
         ret
 
 
@@ -120,25 +177,16 @@ keyboard_read:
         ; We have to copy the minimum between filled buffer and
         ; user buffer length
         pop hl
-        xor a
-        sbc hl, bc
-        jr c, _keyboard_read_bc_bigger
-        ; HL was bigger than (or equal to) BC
-        ; We will copy BC bytes to the user's buffer.
-_keyboard_read_copy_to_user:
+        call keyboard_min_hl_bc
         ex de, hl       ; internal buffer becomes the source
         pop de
         ; BC is set to the minimum already, push it to return it afterwards
         push bc
         ldir
         pop bc
+        ; Return success
+        xor a
         ret
-_keyboard_read_bc_bigger:
-        ; HL was smaller, we need to retrieve it.
-        add hl, bc
-        ld b, h
-        ld c, l
-        jp _keyboard_read_copy_to_user
 
 
         ; Close the keyboard instance, in our case, we will clean the FIFO
@@ -159,9 +207,23 @@ keyboard_close:
         ; Returns:
         ;       DE - Address of the buffer where we filled the bytes
         ;       BC - Number of bytes filled in DE
+        ;          - This routine also clears the internal buffer size and cursor
         ; Alters:
         ;       A, BC, DE, HL
 keyboard_read_cooked:
+        ; Check if the buffer already has some data (from `write` syscall)
+        ld a, (kb_buffer_size)
+        or a
+        jr z, _keyboard_read_ignore
+        ld b, a
+        ld de, kb_internal_buffer
+@populate_char:
+        ld a, (de)
+        push bc
+        call stdout_print_char
+        pop bc
+        inc de
+        djnz @populate_char
         ; If the buffer is full, it will not be sent to the user yet
         ; because it is still be possible to go back and remove some characters.
 _keyboard_read_ignore:
