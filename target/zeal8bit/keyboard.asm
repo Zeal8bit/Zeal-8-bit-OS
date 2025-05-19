@@ -57,7 +57,6 @@ keyboard_open:
         ret
 
 
-keyboard_write:
 keyboard_seek:
         ld a, ERR_NOT_SUPPORTED
         ret
@@ -86,6 +85,48 @@ keyboard_ioctl:
         ret
 _keyboard_invalid_parameter:
         ld a, ERR_INVALID_PARAMETER
+        ret
+
+
+        ; Write to the internal cooked buffer.
+        ; Parameters:
+        ;       DE - Source buffer.
+        ;       BC - Size to write in bytes. Guaranteed to be equal to or smaller than 16KB.
+        ;       A  - Should be DRIVER_OP_NO_OFFSET in our case (as not registered as a disk)
+        ; Returns:
+        ;       A  - ERR_SUCCESS if success, error code else
+        ;       BC - Number of bytes read.
+        ; Alters:
+        ;       This function can alter any register.
+keyboard_write:
+        ; If the parameter is 0, return
+        ld a, b
+        or c
+        ret z
+        ld a, (kb_flags)
+        and KB_BUF_MODE_MASK
+        cp KB_MODE_COOKED
+        jr nz, _write_bad_mode
+        ; Cooked mode, copy the minimum between BC and KB_INTERNAL_BUFFER_SIZE
+        ld hl, KB_INTERNAL_BUFFER_SIZE
+        sbc hl, bc
+        jr nc, _keyboard_write_copy_c
+        ld bc, KB_INTERNAL_BUFFER_SIZE
+_keyboard_write_copy_c:
+        push bc
+        ld a, c
+        ld (kb_buffer_size), a
+        ld (kb_buffer_cursor), a
+        ; Copy (B)C bytes to the internal buffer
+        ld hl, kb_internal_buffer
+        ex de, hl
+        ldir
+        ; Success
+        xor a
+        pop bc
+        ret
+_write_bad_mode:
+        ld a, ERR_BAD_MODE
         ret
 
 
@@ -159,9 +200,23 @@ keyboard_close:
         ; Returns:
         ;       DE - Address of the buffer where we filled the bytes
         ;       BC - Number of bytes filled in DE
+        ;          - This routine also clears the internal buffer size and cursor
         ; Alters:
         ;       A, BC, DE, HL
 keyboard_read_cooked:
+        ; Check if the buffer already has some data (from `write` syscall)
+        ld a, (kb_buffer_size)
+        or a
+        jr z, _keyboard_read_ignore
+        ld b, a
+        ld de, kb_internal_buffer
+@populate_char:
+        ld a, (de)
+        push bc
+        call stdout_print_char
+        pop bc
+        inc de
+        djnz @populate_char
         ; If the buffer is full, it will not be sent to the user yet
         ; because it is still be possible to go back and remove some characters.
 _keyboard_read_ignore:
