@@ -58,21 +58,24 @@ target_drivers_hook:
         PUBLIC interrupt_pio_handler
 interrupt_default_handler:
 interrupt_pio_handler:
-        ex af, af'
-        exx
+        push af
+        ; Check which pin triggered the interrupt, as soon as possible, multiple pins can trigger
+        ; this interrupt, so all pins shall be checked.
+        in a, (IO_PIO_SYSTEM_DATA)
+        push de
+        ld e, a
+        ; Push the rest of the registers (may be on the user program stack)
+        push hl
+        push bc
         ; The kernel RAM may NOT BE MAPPED, we have to map it here
         MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
         ; Save former page in D, we need it to restore it
         ld d, a
         MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
 
-        ; Check which pin triggered the interrupt, multiple pins can trigger
-        ; this interrupt, so all pins shall be checked.
-        in a, (IO_PIO_SYSTEM_DATA)
-
     IF CONFIG_TARGET_ENABLE_VIDEO
         ; Check if a V-blank interrupt occurred
-        bit IO_VBLANK_PIN, a
+        bit IO_VBLANK_PIN, e
         ; All the bits are active-low!
         call z, video_vblank_isr
     ENDIF ; CONFIG_TARGET_ENABLE_VIDEO
@@ -80,15 +83,17 @@ interrupt_pio_handler:
     IF CONFIG_TARGET_KEYBOARD_PS2
         EXTERN keyboard_ps2_int_handler
 
-        bit IO_KEYBOARD_PIN, a
+        bit IO_KEYBOARD_PIN, e
         call z, keyboard_ps2_int_handler
     ENDIF
 
         ld a, d
         MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
 
-        exx
-        ex af, af'
+        pop bc
+        pop hl
+        pop de
+        pop af
         ei
         reti
 

@@ -510,7 +510,7 @@ stdout_print_buffer:
 ENDIF ; CONFIG_TARGET_STDOUT_VIDEO
 
     ; Routine called everytime a V-blank interrupt occurs
-    ; Must not alter A, nor DE
+    ; Must not alter DE
     PUBLIC video_vblank_isr
 video_vblank_isr:
     ; Add 16(ms) to the counter
