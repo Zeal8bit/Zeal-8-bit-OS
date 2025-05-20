@@ -322,17 +322,17 @@ strsep:
     ;       A
     PUBLIC strlen
 strlen:
-    push hl
     xor a
     ld b, a
     ld c, a
-_strlen_loop:
-    cp (hl)
-    jr z, _strlen_end
-    inc hl
-    inc bc
-    jr _strlen_loop
-_strlen_end:
+    push hl
+    cpir
+    ; Calculate 0x10000 - BC - 1
+    ld h, 0xff
+    ld l, h
+    sbc hl, bc
+    ld b, h
+    ld c, l
     pop hl
     ret
 

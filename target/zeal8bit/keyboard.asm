@@ -33,6 +33,7 @@
         EXTERN keyboard_impl_upper
         EXTERN keyboard_impl_init
         EXTERN keyboard_impl_next_key
+        EXTERN strlen
 
         ; Get the number the characters in the FIFO in register A and set the flags
         MACRO KB_FIFO_SIZE
@@ -88,6 +89,17 @@ _keyboard_invalid_parameter:
         ret
 
 
+        ; Calculate the minimum between HL and BC and store it in BC
+keyboard_min_hl_bc:
+        or a
+        sbc hl, bc
+        ret nc
+        add hl, bc
+        ld b, h
+        ld c, l
+        ret
+
+
         ; Write to the internal cooked buffer.
         ; Parameters:
         ;       DE - Source buffer.
@@ -108,11 +120,15 @@ keyboard_write:
         cp KB_MODE_COOKED
         jr nz, _write_bad_mode
         ; Cooked mode, copy the minimum between BC and KB_INTERNAL_BUFFER_SIZE
+        ; Calculate the minimum between the string length and the given length
+        push bc
+        ex de, hl
+        call strlen
+        ex de, hl
+        pop hl
+        call keyboard_min_hl_bc
         ld hl, KB_INTERNAL_BUFFER_SIZE
-        sbc hl, bc
-        jr nc, _keyboard_write_copy_c
-        ld bc, KB_INTERNAL_BUFFER_SIZE
-_keyboard_write_copy_c:
+        call keyboard_min_hl_bc
         push bc
         ld a, c
         ld (kb_buffer_size), a
@@ -161,25 +177,16 @@ keyboard_read:
         ; We have to copy the minimum between filled buffer and
         ; user buffer length
         pop hl
-        xor a
-        sbc hl, bc
-        jr c, _keyboard_read_bc_bigger
-        ; HL was bigger than (or equal to) BC
-        ; We will copy BC bytes to the user's buffer.
-_keyboard_read_copy_to_user:
+        call keyboard_min_hl_bc
         ex de, hl       ; internal buffer becomes the source
         pop de
         ; BC is set to the minimum already, push it to return it afterwards
         push bc
         ldir
         pop bc
+        ; Return success
+        xor a
         ret
-_keyboard_read_bc_bigger:
-        ; HL was smaller, we need to retrieve it.
-        add hl, bc
-        ld b, h
-        ld c, l
-        jp _keyboard_read_copy_to_user
 
 
         ; Close the keyboard instance, in our case, we will clean the FIFO
