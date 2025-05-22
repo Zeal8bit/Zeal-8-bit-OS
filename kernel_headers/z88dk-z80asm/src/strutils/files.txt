@@ -19,6 +19,7 @@ parse_int.asm
 strchrnul.asm
 strcmp.asm
 strcpy.asm
+strcpy_raw.asm
 strlen.asm
 strltrim.asm
 strncat.asm
