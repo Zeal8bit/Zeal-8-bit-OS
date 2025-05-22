@@ -153,10 +153,21 @@ _ls_detailed:
         ld de, STATIC_STRING_BUFFER
         ; Pop the file name out of the stack
         pop hl
-        call strcpy
+        call strcpy_raw
+        ; Check if it's a dir, if yes, add `/`
+        ld hl, STATIC_STAT_BUFFER
+        ex de, hl
+        ; DE = Stat structure address
+        ; HL = String to fill
+        ld a, (de)
+        inc de
+        and 1
+        cp D_ISFILE
+        jr z, _ls_is_file
+        ld (hl), '/'
+_ls_is_file:
         ; Now convert the size into a hex value
-        ld hl, STATIC_STRING_BUFFER + FILENAME_LEN_MAX ; give some space after filename
-        ld de, STATIC_STAT_BUFFER
+        ld hl, STATIC_STRING_BUFFER + FILENAME_LEN_MAX + 1 ; give some space after filename
         ld (hl), ' '
         inc hl
         ld (hl), ' '
