@@ -300,7 +300,10 @@ zos_disk_stat:
         ld a, (_disks_stat_type)
         cp DISKS_OPN_DIR_MAGIC_FREE
         jr z, _zos_disk_stat_dir
-        ; Stat a file, fill the size in the structure
+        ; Stat a file, set the flags and fill the size in the structure
+        ld a, STAT_FLAGS_IS_FILE
+        ld (de), a
+        inc de
         push bc
         ; Retrieve the size and save it inside the structure.
         ; DE already points to the structure's size field
@@ -313,7 +316,13 @@ zos_disk_stat:
     ENDR
         ; Pop the driver address from the stack
         pop bc
+        jr _zos_disk_continue
 _zos_disk_stat_dir:
+        ; Store the dir flags
+        ld a, STAT_FLAGS_IS_DIR
+        ld (de), a
+        inc de
+_zos_disk_continue:
         ; Get the file system back in A
         pop af
         ; We have a very few file systems, no need for a lookup table AT THE MOMENT
@@ -346,7 +355,7 @@ zos_disk_stat_is_dir:
 
         ; Helper function to fill the stat structure with dummy content and name '/'
         ; Parameters:
-        ;   DE - Address of the structure to fill
+        ;   DE - Address of the structure to fill, pointing to `file_size_t`
         ; Returns:
         ;   A - Success (0)
         ; Alters:
@@ -358,7 +367,7 @@ zos_disk_stat_fill_root:
         ld l, e
         inc de
         ld (hl), 0
-        ld bc, STAT_STRUCT_SIZE - 1
+        ld bc, STAT_STRUCT_SIZE - 2 ; Skip flags field
         ldir
         ; Make HL point to the name
         ld bc,  - (STAT_STRUCT_NAME_LEN - 1)

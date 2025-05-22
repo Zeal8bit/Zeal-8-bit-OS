@@ -277,9 +277,13 @@ _zos_fs_rawtable_open_entry_found:
         ; This includes the date, the size and the name. More info about the stat structure
         ; in `vfs_h.asm` file.
         ; Parameters:
-        ;       BC - Driver address, guaranteed not NULL by the caller.
-        ;       HL - Opened file structure address, pointing to the user field.
-        ;       DE - Address of the STAT_STRUCT to fill.
+        ;   BC - Driver address, guaranteed not NULL by the caller.
+        ;   HL - Opened file structure address:
+        ;           * Pointing to `opn_file_usr_t` for files
+        ;           * Pointing to `opn_file_size_t` for directories
+        ;   DE - Address of the STAT_STRUCT to fill:
+        ;           * Pointing to `file_date_t` for files
+        ;           * Pointing to `file_size_t` for directories
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
         ; Alters:

@@ -89,7 +89,8 @@ typedef struct {
  * @note The size is expressed in bytes
  */
 typedef struct {
-    uint32_t   s_size; // in bytes
+    uint8_t    s_flags; // D_IS* flags
+    uint32_t   s_size;  // in bytes
     zos_date_t s_date;
     char       s_name[FILENAME_LEN_MAX];
 } zos_stat_t;

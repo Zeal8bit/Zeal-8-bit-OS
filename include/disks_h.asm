@@ -85,8 +85,8 @@
 
         ; Size of the directory entry structure
         DEFC DISKS_DIR_ENTRY_SIZE = dir_entry_end_t
-        DEFC DISKS_DIR_ENTRY_IS_FILE = 1
-        DEFC DISKS_DIR_ENTRY_IS_DIR  = 0
+        DEFC DISKS_DIR_ENTRY_IS_FILE = STAT_FLAGS_IS_FILE
+        DEFC DISKS_DIR_ENTRY_IS_DIR  = STAT_FLAGS_IS_DIR
 
 
         ; Macro to test whether the flags from an opened file address, pointing to a opn_file_* field,

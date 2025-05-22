@@ -547,7 +547,6 @@ _zos_stat_file:
     pop de
     or a
     ret nz
-    ASSERT(file_date_t == 4)
     ; We can optimize if we know that date structure follows the size
     ld hl, RAM_BUFFER + zealfs_entry_date
     ld bc, DATE_STRUCT_SIZE

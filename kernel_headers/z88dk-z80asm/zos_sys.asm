@@ -50,6 +50,10 @@
     ; Only makes sense for drivers, not files
     DEFC O_NONBLOCK = 1 << 5
 
+    ; Flags for directory entry and file stat
+    DEFC D_ISFILE  = 1
+    DEFC D_ISDIR   = 0
+
     ; @brief Directory entry size, in bytes.
     ; Its content would be represented like this in C:
     ; struct {
@@ -75,11 +79,12 @@
     ; @brief Stat file size, in bytes.
     ; Its content would be represented like this in C:
     ; struct {
-    ;     uint32_t   s_size; // in bytes
+    ;     uint8_t    s_flags; // D_IS* flags
+    ;     uint32_t   s_size;  // in bytes
     ;     zos_date_t s_date;
     ;     char       s_name[FILENAME_LEN_MAX];
     ; }
-    DEFC ZOS_STAT_SIZE = 1 + ZOS_DATE_SIZE + FILENAME_LEN_MAX
+    DEFC ZOS_STAT_SIZE = 1 + 4 + ZOS_DATE_SIZE + FILENAME_LEN_MAX
 
     ; @brief Whence values. Check `seek` syscall for more info
     DEFC SEEK_SET = 0
