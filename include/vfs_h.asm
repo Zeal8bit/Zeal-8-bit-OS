@@ -55,15 +55,19 @@
         DEFC O_NONBLOCK = 1 << 5
 
         ; File stats structure, filled by zos_vfs_dstat and zos_vfs_stat
+        DEFC STAT_FLAGS_IS_FILE = 1
+        DEFC STAT_FLAGS_IS_DIR  = 0
+
         DEFVARS 0 {
+                file_flags_t    DS.B 1  ; Is the entry a file ? A dir ?
                 file_size_t     DS.B 4  ; Little-endian
                 file_date_t     DS.B DATE_STRUCT_SIZE ; Check time_h.asm file for more info about this structure
                 file_name_t     DS.B 16 ; Includes the extension and the '.'
                 file_end_t      DS.B 1
         }
 
-        ; For the moment, make sure that the total length of the file structure is 28 bytes
-        ASSERT(file_end_t == 28)
+        ; For the moment, make sure that the total length of the file structure is 29 bytes
+        ASSERT(file_end_t == 29)
 
         DEFC STAT_STRUCT_NAME_LEN = 16
         DEFC STAT_STRUCT_SIZE = file_end_t

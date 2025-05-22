@@ -106,15 +106,13 @@ _zos_load_open_and_check_size:
         ; Check if an error occurred while getting the info
         or a
         jr nz, _zos_load_failed
-        ; Check the size field, if size field is not the first attribute, modify the code below
-        ASSERT(file_size_t == 0)
         ; A is 0 if we reached here. The size is in little-endian!
         ; Make sure it doesn't exceed 48KB
-        ld hl, (_file_stats + 2)
+        ld hl, (_file_stats + file_size_t + 2)
         ld a, h
         or l
         jr nz, _zos_load_too_big
-        ld hl, (_file_stats)
+        ld hl, (_file_stats + file_size_t)
         ; Optimize by only comparing the highest byte
         ld a, h
         cp LOADER_BIN_MAX_SIZE >> 8

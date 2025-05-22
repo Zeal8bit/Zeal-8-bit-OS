@@ -64,7 +64,8 @@ _zos_load_open_and_check_size:
         or a
         jr nz, _zos_load_stat_failed
         ; Check the size field, if size field is not the first attribute, modify the code below
-        ASSERT(file_size_t == 0)
+        ASSERT(file_size_t == 1)
+        inc hl
         ; The size is in little-endian!
         ld c, (hl)
         inc hl

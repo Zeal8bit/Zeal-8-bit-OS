@@ -804,7 +804,6 @@ _zos_stat_file:
     pop de
     or a
     ret nz
-    ASSERT(file_date_t == 4)
     ; We can optimize since we know that date structure follows the size
     ld hl, RAM_BUFFER + zealfs_entry_date
     ld bc, DATE_STRUCT_SIZE
@@ -819,19 +818,6 @@ _zos_stat_file:
     and 1
     ; If A is 0, the entry was a file, we can return success (= 0)
     ret z
-_debug_me:
-    ; Make the stat structure point to the size
-    ex de, hl
-    ld bc, -STAT_STRUCT_SIZE
-    add hl, bc
-    ex de, hl
-    ld hl, RAM_BUFFER + zealfs_entry_size
-    REPT FS_SIZE_WIDTH
-        ldi
-    ENDR
-    ; Success, we can return
-    xor a
-    ret
 
 
     ; Close an opened file. On ZealFS this doesn't do anything special apart from
