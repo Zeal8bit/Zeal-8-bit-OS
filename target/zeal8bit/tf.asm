@@ -847,6 +847,8 @@ tf_read:
     ; Check if the TF is accessed as a disk or a block (not implemented)
     or a
     jp nz, tf_not_implemented
+    ; Get the former mapped device
+    in a, (IO_MAPPER_BANK)
     ; Save the parameters temporarily
     ld (_tf_buffer), de
     ld (_tf_total_size), bc
@@ -856,9 +858,20 @@ tf_read:
     ; Get the upper 32-bit of the address to read in DEHL
     pop de
     pop hl
+    push af
+    call @tf_read_internal
+    ; Restore the former device, do not alter A
+    ld h, a
+    pop af
+    out (IO_MAPPER_BANK), a
+    ld a, h
+    ret
+
+@tf_read_internal:
     ; Check if the address is aligned on a sector size (512), A is 0 already
     ; If that's the case, we can optimize and use the user buffer directly
-    or l
+    ld a, l
+    or a
     jr nz, tf_read_not_aligned
     bit 0, h
     jr z, tf_read_address_aligned
@@ -1031,6 +1044,8 @@ tf_write:
     ; Check if the TF is accessed as a disk or a block (not implemented)
     or a
     jp nz, tf_not_implemented
+    ; Get former mapped device
+    in a, (IO_MAPPER_BANK)
     ; Save the parameters temporarily
     ld (_tf_buffer), de
     ld (_tf_total_size), bc
@@ -1040,8 +1055,19 @@ tf_write:
     ; Get the upper 32-bit of the address to read in DEHL
     pop de
     pop hl
+    push af
+    call @tf_write_internal
+    ; Remap former device (A must not be altered)
+    ld h, a
+    pop af
+    out (IO_MAPPER_BANK), a
+    ld a, h
+    ret
+
+@tf_write_internal:
     ; Check if the address is aligned on a sector size (512), A is 0 already
-    or l
+    ld a, l
+    or a
     jr nz, @tf_write_not_aligned
     bit 0, h
     jp z, @tf_write_aligned

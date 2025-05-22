@@ -129,8 +129,11 @@ keyboard_write:
         call keyboard_min_hl_bc
         ld hl, KB_INTERNAL_BUFFER_SIZE
         call keyboard_min_hl_bc
-        push bc
+        ; Check if the size is 0 (B is 0, check C)
         ld a, c
+        or a
+        ret z
+        push bc
         ld (kb_buffer_size), a
         ld (kb_buffer_cursor), a
         ; Copy (B)C bytes to the internal buffer
