@@ -231,6 +231,19 @@
     EXTERN strcpy
 
 
+    ; Function copying src string into dest, including the terminating null byte.
+    ; This function does not save HL and DE.
+    ; Parameters:
+    ;   HL - source string
+    ;   DE - destination string
+    ; Returns:
+    ;   HL - Points to the character AFTER the NULL byte
+    ;   DE - Points to the character AFTER the NULL byte
+    ; Alters
+    ;   A, HL, DE
+    EXTERN strcpy_raw
+
+
     ; Routine returning the length of a NULL-terminated string
     ; Parameters:
     ;   HL - NULL-terminated string to get the length from
