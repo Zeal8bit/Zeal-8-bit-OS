@@ -2202,8 +2202,8 @@ zos_zealfs_free_page:
     rr e
     srl d
     rr e
-    ; The bit to update is A & 3, multiply it by 8 as required below
-    and 3
+    ; The bit to update is A & 7, multiply it by 8 as required below
+    and 7
     rlca
     rlca
     rlca
