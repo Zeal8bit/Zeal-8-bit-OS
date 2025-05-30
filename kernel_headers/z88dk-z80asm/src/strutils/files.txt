@@ -16,6 +16,8 @@ memset.asm
 parse_dec_digit.asm
 parse_hex_digit.asm
 parse_int.asm
+str_contains.asm
+str_startswith.asm
 strchrnul.asm
 strcmp.asm
 strcpy.asm

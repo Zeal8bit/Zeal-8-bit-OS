@@ -194,6 +194,29 @@
     EXTERN parse_int
 
 
+    ; Checks if a substring is present within a string.
+    ; Parameters:
+    ;       HL - Address of the main string (null-terminated).
+    ;       DE - Address of the substring (null-terminated).
+    ; Result:
+    ;       A - 0 if the substring is found, 1 if it is NOT found.
+    ; Alters: AF, BC, DE, HL, IX
+    EXTERN str_contains
+
+
+    ; Checks if the NULL-terminated string in DE is the beginning of the
+    ; NULL-terminated string in HL.
+    ; Parameters:
+    ;   HL - First NULL-terminated string
+    ;   DE - Second NULL-terminated string
+    ; Returns:
+    ;   A - 0 AND Z-Flag, if DE is the beginning
+    ;       Negative value if HL > DE
+    ;       Positive value if HL < DE
+    ; Alters:
+    ;   A
+    EXTERN str_startswith
+
     ; Look for a character in a NULL-terminated string
     ; Parameter:
     ;   HL - Source string address, must NOT be NULL
