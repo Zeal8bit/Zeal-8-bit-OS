@@ -21,10 +21,6 @@
         DEFC KB_FLAG_ALT_BIT   = 0x5
         DEFC KB_FLAG_SHIFT_BIT = 0x4
 
-        DEFC KB_FLAG_MODE_MASK = 0b111
-        DEFC KB_BUF_MODE_MASK  = 0b11
-
-
         EXTERN zos_sys_reserve_page_1
         EXTERN zos_sys_restore_pages
         EXTERN zos_vfs_set_stdin
@@ -49,6 +45,8 @@ keyboard_init:
         ld hl, kb_fifo
         ld (kb_fifo_wr), hl
         ld (kb_fifo_rd), hl
+        ld a, KB_MODE_COOKED
+        ld (kb_mode), a
         ; Register the keyboard as the default stdin
         ld hl, this_struct
         call zos_vfs_set_stdin
@@ -77,12 +75,18 @@ keyboard_ioctl:
         ld a, c
         cp KB_CMD_SET_MODE
         jr nz, _keyboard_invalid_parameter
-        ; Let's keep the lowest 3 bits which contains blocking mode and buffered mode
+        ; Check if the current mode is the same as the new one
+        ld hl, kb_mode
         ld a, e
-        and 7
-        ld (kb_flags), a
-        ; Return success
+        sub (hl)
+        ; Same mode if 0, return (success)
+        ret z
+        ; Mode is different, set the new mode...
+        ld (hl), e
+        ; ...and clear the flags
+        inc hl
         xor a
+        ld (hl), a
         ret
 _keyboard_invalid_parameter:
         ld a, ERR_INVALID_PARAMETER
@@ -115,8 +119,7 @@ keyboard_write:
         ld a, b
         or c
         ret z
-        ld a, (kb_flags)
-        and KB_BUF_MODE_MASK
+        ld a, (kb_mode)
         cp KB_MODE_COOKED
         jr nz, _write_bad_mode
         ; Cooked mode, copy the minimum between BC and KB_INTERNAL_BUFFER_SIZE
@@ -164,8 +167,7 @@ keyboard_read:
         ld a, b
         or c
         ret z
-        ld a, (kb_flags)
-        and KB_BUF_MODE_MASK
+        ld a, (kb_mode)
         cp KB_MODE_RAW
         jp z, keyboard_read_raw
         ; Read into the internal buffer first
@@ -658,8 +660,11 @@ _keyboard_dequeue_notempty:
 kb_fifo_wr: DEFS 2
 kb_fifo_rd: DEFS 2
 kb_fifo_size: DEFS 1
-        ; Check `keyboard_h.asm` file for all flags
+
+        ; Make sure these two always follow eachother
+kb_mode:  DEFS 1
 kb_flags: DEFS 1
+
 kb_internal_buffer: DEFS KB_INTERNAL_BUFFER_SIZE
         ASSERT(KB_INTERNAL_BUFFER_SIZE < 256)
 kb_buffer_size: DEFS 1
