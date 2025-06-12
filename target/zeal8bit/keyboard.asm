@@ -21,6 +21,11 @@
         DEFC KB_FLAG_ALT_BIT   = 0x5
         DEFC KB_FLAG_SHIFT_BIT = 0x4
 
+        ; Raw or cooked
+        DEFC KB_MODE_MASK      = 3
+        ; Non-block or blocking
+        DEFC KB_MODE_TYPE      = 4
+
         EXTERN zos_sys_reserve_page_1
         EXTERN zos_sys_restore_pages
         EXTERN zos_vfs_set_stdin
@@ -120,6 +125,7 @@ keyboard_write:
         or c
         ret z
         ld a, (kb_mode)
+        and KB_MODE_MASK
         cp KB_MODE_COOKED
         jr nz, _write_bad_mode
         ; Cooked mode, copy the minimum between BC and KB_INTERNAL_BUFFER_SIZE
@@ -168,6 +174,7 @@ keyboard_read:
         or c
         ret z
         ld a, (kb_mode)
+        and KB_MODE_MASK
         cp KB_MODE_RAW
         jp z, keyboard_read_raw
         ; Read into the internal buffer first
@@ -550,7 +557,7 @@ keyboard_next_key:
         ; If A is not zero, we received a char, we can return directly
         ret nz
         ; Having no next key is valid if we are in non-blocking mode
-        ld a, (kb_flags)
+        ld a, (kb_mode)
         ; Result is zero in blocking mode
         and KB_READ_NON_BLOCK
         ; If in blocking mode (0), try again
@@ -662,7 +669,7 @@ kb_fifo_rd: DEFS 2
 kb_fifo_size: DEFS 1
 
         ; Make sure these two always follow eachother
-kb_mode:  DEFS 1
+kb_mode:  DEFS 1    ; Lo
 kb_flags: DEFS 1
 
 kb_internal_buffer: DEFS KB_INTERNAL_BUFFER_SIZE
