@@ -27,18 +27,12 @@ ASMFLAGS=$(INCLUDES) $(LIBS) -lstrutils.lib -m -b
 .PHONY: all clean
 
 all: clean
-	@ ( test -n "$(EXTRA_ROMDISK_FILES)" && \
-	    echo "Extra files detected: $(EXTRA_ROMDISK_FILES)" ) || \
-	    echo "No extra file to pack into romdisk"
 	@mkdir -p $(BUILDIR)
-	@echo "Creating romdisk"
 	$(CC) $(ASMFLAGS) $(SRCS)
 	@echo "Moving generated files"
 	mv *.o ./$(BUILDIR) && mv *.map ./$(BUILDIR) && mv $(basename $(BIN))*.bin ./$(BUILDIR)
 	@# For some reasons, z88dk-z80asm will create an empty `init.bin` file, remove it
 	@rm -f $(BUILDIR)/$(BIN) && mv $(BUILDIR)/*_TEXT.bin $(BUILDIR)/$(BIN)
-	@echo "Packing the files"
-	pack $(IMG) $(FILES_IN_IMG) $(EXTRA_ROMDISK_FILES)
 
 clean:
 	rm -rf build/ $(IMG)
