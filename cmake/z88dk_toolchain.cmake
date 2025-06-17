@@ -1,0 +1,18 @@
+set(CMAKE_MODULE_PATH "$ENV{ZOS_PATH}/cmake/Modules" ${CMAKE_MODULE_PATH})
+
+set(CMAKE_SYSTEM_NAME Generic)
+
+# Disable C/C++ compilers
+set(CMAKE_C_COMPILER "" CACHE INTERNAL "")
+set(CMAKE_CXX_COMPILER "" CACHE INTERNAL "")
+set(CMAKE_C_COMPILER_WORKS TRUE CACHE INTERNAL "")
+set(CMAKE_CXX_COMPILER_WORKS TRUE CACHE INTERNAL "")
+
+# ASM compiler settings - all cached!
+set(CMAKE_ASM_COMPILER z88dk-z80asm)
+set(CMAKE_ASM_COMPILER_ID Z88DK)
+
+# Disable dependency generation
+set(CMAKE_DEPENDS_USE_COMPILER FALSE)
+
+set(CMAKE_ASM_FLAGS_INIT "-I$ENV{ZOS_PATH}/kernel_headers/z88dk-z80asm/")

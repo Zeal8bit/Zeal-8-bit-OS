@@ -1,0 +1,17 @@
+message(STATUS "ZOS SDASZ80 assembler detected.")
+
+set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS asm)
+set(CMAKE_ASM_OUTPUT_EXTENSION ".rel")
+
+set(CMAKE_ASM_COMPILE_OBJECT
+    "<CMAKE_ASM_COMPILER> <INCLUDES> <FLAGS> -o <OBJECT> <SOURCE>"
+)
+
+# The way the final binary (C or ASM) is linked highly depends on the assembler.
+set(CMAKE_C_LINK_EXECUTABLE
+    "<CMAKE_LINKER> <LINK_FLAGS> <LINK_LIBRARIES> <TARGET> ${SDCC_REL0} <OBJECTS>")
+
+set(CMAKE_ASM_LINK_EXECUTABLE
+    "<CMAKE_LINKER> <LINK_FLAGS> <LINK_LIBRARIES> <TARGET> ${SDCC_REL0} <OBJECTS>")
+
+set(CMAKE_EXECUTABLE_SUFFIX ".ihx")          # intel hex file

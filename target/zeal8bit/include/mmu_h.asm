@@ -3,7 +3,6 @@
 ; SPDX-License-Identifier: Apache-2.0
 
     INCLUDE "kern_mmu_h.asm"
-    INCLUDE "romdisk_info_h.asm"
     INCLUDE "osconfig.asm"
 
     IFNDEF MMU_H

@@ -4,9 +4,27 @@ This directory contains a simple example of how to use and assemble the Zeal 8-b
 
 ## How to assemble
 
-In order to assemble the example, you will need `z88dk`'s `z80asm` binary. Make sure `z88dk` is properly installed in the system.
+To assemble the example, you will need the `z80asm` binary from `z88dk`. Make sure that `z88dk` is properly installed and that the `ZOS_PATH` environment variable is set to the root of the Zeal 8-bit OS source.
 
-Then, to compile this example, you will only need the following command:
+### Using CMake
+
+Setup the project using:
+```
+cmake --toolchain $ZOS_PATH/cmake/z88dk_toolchain.cmake -B bin
+```
+
+Then compile with:
+```
+cmake --build bin
+```
+
+The output binary will be placed in the `bin/` folder. By default, its name is `main.bin`.
+
+You can change `bin` in the commands above to specify a different output directory.
+
+### Using `make` (deprecated)
+
+To compile this example, you will only need the following command:
 ```
 make
 ```
@@ -17,16 +35,9 @@ The output binary should be present in the `bin/` folder. By default, its name i
 
 Once loaded in Zeal 8-bit OS, the program will show a message on screen:
 ```
-Type your name: 
+Type your name:
 ```
 The user is invited to type his name, then after enter is pressed, the program terminates with the message:
 ```
 Hello <name typed>
-```
-
-## Modifying this example
-
-In order to modify this example to add more files to the assembly process, open the `Makefile` and modify accordingly the following variable:
-```
-SRCS = main.asm
 ```

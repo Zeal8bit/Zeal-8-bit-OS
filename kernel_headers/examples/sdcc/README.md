@@ -7,6 +7,26 @@ This directory contains an example of how to use and compile the Zeal 8-bit OS k
 In order to compile the example, you will need SDCC v4.2.0 or above. Indeed, the kernel header implementation uses `__sdcccall(1)` calling convention, which is not supported in earlier SDCC versions.
 Thus, make sure SDCC is properly installed and up to date in the system.
 
+### Using CMake
+
+Setup the project using:
+```
+cmake --toolchain $ZOS_PATH/cmake/sdcc_toolchain.cmake -B bin
+```
+
+Then compile with:
+```
+cmake --build bin
+```
+
+The output binary will be placed in the `bin/` folder. By default, its name is `main.bin`.
+
+You can change `bin` in the commands above to specify a different output directory.
+
+> When using CMake as a build system, it's possible to have both assembly files and C specified in the `CMakeLists.txt` file to be compiled.
+
+### Using `make` (deprecated)
+
 Then, to compile this example, you will only need the following command:
 ```
 make
