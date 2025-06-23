@@ -104,7 +104,7 @@
         ld (mmu_bitmap), hl
         ld (mmu_bitmap + 2), hl
         ; In theory, the stack is not ready, let's take some advance and set it
-        ;  in order ot be able to call a function
+        ; in order to be able to call a function
         ld sp, CONFIG_KERNEL_STACK_ADDR
         call mmu_init_ram_code
         ; Mark kernel RAM page as allocated (page number in A, subtract RAM start index)

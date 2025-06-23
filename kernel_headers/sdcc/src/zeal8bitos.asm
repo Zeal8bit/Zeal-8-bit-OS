@@ -511,6 +511,55 @@ _swap:
     ret
 
 
+    ; zos_err_t palloc(uint8_t* page_index);
+    ; Parameters:
+    ;   HL - page_index
+    .globl _palloc
+_palloc:
+    ; DE won't be altered by the syscall
+    ex de, hl
+    syscall 25
+    ex de, hl
+    ; Store the returned page in `page_index`
+    ld (hl), b
+    ret
+
+
+    ; zos_err_t pfree(uint8_t page_index);
+    ; Parameters:
+    ;   A - page_index
+    .globl _pfree
+_pfree:
+    ; Syscall parameters:
+    ;   B - Page to free
+    ld b, a
+    syscall 26
+    ret
+
+
+    ; zos_err_t pmap(uint8_t page_index, const void* vaddr) CALL_CONV;
+    ; Parameters:
+    ;   A - page_index
+    ;   DE - vaddr
+    .globl _pmap
+_pmap:
+    ; Syscall parameters:
+    ;   DE - Virtual address
+    ;   HBC - Upper 24-bits of the physical address to map.
+    ; Put A lowest two bits in B's highest two bits
+    ld b, #0
+    ld c, b
+    or a    ; Clear carry flag
+    rra
+    rr b
+    rra
+    rr b
+    ld h, a
+    ; MAP
+    syscall 23
+    ret
+
+
     ; int getchar(void)
     ; Get next character from standard input. Input is buffered.
     ; Returns:

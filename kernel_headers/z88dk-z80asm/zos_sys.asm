@@ -618,6 +618,38 @@
     ENDM
 
 
+    ; @brief Allocate a RAM page, of size 16KB. The returned value is a page index, which represents
+    ;        the uppest 8-bit of the physical memory address. It can be passed to pfree to release the page.
+    ;        The newly allocated page can be mapped via `map` syscall.
+    ;        Can be invoked with PALLOC().
+    ;
+    ; Parameters:
+    ;   None
+    ; Returns:
+    ;   A - ERR_SUCCESS on success
+    ;       ERR_NO_MORE_MEMORY if no free RAM page is available
+    ;   B - Allocated page index (if A is ERR_SUCCESS)
+    MACRO  PALLOC  _
+        ld l, 25
+        SYSCALL
+    ENDM
+
+
+    ; @brief Free a previously allocate RAM page. It is NOT possible to free a page that was allocated by
+    ;        another program.
+    ;        Can be invoked with PFREE().
+    ;
+    ; Parameters:
+    ;   B - Page index to free
+    ; Returns:
+    ;   A - ERR_SUCCESS on success
+    ;       ERR_INVALID_PARAMETER if the page was not allocated by the current program
+    MACRO  PFREE  _
+        ld l, 26
+        SYSCALL
+    ENDM
+
+
     ; @brief Get a read-only pointer to the kernel configuration.
     ;
     ; Parameters:

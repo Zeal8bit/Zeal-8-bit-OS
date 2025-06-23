@@ -109,12 +109,62 @@ zos_err_t map(const void* vaddr, uint32_t paddr) CALL_CONV;
 
 
 /**
+ * @brief Allocate a RAM page of 16KB.
+ *
+ * This function is responsible for allocating a memory page, it will not be mapped
+ * in the virtual address space directly, use `map` or `pmap` for that.
+ *
+ * @param page_index[out] Pointer to the page_index to be filled with the newly allocated
+ *                        page index. This index shall be given to `pfree` upon release.
+ *                        Must not be NULL.
+ *
+ * @returns ERR_SUCCESS on success,
+ *          ERR_INVALID_PARAMETER if parameter is NULL
+ *          ERR_NO_MORE_MEMORY if no free RAM page is available
+ */
+zos_err_t palloc(uint8_t* page_index) CALL_CONV;
+
+
+/**
+ * @brief Free a previously allocated RAM page.
+ *
+ * The current program can only free pages taht it previously allocated with `palloc`.
+ * It CANNOT free pages allocated by other programs.
+ *
+ * @param page_index Index of the page to free. The physical address associated to this
+ *                   page shall not be used afterwards.
+ *
+ * @returns ERR_SUCCESS on success,
+ *          ERR_INVALID_PARAMETER if the page was not allocated by the current program
+ */
+zos_err_t pfree(uint8_t page_index) CALL_CONV;
+
+
+/**
+ * @brief Map a given page index to the virtual address.
+ *
+ * @note This is NOT a syscall but a helper!
+ *
+ * @param page_index Index of memory page to map, returned by `palloc`.
+ * @param vaddr Destination address in virtual memory. This will be rounded down
+ *              to the target closest page bound.
+ *              For example, passing 0x5000 here, would in fact trigger a
+ *              remap of the page starting at 0x4000 on a target that has 16KB
+ *              virtual pages.
+ *
+ * @returns ERR_SUCCESS on success, error code else.
+ */
+zos_err_t pmap(uint8_t page_index, const void* vaddr) CALL_CONV;
+
+
+/**
  * @brief Get a read-only pointer to the kernel configuration.
  *
  * @returns A pointer to the kernel configuration. It is guaranteed that the
  *          structure won't be spread across two 256-byte pages. In other words,
  *          it is possible to browse the structure by performing 8-bit arithmetic.
  */
-static inline const zos_config_t* kernel_config(void) {
+static inline const zos_config_t* kernel_config(void)
+{
     return *((zos_config_t**) 0x0004);
 }
