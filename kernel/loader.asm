@@ -27,6 +27,11 @@
         DEFC LOADER_KEEP_PROGRAM_IN_MEM  = 1
         DEFC LOADER_BIN_MAX_SIZE         = 0xC000 ; (48KB)
 
+        MACRO CURRENT_OWNER _
+            ld a, (_stack_entries)
+            inc a
+        ENDM
+
         SECTION KERNEL_TEXT
 
         ; Load the first binary in the system
@@ -63,7 +68,7 @@ zos_load_init_file_error:
         ; Alters:
         ;   A, BC, DE, HL
 zos_load_allocate_page_to_de:
-        REPT KERNEL_PAGES_PER_PROGRAM - 1
+        REPT KERNEL_PAGES_PER_PROGRAM
             ; MMU_ALLOC_PAGE must not alter DE pair
             MMU_ALLOC_PAGE()
             ; Allocated page is in B, check error first
@@ -72,11 +77,8 @@ zos_load_allocate_page_to_de:
             ld a, b
             ld (de), a
             inc de
+            call _zos_page_set_current_owner
         ENDR
-        MMU_ALLOC_PAGE()
-        ex de, hl
-        ld (hl), b
-        or a
         ret
 
         ; Routine helper to open and check the size of a file.
@@ -265,7 +267,7 @@ zos_loader_ret:
         ; Jump to this branch if we need to allocate new memory pages to store
         ; the user program in.
 zos_loader_exec_new_pages:
-        ; DE and BC still contain the file to laod and the string parameter,
+        ; DE and BC still contain the file to load and the string parameter,
         ; they won't be altered by the following call
         call zos_loader_allocate_user_pages
         jr nz, zos_loader_ret
@@ -379,30 +381,26 @@ zos_loader_exit_from_first:
         ;   A, HL
 zos_loader_allocate_user_pages:
         ; Make sure we can still push programs to the stack
-        ld a, (_stack_entries)
+        ld hl, _stack_entries
+        ld a, (hl)
         sub CONFIG_KERNEL_MAX_NESTED_PROGRAMS - 1
         jr z, zos_loader_allocate_user_pages_full
         push de
         push bc
-        ; Use _file_stats as a temporary buffer so that we don't erase _allocate_pages
-        ; in case of any error
-        ld de, _file_stats
+        ; Update the current owner to simplify the code in `zos_load_allocate_page_to_de`
+        inc (hl)
+        ; Driectly allocate in `_allocate_pages` since we will use `_zos_user_page_1` to backup the current pages
+        ld de, _allocate_pages
         call zos_load_allocate_page_to_de
-        jr nz, zos_loader_allocate_user_pages_ret
-        ; Perform the following move: [_file_stats] -> [_allocate_pages] -> [_stack_head]
-        ; where DE is _file_stats, BC is _allocate_pages and HL is _stack_head
-        ld de, _file_stats
+        jr nz, zos_loader_allocate_user_pages_err
+        ; Copy the current pages to the stack_head
+        ld de, _zos_user_page_1
         ld hl, (_stack_head)
-        ld bc, _allocate_pages
+        ex de, hl
         REPT KERNEL_PAGES_PER_PROGRAM
-            ld a, (bc)
-            ld (hl), a
-            ld a, (de)
-            ld (bc), a
-            inc hl
-            inc de
-            inc bc
+            ldi
         ENDR
+        ex de, hl
         ; Store the user stack too
         ld de, (_zos_user_sp)
         ld (hl), e
@@ -411,15 +409,17 @@ zos_loader_allocate_user_pages:
         inc hl
         ; Update the top of the stack
         ld (_stack_head), hl
-        ; Update the number of entries
-        ld hl, _stack_entries
-        inc (hl)
         ; Return success
         xor a
 zos_loader_allocate_user_pages_ret:
         pop bc
         pop de
         ret
+zos_loader_allocate_user_pages_err:
+        ; Restore owner
+        ld hl, _stack_entries
+        dec (hl)
+        jr zos_loader_allocate_user_pages_ret
 zos_loader_allocate_user_pages_full:
         or ERR_CANNOT_REGISTER_MORE
         ret
@@ -437,39 +437,135 @@ zos_loader_allocate_user_pages_full:
 zos_loader_free_user_pages:
         ; Check that we have at least 1 entry on the stack
         ld hl, _stack_entries
+        ; Current owner in A
         ld a, (hl)
-        or a
-        jr z, zos_loader_allocate_user_pages_full
+        inc a
+        ; Decrement owner
         dec (hl)
-        ; Free the current user program's pages
-        ld de, _allocate_pages
-        REPT KERNEL_PAGES_PER_PROGRAM - 1
-            ld a, (de)
-            MMU_FREE_PAGE()
-            inc de
-        ENDR
-        ld a, (de)
-        MMU_FREE_PAGE()
-        ; Copy the top of the stack to _allocate_pages
+        ; Free the current user program's pages, browse the whole page owner array
+        ; and look for all the apges allocated to the program
+        ld b, MMU_RAM_PHYS_PAGES
+        ld c, MMU_RAM_PHYS_START_IDX
+        ld hl, _page_owners
+_free_pages_loop:
+        cp (hl)
+        call z, free_page_c
+        inc c
+        inc hl
+        djnz _free_pages_loop
+        ; Pages have been freed and marked as not owned.
+        ; Pop the current entry from the stack
         ld hl, (_stack_head)
-        dec hl  ; Points to the user SP high byte
-        dec hl
-        dec hl
-        ; Copy the previous user program's pages
-        ; DE points to _allocate_pages + KERNEL_PAGES_PER_PROGRAM - 1
-        REPT KERNEL_PAGES_PER_PROGRAM
-            ldd
-        ENDR
+        ld bc, -KERNEL_STACK_ENTRY_SIZE
+        add hl, bc
         ; HL points to the previous entry's SPh, increment it to make it point to
         ; the value we just popped
-        inc hl
         ld (_stack_head), hl
         ; Success
         xor a
         ret
 
+        ; Make the page C, pointed by HL, free (not owned)
+        ; Parameters:
+        ;   HL - Address of page C int he owner array
+        ;   C - Page index
+        ; Returns:
+        ;   [HL] - 0
+        ; Alters:
+        ;   None
+free_page_c:
+        push hl
+        push bc
+        push af
+        ld (hl), 0
+        ld a, c
+        MMU_FREE_PAGE()
+        pop af
+        pop bc
+        pop hl
+        ret
+
+
+        ; Get the owner address for the given page and return the current owner
+        ; Parameters:
+        ;   B - Page to get the owner address from
+        ; Returns:
+        ;   HL - Owner address
+        ;   A - Current owner
+        ; Alters:
+        ;   A, HL, DE
+_zos_page_owner_addr:
+        ld d, 0
+        ld e, b
+        ; Page in B starts at MMU_RAM_PHYS_START_IDX, but we want pages to be indexed
+        ; from 0, so subtract MMU_RAM_PHYS_START_IDX.
+        ld hl, _page_owners - MMU_RAM_PHYS_START_IDX
+        add hl, de
+        CURRENT_OWNER()
+        ret
+
+
+        ; Mark the given page as owned byt he current program
+        ; Parameters:
+        ;   B - Page to get the owner address from
+        ; Returns:
+        ;   HL - Owner address
+        ;   A - ERR_SUCCESS
+        ; Alters:
+        ;   A, HL
+_zos_page_set_current_owner:
+        push de
+        call _zos_page_owner_addr
+        ld (hl), a
+        pop de
+        xor a
+        ret
+
+
+        ; Allocate a page for the current user program.
+        ; Parameters:
+        ;   None
+        ; Returns:
+        ;   A - ERR_SUCCESS on success
+        ;       ERR_NO_MORE_MEMORY if there is no more memory
+        ;   B - Allocated page if A is ERR_SUCCESS
+        PUBLIC zos_loader_palloc
+zos_loader_palloc:
+        MMU_ALLOC_PAGE()
+        or a
+        ret nz
+        jp _zos_page_set_current_owner
+
+
+        ; Free a previously allocated page.
+        ; Parameters:
+        ;   B - Page to free
+        ; Returns:
+        ;   A - ERR_SUCCESS on success
+        ;       ERR_INVALID_PARAMETER if the page doesn't belong to the current program
+        PUBLIC zos_loader_pfree
+zos_loader_pfree:
+        call _zos_page_owner_addr
+        ; Make sure they are the same
+        sub (hl)
+        jr nz, _zos_loader_invalid_param
+        ; Marke the page as free
+        ld (hl), a
+        ; Free the page in the MMU
+        MMU_FREE_PAGE()
+        ret
+_zos_loader_invalid_param:
+        ld a, ERR_INVALID_PARAMETER
+        ret
+
 
         SECTION KERNEL_BSS
+        ; Keep the owners of the pages allacoted via `palloc` in this array, this will simplify the code above
+        ; compared to pushing the allocated pages on the `_stack_user_pages` stack. 0 means no owner. Some
+        ; pages may be actually used, but the macro `MMU_ALLOC_PAGE` will simply never return themit, so it's
+        ; safe to keep it as not owned.
+_page_owners: DEFS MMU_RAM_PHYS_PAGES
+
         ; Small array to store freshly allocated user pages
         ; _allocate_pages[i] represents is page i + 1
         ; (page 0 is always the kernel)

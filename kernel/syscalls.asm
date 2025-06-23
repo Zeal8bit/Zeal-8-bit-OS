@@ -13,6 +13,8 @@
 
         EXTERN zos_loader_exit
         EXTERN zos_loader_exec
+        EXTERN zos_loader_palloc
+        EXTERN zos_loader_pfree
 
         SECTION SYSCALL_ROUTINES
 
@@ -319,4 +321,6 @@ syscall_exec:
 syscall_map:
         DEFW SYSCALL_MAP_ROUTINE
         DEFW zos_vfs_swap
+        DEFW zos_loader_palloc
+        DEFW zos_loader_pfree
 zos_syscalls_table_end:

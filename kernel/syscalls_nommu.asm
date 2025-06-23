@@ -23,6 +23,9 @@ zos_sys_init:
         ld (_zos_sys_jump), a
         ret
 
+        ; Page allocation syscalls are not available in no-mmu context
+zos_loader_palloc:
+zos_loader_pfree:
         ; Map a physical memory address to the virtual address space.
         ; Not supported on MMU-less targets.
         ; Returns:
@@ -113,4 +116,6 @@ syscall_exec:
 syscall_map:
         DEFW SYSCALL_MAP_ROUTINE
         DEFW zos_vfs_swap
+        DEFW zos_loader_palloc
+        DEFW zos_loader_pfree
 zos_syscalls_table_end:

@@ -408,6 +408,8 @@ Num  | Name | Param. 1 | Param. 2 | Param. 3
 22 | getdate | u16 date | |
 23 | map | u16 dst | u24 src | |
 24 | swap | u8 dev | u8 ndev | |
+25 | palloc | | | |
+26 | pfree | u8 page | | |
 
 Please check the [section below](#syscall-parameters) for more information about each of these call and their parameters.
 
@@ -422,6 +424,7 @@ In order to perform a syscall, the operation number must be stored in register `
 | u8 dev                | `H`          |
 | u8 ndev               | `E`          |
 | u8 flags              | `H`          |
+| u8 page               | `B`          |
 | u8 cmd                | `C`          |
 | u8 letter             | `D`          |
 | u8 code               | `H`          |
