@@ -8,6 +8,7 @@
     INCLUDE "utils_h.asm"
     INCLUDE "mmu_h.asm"
     INCLUDE "time_h.asm"
+    INCLUDE "log_h.asm"
     INCLUDE "strutils_h.asm"
 
     EXTERN zos_sys_reserve_page_1
@@ -38,6 +39,23 @@ video_init:
     call zos_vfs_set_stdout
   ENDIF
 
+    ; Allocate a buffer on the stack
+    ALLOC_STACK_256()
+    ; Log the current version
+    in a, (0x80)
+    push af
+    in a, (0x81)
+    push af
+    in a, (0x82)
+    push af
+    ld de, _addr
+    ex de, hl
+    call strformat
+    ex de, hl
+    call zos_log_info
+    ; Deallocate stack buffer
+    FREE_STACK_256()
+
     ; Register the timer-related routines
   IF VIDEO_USE_VBLANK_MSLEEP
     ld bc, video_msleep
@@ -53,6 +71,9 @@ video_init:
 video_deinit:
     xor a   ; Success
     ret
+
+_addr:
+    DEFM "ZVB v", FORMAT_U8_DEC, ".", FORMAT_U8_DEC, ".", FORMAT_U8_DEC, "\n", 0
 
     ; Open function, called every time a file is opened on this driver
     ; Note: This function should not attempt to check whether the file exists or not,
