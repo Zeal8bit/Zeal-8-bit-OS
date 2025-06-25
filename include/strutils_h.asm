@@ -13,6 +13,7 @@
     DEFC FORMAT_STRING  = FORMAT_SPECIFIER | 1
     DEFC FORMAT_U8_HEX  = FORMAT_SPECIFIER | 2
     DEFC FORMAT_CHAR    = FORMAT_SPECIFIER | 3
+    DEFC FORMAT_U8_DEC  = FORMAT_SPECIFIER | 4
 
     ; Public routines. The descriptions are given in the implementation file.
     EXTERN strformat

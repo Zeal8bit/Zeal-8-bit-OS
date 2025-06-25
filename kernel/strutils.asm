@@ -46,9 +46,11 @@ _str_format_special:
     dec a
     jr z, _str_format_str
     dec a
-    jr z, _str_format_hex
+    jr z, _str_format_uhex
     dec a
     jr z, _str_format_char
+    dec a
+    jr z, _str_format_udec
     ; Unknown, skip it
     inc hl
     jr _str_format_loop
@@ -76,7 +78,7 @@ _str_format_str_loop:
     jr z, _str_format_restore_continue
     ldi
     jr _str_format_str_loop
-_str_format_hex:
+_str_format_uhex:
     ex (sp), hl
     ; Only H contains data
     ld a, h
@@ -89,6 +91,12 @@ _str_format_hex:
     ld (hl), e
     inc hl
     ex de, hl
+    jr _str_format_restore_continue
+_str_format_udec:
+    ex (sp), hl
+    ; Only H contains data
+    ld a, h
+    call dec_byte_to_ascii
     jr _str_format_restore_continue
 _str_format_char:
     ex (sp), hl
@@ -881,7 +889,63 @@ _to_lower_not_char_ccf:
     ret
 
 
-    ; Convert an 8-bit value to ASCII
+    ; Convert an 8-bit value to ASCII DEC
+    ; Parameters:
+    ;       A - Value to convert
+    ;       DE - Destination buffer
+    ; Returns:
+    ;       DE - Destination buffer + length
+    ; Alters:
+    ;       A
+dec_byte_to_ascii:
+    ; Convert A to BCD
+    ld h, a
+    ; Set C, L and A to 0
+    xor a
+    ld l, a
+    ld b, 8 ; Length
+_dec_byte_to_ascii_loop:
+    rlc h
+    adc a
+    daa
+    jr nc, _dec_byte_to_ascii_check
+    ; If B is 2, L will be 2, if B is 1, L will also be 1
+    ld l, b
+_dec_byte_to_ascii_check:
+    djnz _dec_byte_to_ascii_loop
+    ; Finished, the result in BCD is LA
+    ld c, a
+    ; Store L first!
+    ld a, l
+    and 0xf
+    call nz, _dec_byte_to_ascii_digit
+    ; Now output the tens, if not 0 OR if we outputted hundreds
+    ld a, c
+    and 0xf0
+    or l
+    jr z, _dec_byte_to_ascii_skip_tens
+    ld a, c
+    ; Put the upper nibble in the bottom nibble
+    rlca
+    rlca
+    rlca
+    rlca
+    and 0xf
+    call _dec_byte_to_ascii_digit
+_dec_byte_to_ascii_skip_tens:
+    ; Lowest nibble
+    ld a, c
+    and 0xf
+_dec_byte_to_ascii_digit:
+    add '0'
+    ld (de), a
+    inc de
+    ret
+
+
+
+
+    ; Convert an 8-bit value to ASCII HEX
     ; Parameters:
     ;       A - Value to convert
     ; Returns:
