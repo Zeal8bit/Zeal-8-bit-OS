@@ -13,7 +13,7 @@
                 sub l
                 ld h, a
         ENDM
-        
+
         ; Performs ADD DE, A
         MACRO ADD_DE_A _
                 add e
@@ -31,18 +31,16 @@
         ; Allocate 256 bytes on the stack
         ; Alters: HL, SP
         MACRO ALLOC_STACK_256 _
-                ld hl, 0
+                ld hl, -256
                 add hl, sp
-                dec h
                 ld sp, hl
         ENDM
 
         ; Free the 256 bytes allocated on the stack
         ; Alters: HL, SP
         MACRO FREE_STACK_256 _
-                ld hl, 0
+                ld hl, 256
                 add hl, sp
-                inc h
                 ld sp, hl
         ENDM
 
