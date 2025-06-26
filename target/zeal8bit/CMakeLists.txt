@@ -2,55 +2,55 @@
 
 # Optional MMU support
 if(CONFIG_KERNEL_TARGET_HAS_MMU)
-    set(MMU_FILE mmu.asm)
+    set(mmu_file mmu.asm)
 else()
-    set(MMU_FILE "")
+    set(mmu_file "")
 endif()
 
 # Source files common to MMU and no-MMU configurations
-set(SRCS
+set(srcs
     pio.asm
     i2c.asm
     keyboard.asm
     romdisk.asm
-    ${MMU_FILE}
+    ${mmu_file}
     interrupt_vect.asm
     eeprom.asm
 )
 
 # Conditional keyboard source
 if(CONFIG_TARGET_KEYBOARD_PS2)
-    list(APPEND SRCS keyboard/ps2.asm)
+    list(APPEND srcs keyboard/ps2.asm)
 else()
-    list(APPEND SRCS keyboard/parl.asm)
+    list(APPEND srcs keyboard/parl.asm)
 endif()
 
 # Conditionally prepend uart.asm if it's stdout
 if(CONFIG_TARGET_STDOUT_UART)
     # Insert at the beginning
-    list(INSERT SRCS 0 uart.asm)
+    list(INSERT srcs 0 uart.asm)
 else()
-    list(APPEND SRCS uart.asm)
+    list(APPEND srcs uart.asm)
 endif()
 
 # Same logic for video
 if(CONFIG_TARGET_STDOUT_VIDEO)
-    list(INSERT SRCS 0 video.asm)
+    list(INSERT srcs 0 video.asm)
 elseif(CONFIG_TARGET_ENABLE_VIDEO)
-    list(APPEND SRCS video.asm)
+    list(APPEND srcs video.asm)
 endif()
 
 # Optional CF/TF support
 if(CONFIG_TARGET_ENABLE_COMPACTFLASH)
-    list(APPEND SRCS compactflash.asm)
+    list(APPEND srcs compactflash.asm)
 endif()
 
 if(CONFIG_TARGET_ENABLE_TFCARD)
-    list(APPEND SRCS tf.asm)
+    list(APPEND srcs tf.asm)
 endif()
 
 # Register all the files and the include directories
-zos_target_add(SRCS ${SRCS}
+zos_target_add(SRCS ${srcs}
                LINKERSCRIPT "linker.asm"
                INCLUDE "./" "./include")
 

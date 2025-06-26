@@ -25,36 +25,36 @@ add_subdirectory(kernel)
 # Target sources
 add_subdirectory("target/${CONFIG_TARGET}")
 
-# Retrieve all the properties and make them variables
-get_property(LINKERSCRIPT GLOBAL PROPERTY LINKERSCRIPT)
-get_property(KERNEL_SRCS GLOBAL PROPERTY KERNEL_SRCS)
-get_property(KERNEL_INCLUDES GLOBAL PROPERTY KERNEL_INCLUDES)
-get_property(TARGET_SRCS GLOBAL PROPERTY TARGET_SRCS)
-get_property(TARGET_FLAGS GLOBAL PROPERTY TARGET_FLAGS)
-get_property(TARGET_LINK_FLAGS GLOBAL PROPERTY TARGET_LINK_FLAGS)
-get_property(TARGET_INCLUDES GLOBAL PROPERTY TARGET_INCLUDES)
-get_property(CUSTOM_DEPENDENCY GLOBAL PROPERTY CUSTOM_DEPENDENCY)
+# Retrieve all the properties and make them variables, let's keep the local variables in lower case.
+get_property(linkerscript GLOBAL PROPERTY LINKERSCRIPT)
+get_property(kernel_srcs GLOBAL PROPERTY KERNEL_SRCS)
+get_property(kernel_includes GLOBAL PROPERTY KERNEL_INCLUDES)
+get_property(target_srcs GLOBAL PROPERTY TARGET_SRCS)
+get_property(target_flags GLOBAL PROPERTY TARGET_FLAGS)
+get_property(target_link_flags GLOBAL PROPERTY TARGET_LINK_FLAGS)
+get_property(target_includes GLOBAL PROPERTY TARGET_INCLUDES)
+get_property(custom_dependency GLOBAL PROPERTY CUSTOM_DEPENDENCY)
 
 
 # Make sure a linker script was provided
-if(LINKERSCRIPT STREQUAL "")
+if(linkerscript STREQUAL "")
     message(FATAL_ERROR "A linker script must be defined and given to target_add_srcs")
 endif()
 # Append all the sources together
-set(SRCS ${LINKERSCRIPT})
-list(APPEND SRCS ${KERNEL_SRCS} ${TARGET_SRCS})
+set(srcs ${linkerscript})
+list(APPEND srcs ${kernel_srcs} ${target_srcs})
 
 # Do the same for the included directories and prepend "-I" option
-set(INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/include/")
-list(APPEND INCLUDE_DIRS ${KERNEL_INCLUDES} ${TARGET_INCLUDES})
-list(TRANSFORM INCLUDE_DIRS PREPEND "-I")
+set(include_dirs "${CMAKE_SOURCE_DIR}/include/")
+list(APPEND include_dirs ${kernel_includes} ${target_includes})
+list(TRANSFORM include_dirs PREPEND "-I")
 
 
 ####### RULES #######
 
 # Create object files, the simplest solution for the configuration file is to make them all depend on it
-set(OBJ_FILES "")
-foreach(src IN LISTS SRCS)
+set(obj_files "")
+foreach(src IN LISTS srcs)
     set(obj "")
     # Replace the extension with .o
     cmake_path(REPLACE_EXTENSION src ".o" OUTPUT_VARIABLE obj)
@@ -64,11 +64,11 @@ foreach(src IN LISTS SRCS)
     set(obj ${CMAKE_BINARY_DIR}/${obj})
     add_custom_command(
         OUTPUT ${obj}
-        COMMAND ${Z80ASM} ${INCLUDE_DIRS} ${TARGET_FLAGS} -o${obj} ${src}
+        COMMAND ${Z80ASM} ${include_dirs} ${target_flags} -o${obj} ${src}
         DEPENDS ${src} ${CMAKE_SOURCE_DIR}/${CONFIG_ASM}
         COMMENT "Assembling ${src}"
     )
-    list(APPEND OBJ_FILES ${obj})
+    list(APPEND obj_files ${obj})
 endforeach()
 
 # Optional menuconfig integration
@@ -89,12 +89,12 @@ add_custom_target(alldefconfig
 # Link all the object files into a single binary
 add_custom_command(
     OUTPUT ${OUTPUT_OS_BIN}
-    COMMAND ${Z80ASM} -b ${TARGET_FLAGS} -o${OUTPUT_OS_BIN} -m -s ${OBJ_FILES}
+    COMMAND ${Z80ASM} -b ${target_flags} -o${OUTPUT_OS_BIN} -m -s ${obj_files}
     # Fixme: z88dk generates an empty binary file
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/os_RST_VECTORS.bin ${OUTPUT_OS_BIN}
-    DEPENDS ${OBJ_FILES}
+    DEPENDS ${obj_files}
     COMMENT "Linking OS binary"
 )
 
-message(STATUS "Dependencies: ${OUTPUT_OS_BIN} ${CUSTOM_DEPENDENCY}")
-add_custom_target(zeal8bitos ALL DEPENDS ${OUTPUT_OS_BIN} "${CUSTOM_DEPENDENCY}")
+message(STATUS "Dependencies: ${OUTPUT_OS_BIN} ${custom_dependency}")
+add_custom_target(zeal8bitos ALL DEPENDS ${OUTPUT_OS_BIN} "${custom_dependency}")
