@@ -83,6 +83,8 @@ _not_found_str:  DEFM "No CompactFlash found\n", 0
     ;   B - Timeout in loop count
     ; Returns:
     ;   A - 0 on success, 1 on error, 2 on timeout
+wait_for_ready_default:
+    ld b, 255
 wait_for_ready:
     inc b
 _cf_is_busy:
@@ -99,6 +101,7 @@ _cf_is_busy:
     ret
 _cf_timeout:
     ld a, 2
+    or a
     ret
 
 
@@ -305,22 +308,177 @@ cf_prepare_address_and_count:
     ret
 
 
+    ; Parameters:
+    ;   HL - Lower 16-bit of the offset/address
+    ;   [_cf_upper_addr] - Higher 16-bit of the offset/address
+    ; Returns:
+    ;   DEHL - LBA address
+    ; Alters:
+    ;   DE, HL
+cf_get_lba_of_addr:
+    ld de, (_cf_upper_addr)
+    ; 32-bit address in HLDE, divide by 512 (sector size)
+    ld l, h
+    ld h, e
+    ld e, d
+    ld d, 0
+    ; Shift DEHL right once
+    srl e
+    rr h
+    rr l
+    ret
+
+
 cf_seek:
 cf_ioctl:
 cf_not_implemented:
     ld a, ERR_NOT_IMPLEMENTED
     ret
 
-    ; API: Same as the read routine but for write. Not supported for CF (yet?).
+
+    ; Write function, called every time the filesystem needs to write data to the CF.
+    ; Parameters:
+    ;       A  - DRIVER_OP_HAS_OFFSET (0) if the stack has a 32-bit offset to pop
+    ;            DRIVER_OP_NO_OFFSET  (1) if the stack is clean, nothing to pop.
+    ;       DE - Source buffer.
+    ;       BC - Size to write in bytes. Guaranteed to be equal to or smaller than 16KB.
+    ;
+    ;       ! IF AND ONLY IF A IS 0: !
+    ;       Top of stack: 32-bit offset. MUST BE POPPED IN THIS FUNCTION.
+    ;              [SP]   - Upper 16-bit of offset
+    ;              [SP+2] - Lower 16-bit of offset
+    ; Returns:
+    ;       A  - ERR_SUCCESS if success, error code else
+    ;       BC - Number of bytes written.
+    ; Alters:
+    ;       This function can alter any register.
 cf_write:
+    ; Check if the CF is accessed as a disk or a block (not implemented)
     or a
-    ld a, ERR_READ_ONLY
-    ; Directly return if the stack is cleaned
-    ret nz
-    ; Clean the stack
+    jp nz, cf_not_implemented
     pop hl
+    ld (_cf_upper_addr), hl
+    pop hl  ; Lower 16-bit offset
+    ; Check the total amount of sectors to process.
+    call cf_process_sec_cnt
+    ; Total written in BC
+    push bc
+    ; Number of sectors in B
+    ld b, a
+    ; Write to the Compact Flash the LBA address and the sector count
+    call cf_get_lba_of_addr
+_cf_write_sector_loop:
+    push bc
+    ; Read the current sector into a temporary buffer
+    call cf_read_sector
+    ; Replace the data in the temporary buffer with the user data
+    call cf_replace_sector_data
+    ; Write the modified sector back to the Compact Flash
+    call cf_write_sector
+    ; Go to next sector
+    inc hl
+    ld a, h
+    or l
+    jr z, _cf_write_sector_loop_next
+    inc de
+_cf_write_sector_loop_next:
+    ; Decrement the sector count
+    pop bc
+    djnz _cf_write_sector_loop
+    ; All sectors processed successfully
+    pop bc  ; Total written
+    xor a
+    ret
+
+_cf_write_error:
+    ld a, ERR_FAILURE
+    ret
+
+_cf_write_prepare_sector:
+    ld a, 1
+    out (CF_REG_SEC_CNT), a
+    ld a, l
+    out (CF_REG_LBA_0), a
+    ld a, h
+    out (CF_REG_LBA_8), a
+    ld a, e
+    out (CF_REG_LBA_16), a
+    ; Address is always 0, upper are fixed to 0xE0 (drive = 0, lba = 1)
+    ld a, 0xe0
+    out (CF_REG_LBA_24), a
+    ret
+
+    ; Subroutine to read a sector into a temporary buffer
+    ; Parameters:
+    ;   DEHL - LBA address
+    ; Returns:
+    ;   A - ERR_SUCCESS or error
+cf_read_sector:
+    push hl
+    push de
+    call _cf_write_prepare_sector
+    ; Wait for the Compact Flash to be ready
+    call wait_for_ready_default
+    jr nz, _cf_read_sector_error
+    ; Send the READ SECTORS command
+    ld a, COMMAND_READ_SECTORS
+    out (CF_REG_COMMAND), a
+    ; Wait for the Compact Flash to be ready to transfer data
+    call wait_for_ready_default
+    jr nz, _cf_read_sector_error
+    ; Read the sector data into the temporary buffer
+    ld hl, _sector_buffer
+    ; B = 0, C = CF_REG_DATA
+    ld bc, CF_REG_DATA
+    inir    ; 256 bytes
+    inir    ; 256 bytes
+    ; Successfully read the sector (A is already 0)
+_cf_read_sector_error:
+    pop de
     pop hl
     ret
+
+
+    ; Subroutine to replace the data in the temporary buffer with user data
+cf_replace_sector_data:
+    push hl
+    push de
+    ; Write the sector data into the temporary buffer
+    ld hl, _rd_buffer
+    ld bc, (_cf_ignore_before)
+    add hl, bc
+
+
+    pop de
+    pop hl
+    ret
+
+    ; Subroutine to write a sector from the temporary buffer to the Compact Flash
+cf_write_sector:
+    push hl
+    push de
+    call _cf_write_prepare_sector
+    ; Wait for the Compact Flash to be ready
+    call wait_for_ready_default
+    jr nz, _cf_read_sector_error
+    ; Send the READ SECTORS command
+    ld a, COMMAND_WRITE_SECTORS
+    out (CF_REG_COMMAND), a
+    ; Wait for the Compact Flash to be ready to transfer data
+    call wait_for_ready_default
+    jr nz, _cf_read_sector_error
+    ; Read the sector data into the temporary buffer
+    ld hl, _sector_buffer
+    ; B = 0, C = CF_REG_DATA
+    ld bc, CF_REG_DATA
+    otir    ; output 256 bytes
+    otir    ; output 256 bytes
+    ; Successfully read the sector (A is already 0)
+_cf_read_sector_error:
+    pop de
+    pop hl
+    ret
+
 
 
 
@@ -332,6 +490,7 @@ _cf_ignore_before: DEFS 2
     ; Total number of bytes to ignore after the read is performed (at most 511)
 _cf_ignore_after: DEFS 2
 _cf_upper_addr: DEFS 2
+_sector_buffer: DEFS 512
 
     SECTION KERNEL_DRV_VECTORS
 _cf_driver:
