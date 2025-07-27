@@ -180,8 +180,7 @@
 
 
     ; Parse string into a 16-bit integer. Hexadecimal string can start with
-    ; 0x or $, decimal number start with any
-    ; valid digit
+    ; 0x or $, decimal number start with any valid digit.
     ; Parameters:
     ;       HL - String to parse
     ; Returns:
@@ -192,6 +191,33 @@
     ; Alters:
     ;       A, HL
     EXTERN parse_int
+
+
+    ; Parse a hexadecimal string into a 16-bit integer. The value must not have
+    ; any prefix.
+    ; Parameters:
+    ;       HL - String to parse
+    ; Returns:
+    ;       HL - Parsed value
+    ;       A - 0 if the string was parsed successfully
+    ;           1 if the string represents a value bigger than 16-bit
+    ;           2 if the string presents non-digit character(s)
+    ; Alters:
+    ;       A, HL
+    EXTERN parse_hex
+
+
+    ; Parse a decimal string into a 16-bit integer.
+    ; Parameters:
+    ;       HL - String to parse
+    ; Returns:
+    ;       HL - Parsed value
+    ;       A - 0 if the string was parsed successfully
+    ;           1 if the string represents a value bigger than 16-bit
+    ;           2 if the string presents non-digit character(s)
+    ; Alters:
+    ;       A, HL
+    EXTERN parse_dec
 
 
     ; Look for a character in a NULL-terminated string
