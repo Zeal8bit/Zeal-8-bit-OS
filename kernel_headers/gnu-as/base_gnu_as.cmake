@@ -11,7 +11,7 @@ endif()
 # Tell CMake that we are going to use Z80 version of GNU AS
 include($ENV{ZOS_PATH}/kernel_headers/gnu-as/z80-toolchain-settings.cmake)
 
-# We will need OBJCPY to extract a raw binary out of the generated ELF file
+# We will need OBJCOPY to extract a raw binary out of the generated ELF file
 find_program(OBJCOPY NAMES ${CMAKE_C_COMPILER_PREFIX}objcopy REQUIRED)
 
 set(ZOS_INCLUDE "$ENV{ZOS_PATH}/kernel_headers/gnu-as/")

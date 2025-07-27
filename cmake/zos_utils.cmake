@@ -118,10 +118,10 @@ function(zos_create_rom_image)
         OUTPUT  ${ARG_OUTPUT}
         COMMAND ${PYTHON} ${TOOLS_PATH}/concat.py
                 ${ARG_OUTPUT}
-                0x0000 ${OUTPUT_OS_BIN}
+                0x0000 $<TARGET_FILE:${COMPILE_OUTPUT}>
                 ${ARG_DISK_OFFSET} ${ROMDISKFILE}
-        DEPENDS ${OUTPUT_OS_BIN} ${ROMDISKFILE}
-        COMMENT "Create the OS image"
+        DEPENDS $<TARGET_FILE:${COMPILE_OUTPUT}> ${ROMDISKFILE}
+        COMMENT "Create the OS image with disk"
     )
     add_custom_target(os_image ALL DEPENDS ${ARG_OUTPUT})
 endfunction()
