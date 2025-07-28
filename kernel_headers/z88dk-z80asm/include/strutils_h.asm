@@ -179,8 +179,9 @@
     EXTERN parse_hex_digit
 
 
-    ; Parse string into a 16-bit integer. Hexadecimal string can start with
-    ; 0x or $, decimal number start with any valid digit.
+    ; Parse string into a 16-bit integer.
+    ; Hexadecimal string can start with  0x or $
+    ; Decimal number can start with any valid digit
     ; Parameters:
     ;       HL - String to parse
     ; Returns:
@@ -193,8 +194,8 @@
     EXTERN parse_int
 
 
-    ; Parse a hexadecimal string into a 16-bit integer. The value must not have
-    ; any prefix.
+    ; Parse a hexadecimal string into a 16-bit integer.
+    ; The value must not have any prefix.
     ; Parameters:
     ;       HL - String to parse
     ; Returns:
