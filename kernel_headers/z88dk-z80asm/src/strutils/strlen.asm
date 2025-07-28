@@ -10,9 +10,10 @@
     ; Returns:
     ;   BC - Length of the string
     ; Alters:
-    ;   A, BC
+    ;   BC
     PUBLIC strlen
 strlen:
+    push af
     push hl
     xor a
     ld b, a
@@ -25,4 +26,5 @@ _strlen_loop:
     jr _strlen_loop
 _strlen_end:
     pop hl
+    pop af
     ret
