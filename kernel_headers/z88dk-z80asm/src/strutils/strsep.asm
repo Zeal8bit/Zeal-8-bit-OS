@@ -21,7 +21,9 @@
     PUBLIC strsep
 strsep:
     push bc
+    push af
     call strlen
+    pop af
     call memsep
     pop bc
     ret
