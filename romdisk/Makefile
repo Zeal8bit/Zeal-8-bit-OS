@@ -34,5 +34,9 @@ all: clean
 	@# For some reasons, z88dk-z80asm will create an empty `init.bin` file, remove it
 	@rm -f $(BUILDIR)/$(BIN) && mv $(BUILDIR)/*_TEXT.bin $(BUILDIR)/$(BIN)
 
+with_image: all
+	@echo "Packing the files"
+	${ZOS_PATH}/tools/pack.py ${IMG} ${FILES_IN_IMG} ${EXTRA_ROMDISK_FILES}
+
 clean:
 	rm -rf build/ $(IMG)

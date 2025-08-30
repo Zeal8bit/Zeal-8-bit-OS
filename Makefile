@@ -18,7 +18,7 @@ PYTHON=python3
 ifndef PYTHON_BIN
     PYTHON_BIN:=$(PYTHON) $(shell $(PYTHON) -m site --user-base)/bin
 endif
-export PATH := $(realpath packer)/:$(PATH)
+
 # Kconfig related
 export KCONFIG_CONFIG = configs/zeal8bit.default
 ifneq ("$(wildcard os.conf)", "")
@@ -112,9 +112,9 @@ LINKERFILE_PATH=target/$(TARGET)/$(LINKERFILE)
 LINKERFILE_OBJ=$(patsubst %.asm,%.o,$(LINKERFILE_PATH))
 LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
-.PHONY: check menuconfig $(SUBDIRS) version packer asmconf
+.PHONY: check menuconfig $(SUBDIRS) version asmconf
 
-all:$(KCONFIG_CONFIG) asmconf version packer precmd $(LINKERFILE_OBJ) $(OBJS)
+all:$(KCONFIG_CONFIG) asmconf version precmd $(LINKERFILE_OBJ) $(OBJS)
 	$(CC) $(ASMFLAGS) -o$(FULLBIN) -b -m -s $(LINKERFILE_BUILT) $(BUILTOBJS)
 	@mv $(BINDIR)/$(BIN_GENERATED) $(FULLBIN)
 	@echo "Executing post commands..."
@@ -127,13 +127,10 @@ all:$(KCONFIG_CONFIG) asmconf version packer precmd $(LINKERFILE_OBJ) $(OBJS)
 # Generate a version file that will be used as a boilerplate when the system starts
 # We add the build time to the file only if reproducible build is not enabled
 version:
-	@echo Zeal 8-bit OS `git describe --tags` > version.txt
+	@echo -n "Zeal 8-bit OS " > version.txt
+	@{ git describe --tags 2>/dev/null || echo "unknown"; } >> version.txt
 	@[ -z "$(CONFIG_KERNEL_REPRODUCIBLE_BUILD)" ]  && \
 		echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt || true
-
-packer:
-	@echo "Building packer"
-	@cd packer && make
 
 precmd:
 	@echo "Executing pre commands..."
