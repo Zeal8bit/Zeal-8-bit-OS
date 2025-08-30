@@ -56,7 +56,7 @@ endif
 # After creation, get its size, thanks to `stat` command, and store it in a generated header file
 # named `romdisk_info_h.asm`
 PRECMD := echo "Detected $(detected_OS) - $(STAT_BYTES)" && \
-          (cd $(ZOS_PATH)/romdisk && make) && \
+          (cd $(ZOS_PATH)/romdisk && make with_image) && \
           SIZE=$$($(STAT_BYTES) $(ZOS_PATH)/romdisk/disk.img) && \
           (echo -e "IFNDEF ROMDISK_H\nDEFINE ROMDISK_H\nDEFC ROMDISK_SIZE=$$SIZE\nENDIF" > $(PWD)/include/romdisk_info_h.asm) && \
           unset SIZE
