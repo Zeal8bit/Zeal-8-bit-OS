@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
-project(gnu_as_example ASM)
 
+include($ENV{ZOS_PATH}/cmake/gnu_toolchain.cmake)
+
+project(gnu_as_example ASM)
 add_executable(main "src/main.asm")
 
 # If the project needs to override the default LINKER_FLAGS, uncomment this line:
