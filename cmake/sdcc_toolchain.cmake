@@ -41,17 +41,14 @@ string(REPLACE ";" " " CMAKE_EXE_LINKER_FLAGS_INIT "${ZOS_LINK_FLAGS}")
 
 set(CMAKE_ASM_FLAGS_INIT "-I$ENV{ZOS_PATH}/kernel_headers/sdcc/include/")
 
+# Default linker variables, can be overriden by the assembler
+set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS asm)
+set(CMAKE_ASM_OUTPUT_EXTENSION ".rel")
+set(CMAKE_ASM_COMPILE_OBJECT
+    "<CMAKE_ASM_COMPILER> <INCLUDES> <FLAGS> -o <OBJECT> <SOURCE>"
+)
+set(CMAKE_C_LINK_EXECUTABLE
+    "<CMAKE_LINKER> <LINK_FLAGS> <LINK_LIBRARIES> <TARGET> ${SDCC_REL0} <OBJECTS>")
+set(CMAKE_ASM_LINK_EXECUTABLE
+    "<CMAKE_LINKER> <LINK_FLAGS> <LINK_LIBRARIES> <TARGET> ${SDCC_REL0} <OBJECTS>")
 
-function(ihx_to_bin target)
-    set(bin_file "${CMAKE_CURRENT_BINARY_DIR}/${target}.bin")
-
-    add_custom_target(${target}_bin ALL
-        COMMAND ${CMAKE_OBJCOPY} --input-target=ihex --output-target=binary $<TARGET_FILE:${target}> ${bin_file}
-        DEPENDS ${target}
-        COMMENT "Converting IHX to raw binary"
-        VERBATIM
-    )
-
-    # Store the binary path as a property for easy dependency chaining
-    set_property(TARGET ${target}_bin PROPERTY RAW_BINARY ${bin_file})
-endfunction()

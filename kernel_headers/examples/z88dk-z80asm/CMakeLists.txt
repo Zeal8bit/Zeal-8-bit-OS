@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
-include($ENV{ZOS_PATH}/cmake/z88dk_toolchain.cmake)
+set(ZOS_TOOLCHAIN z88dk)
+include($ENV{ZOS_PATH}/cmake/zos_init.cmake)
 
 project(z88dk_example ASM)
 

@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
-include($ENV{ZOS_PATH}/cmake/gnu_toolchain.cmake)
+set(ZOS_TOOLCHAIN gnu)
+include($ENV{ZOS_PATH}/cmake/zos_init.cmake)
 
 project(gnu_as_example ASM)
 add_executable(main "src/main.asm")

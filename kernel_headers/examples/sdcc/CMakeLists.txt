@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
-include($ENV{ZOS_PATH}/cmake/sdcc_toolchain.cmake)
+set(ZOS_TOOLCHAIN sdcc)
+include($ENV{ZOS_PATH}/cmake/zos_init.cmake)
 
 # When using CMake as a build system, it's possible to mix ASM and C in the compilation
 project(example C ASM)

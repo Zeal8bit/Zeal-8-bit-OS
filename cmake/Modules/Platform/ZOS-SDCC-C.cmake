@@ -59,3 +59,9 @@ set(CMAKE_C_CREATE_MODULE_LIBRARY "")
 set(CMAKE_DEPENDS_USE_COMPILER FALSE)
 set(CMAKE_DEPFILE_FLAGS_C "")
 
+# For some reason, CMake doesn't accept that these variables are set in the SDCC toolchain file,
+# so we have to set them here, in the platform file. They are still overridable by any other
+# assembler toolchain file.
+set(CMAKE_EXECUTABLE_SUFFIX ".ihx")
+set(CMAKE_LINK_LIBRARY_FLAG "-l ")
+set(CMAKE_LIBRARY_PATH_FLAG "-k ")

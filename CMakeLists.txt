@@ -1,4 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
+
+set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/cmake/z88dk_toolchain.cmake)
+
 project(Zeal8bitOS ASM)
 
 # Load extra files
