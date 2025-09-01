@@ -33,7 +33,7 @@ function(ihx_to_bin target)
 endfunction()
 
 
-function(create_asset target asset_file)
+function(zos_add_asset target asset_file)
     get_filename_component(asset_name "${asset_file}" NAME_WE)
     set(asm_dir "${CMAKE_CURRENT_BINARY_DIR}/assets")
     file(MAKE_DIRECTORY "${asm_dir}")
@@ -56,4 +56,19 @@ function(create_asset target asset_file)
     # Add the generated ASM file to the target
     set_source_files_properties("${asm_file_path}" PROPERTIES GENERATED TRUE)
     target_sources("${target}" PRIVATE "${asm_file_path}")
+endfunction()
+
+function(zos_add_assets target)
+    foreach(file IN LISTS ARGN)
+        zos_add_asset(${target} ${file})
+    endforeach()
+endfunction()
+
+
+function(zos_add_outputs target)
+    if(ZOS_TOOLCHAIN STREQUAL "sdcc")
+        ihx_to_bin(${target})
+    elseif(ZOS_TOOLCHAIN STREQUAL "gnu")
+        elf_to_bin(${target})
+    endif()
 endfunction()
