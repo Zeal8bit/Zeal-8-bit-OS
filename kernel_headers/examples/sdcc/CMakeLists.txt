@@ -8,4 +8,4 @@ project(example C ASM)
 
 add_executable(hello "src/main.c" "src/str.c")
 
-ihx_to_bin(hello)
+zos_add_outputs(hello)

@@ -12,5 +12,5 @@ add_executable(main "src/main.asm")
 # Then it's possible to set a linker script for example
 # target_link_options(main PUBLIC "-TPath_to_file.ld")
 
-# Convert the generated ELF into a raw binary
-elf_to_bin(main)
+# Add ZOS output, i.e. generate a raw binary out of the copmiled ELF
+zos_add_outputs(main)
