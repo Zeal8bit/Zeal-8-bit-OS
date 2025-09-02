@@ -23,7 +23,6 @@
     - [Zeal 8-bit Computer](#zeal-8-bit-computer)
     - [Generic targets](#generic-targets)
 - [Features Overview](#features-overview)
-- [TO DO](#to-do)
 - [Implementation details](#implementation-details)
   - [Memory Mapping](#memory-mapping)
     - [Kernel configured with MMU](#kernel-configured-with-mmu)
@@ -99,8 +98,8 @@ The OS is designed to work with an MMU, thus, the target must have 4 swappable v
 At the moment, the project has only been assembled on Linux (Ubuntu 20.04 and 22.04), it should be compatible with Mac OS and Windows as long as you have:
 
 * bash
-* git (to clone this repo)
-* make (GNU Make 4+)
+* git, to clone this repo
+* cmake 3.16+ (**recommended**) or make (GNU Make 4+) (_deprecated_)
 * python3 with pip3. Used for the `menuconfig`.
 * z88dk v2.2 (or later). Only its assembler, `z80asm`, is strictly required. The latest version of `z80asm` must be used as earlier versions don't have support for `MACRO`.
 
@@ -130,11 +129,33 @@ For installing Z88DK, please [check out their Github project](https://github.com
 
 ## Configuring Zeal 8-bit OS
 
-After installing the dependencies listed above and cloning this repository, the first thing to do is to configure the OS. To do so, simply execute:
+After installing the dependencies listed above and cloning this repository, the first thing to do is to configure the OS.
+
+### Menuconfig using CMake (recommended)
+
+The first thing to do is to setup the project, using the following commands:
+
+```
+mkdir build
+cd build
+cmake ..
+```
+
+After this succeeds, the project can be configured:
 
 ```
 make menuconfig
 ```
+
+### Menuconfig using make (deprecated)
+
+Configuring the project using `make` can be done directly at the root of the project, using:
+
+```
+make menuconfig
+```
+
+### Options in the menuconfig
 
 From there, it is possible to configure the kernel but also the target computer's options, for example for *Zeal 8-bit computer*, it is possible to configure where the romdisk (more about this below) will be located on the ROM.
 
@@ -154,12 +175,27 @@ If everything goes well, the following message will be shown:
 Converting os.conf to include/osconfig.asm ...
 ```
 
-## Building
+## Building the OS
 
-To build the OS (kernel + driver + target configuration), use the command:
+### Using CMake (recommended)
+
+If the project was already configured as described in the section [Menuconfig using CMake](#menuconfig-using-cmake) above, it is possible to directly execute `make` from the `build` directory, else, the following commands can be used:
+
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
+### Using make (deprecated)
+
+To build the OS, use the command:
 ```
 make
 ```
+
+### OS binaries and extra romdisk files
 
 After compiling, you should see the line:
 ```
@@ -244,32 +280,6 @@ Currently, the only fully supported target is the *Zeal 8-bit Computer*. The por
 * GPIO (partial)
 * Free space in ROM used as a read-only `romdisk`, storing `init.bin` binary
 * Linker script
-
-# TO DO
-
-There is still some work to do on the project. Some features need to be developed on the kernel side, some things need to be documented in the project, here is a non-exhaustive list:
-* <s>Generate header files usable by user programs for syscalls, file entries, directories entries, opening flags, etc...</s> **Done, header files are available in `kernel_headers` directory.**
-* <s>Document clearly what each syscall does</s> **Done, check ASM header file.**
-* <s>A writable file system. Currently, only `rawtable` (more about it below) file system is implemented, which is read-only.</s> **ZealFS file system has been implemented, it supports files and directories, and is writable!**
-* <s>Make it work with MMU-less targets, and add a configuration option for this</s> **Done, kernel is now compatible with MMU-less targets!**
-* Come up with ABI and API for video, TTY, GPIO drivers, etc...
-  * <s>Keyboard API</s> **Done**
-  * <s>Video text API</s> **Done**
-  * GPIO API
-  * Video graphic API
-* Relocatable user programs. It is already possible to generate a relocation table when assembling a program with `z88dk-z80asm`.
-* Refactor the kernel code to have a proper memory module, with better names for the required macros.
-* Process all the `TODO` and `FIXME` left in the code.
-* Lift some restrictions that can be avoided, such as having the user's program stack pointer in the last virtual page.
-* List the loaded drivers from a user program.
-* List the available disks from a user program.
-* Implement a software breakpoint with a reset vector.
-* Optimize the code to be smaller and faster.
-* *More things I am forgetting...*
-
-And of course, **fixing bugs!**
-
-As Zeal 8-bit OS is still in beta version, you will encounter bugs, and errors, please feel free to open an issue, with a snippet of code to help reproduce it.
 
 # Implementation details
 
@@ -627,13 +637,11 @@ What still needs to be implemented, in no particular order:
   * <s>RTC driver</s>
 * Video API
   * <s>Text mode</s> **Done** (ABI/API implemented)
-  * _Graphic mode*_
+  * <s>Graphics mode</s> External library already available, [check Zeal VideoBoard SDK](https://github.com/Zeal8bit/Zeal-VideoBoard-SDK)
 * GPIO user interface/API
-* _Sound support*_
+* <s>Sound support</s> External library already available, [check Zeal VideoBoard SDK](https://github.com/Zeal8bit/Zeal-VideoBoard-SDK)
 * Hardware timers, based on V-blank and H-blank signals
 * <s>SD card support</s> **Done**, can be enabled in the menuconfig
-
-*: an external library is already available for that, [check Zeal VideoBoard SDK](https://github.com/Zeal8bit/Zeal-VideoBoard-SDK)
 
 ## TRS-80 Model-I
 
@@ -680,6 +688,49 @@ If your target is compatible, follow the instructions:
 * Create an `mmu_h.asm` file which will be included by the kernel to configure and use the MMU. Check the file [`target/zeal8bit/include/mmu_h.asm`](target/zeal8bit/include/mmu_h.asm) to see how it should look like.
 * Make sure to have at least one driver that mounts a disk, with the routine `zos_disks_mount`, containing an `init.bin` file, loaded and executed by the kernel on boot.
 * Make sure to have at least one driver which registers itself as the standard out (stdout) with the routine `zos_vfs_set_stdout`.
+
+# Writing user programs
+
+## Public API & Languages
+
+Like any other OS, Zeal 8-bit OS allows developers to write programs that execute in user space.
+
+To interface these user programs with the kernel, public kernel headers are provided in the kernel_headers directory. These headers allow user programs to be written in:
+
+* **Assembly language**
+    * z88dk-z80asm
+    * GNU AS
+* **C language**
+    * SDCC 4.2.0+
+
+For Zeal 8-bit Computer, the project [zeal-dev-environment](https://github.com/zoul0813/zeal-dev-environment) is highly recommended. It provides a complete and functional development environment, including Zeal 8-bit OS resources.
+
+> _If you need support for another compiler or assembler, feel free open an issue or contact me directly._
+
+## Build system and examples
+
+It is highly recommended to use CMake to easily set up examples. This avoids tedious configuration of external libraries and common compiling or linking issues.
+
+A typical CMake file looks like this:
+
+```cmake
+cmake_minimum_required(VERSION 3.16)
+
+set(ZOS_TOOLCHAIN sdcc)
+include($ENV{ZOS_PATH}/cmake/zos_init.cmake)
+
+project(example C ASM)
+
+add_executable(hello "src/main.c" "src/str.c")
+
+zos_add_outputs(hello)
+```
+
+> Note: The ZOS_PATH environment variable must be set to the path of the Zeal 8-bit OS project. The `zos_init.cmake` file sets up the appropriate toolchains based on the value of `ZOS_TOOLCHAIN`, which can be one of the following: `gnu` (for GNU AS), `z88dk`, or `sdcc`.
+
+The command `zos_add_outputs(hello)` post-processes the final executable to produce a raw binary (without metadata), which is the format accepted by the Zeal 8-bit OS kernel.
+
+You can find working examples using CMake for all supported toolchains in [kernel_headers/examples](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/kernel_headers/examples).
 
 # Version History
 
