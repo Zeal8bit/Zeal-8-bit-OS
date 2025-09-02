@@ -18,7 +18,7 @@
 - [Getting started](#getting-started)
   - [Requirements](#requirements)
   - [Configuring Zeal 8-bit OS](#configuring-zeal-8-bit-os)
-  - [Building](#building)
+  - [Building the OS](#building-the-os)
   - [Flashing](#flashing)
     - [Zeal 8-bit Computer](#zeal-8-bit-computer)
     - [Generic targets](#generic-targets)
@@ -50,6 +50,9 @@
   - [TRS-80 Model-I](#trs-80-model-i)
   - [Agon Light](#agon-light)
   - [Porting to another machine](#porting-to-another-machine)
+- [Writing User Programs](#writing-user-programs)
+  - [Public API and Languages](#public-api-and-languages)
+  - [Build system and examples](#build-system-and-examples)
 - [Version History](#version-history)
 - [Contributing](#contributing)
 - [License](#license)
@@ -691,7 +694,7 @@ If your target is compatible, follow the instructions:
 
 # Writing user programs
 
-## Public API & Languages
+## Public API and Languages
 
 Like any other OS, Zeal 8-bit OS allows developers to write programs that execute in user space.
 
