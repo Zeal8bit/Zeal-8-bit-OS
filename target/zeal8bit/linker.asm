@@ -23,11 +23,14 @@
         SECTION KERNEL_PADDING
         SECTION INTERRUPT_VECTOR
 
-        ; RAM data
+        ; RAM data, gather the BSS sections together
         SECTION KERNEL_BSS
         ORG CONFIG_KERNEL_RAM_START
         SECTION DRIVER_BSS
         SECTION DRIVER_BSS_ALIGN16
+        ; Gather the DATA sections together to simplify initialization
+        SECTION KERNEL_DATA
+        SECTION DRIVER_DATA
         ; MMU is initialized before the kernel erases the BSS, thus we cannot
         ; store MMU data inside the BSS, create a new section that won't be erased
         ; by the kernel.

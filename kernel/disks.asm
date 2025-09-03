@@ -20,9 +20,6 @@
 
         PUBLIC zos_disks_init
 zos_disks_init:
-        ; Set the default disk to A
-        ld a, DISK_DEFAULT_LETTER
-        ld (_disks_default), a
         ; Empty opened files
         ld a, DISKS_OPN_FILE_MAGIC_FREE
         ld b, CONFIG_KERNEL_MAX_OPENED_FILES
@@ -1427,9 +1424,11 @@ zos_disk_add_offset_bc:
         inc (hl)
         ret
 
-        SECTION KERNEL_BSS
+        SECTION KERNEL_DATA
         ; Letter of the default disk
-_disks_default: DEFS 1
+_disks_default: DEFB DISK_DEFAULT_LETTER
+
+        SECTION KERNEL_BSS
 _disks: DEFS DISKS_MAX_COUNT * 2
 _disks_fs: DEFS DISKS_MAX_COUNT
         ; Store the type of file that is being stat-ed

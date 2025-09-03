@@ -46,12 +46,6 @@
         ; Initialize the keyboard driver. This is called only once, at boot up.
 keyboard_init:
         call keyboard_impl_init
-        ; Initialize the software FIFO
-        ld hl, kb_fifo
-        ld (kb_fifo_wr), hl
-        ld (kb_fifo_rd), hl
-        ld a, KB_MODE_COOKED
-        ld (kb_mode), a
         ; Register the keyboard as the default stdin
         ld hl, this_struct
         call zos_vfs_set_stdin
@@ -663,14 +657,15 @@ _keyboard_dequeue_notempty:
         ret
 
 
-        SECTION DRIVER_BSS
-kb_fifo_wr: DEFS 2
-kb_fifo_rd: DEFS 2
-kb_fifo_size: DEFS 1
-
+        SECTION DRIVER_DATA
         ; Make sure these two always follow eachother
-kb_mode:  DEFS 1    ; Lo
-kb_flags: DEFS 1
+kb_mode:    DEFB KB_MODE_COOKED    ; Lo
+kb_flags:   DEFB 0                 ; Hi
+kb_fifo_wr: DEFW kb_fifo
+kb_fifo_rd: DEFW kb_fifo
+
+        SECTION DRIVER_BSS
+kb_fifo_size: DEFS 1
 
 kb_internal_buffer: DEFS KB_INTERNAL_BUFFER_SIZE
         ASSERT(KB_INTERNAL_BUFFER_SIZE < 256)

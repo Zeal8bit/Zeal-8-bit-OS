@@ -30,9 +30,6 @@
         SECTION KERNEL_DRV_TEXT
         ; PIO has been initialized before-hand, no need to perform anything here
 uart_init:
-        ld a, UART_BAUDRATE_DEFAULT
-        ld (_uart_baudrate), a
-
     IF CONFIG_TARGET_STDOUT_UART
         ; Initialize the PIO because UART is the first driver. It will initialize
         ; itself once more later, but that's not an issue.
@@ -752,9 +749,11 @@ _stdout_save_restore_position:
     ENDIF ; CONFIG_TARGET_STDOUT_UART
 
 
+        SECTION DRIVER_DATA
+_uart_baudrate: DEFB UART_BAUDRATE_DEFAULT
+
         SECTION DRIVER_BSS
-_uart_baudrate: DEFS 1
-        ; When set to 1, bytes will be sent as-is to through UART. When set to 0,
+        ; When set to 1, bytes will be sent as-is through UART. When set to 0,
         ; LF will NOT be convert to CRLF when sending bytes
 _uart_raw: DEFS 1
 _uart_esc_seq: DEFS 10

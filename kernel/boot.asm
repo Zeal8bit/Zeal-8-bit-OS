@@ -23,6 +23,11 @@
         EXTERN __KERNEL_BSS_size
         EXTERN __DRIVER_BSS_head
         EXTERN __DRIVER_BSS_size
+        EXTERN __DRIVER_BSS_ALIGN16_size
+        EXTERN __KERNEL_DATA_head
+        EXTERN __KERNEL_DATA_size
+        EXTERN __DRIVER_DATA_head
+        EXTERN __DRIVER_DATA_size
         EXTERN _vfs_work_buffer
 
         SECTION KERNEL_TEXT
@@ -48,17 +53,17 @@ zos_entry:
         call target_coldboot
     ENDIF
 
-        ; Kernel RAM BSS shall be wiped now
+        ; Kernel and drivers RAM BSS sections shall be wiped now
         ld hl, __KERNEL_BSS_head
         ld de, __KERNEL_BSS_head + 1
-        ld bc, __KERNEL_BSS_size - 1
+        ld bc, __KERNEL_BSS_size + __DRIVER_BSS_size + __DRIVER_BSS_ALIGN16_size - 1
         ld (hl), 0
         ldir
 
         ; Kernel is aware of Drivers BSS section, it must not be smaller than 2 bytes
-        ld hl, __DRIVER_BSS_head
-        ld de, __DRIVER_BSS_head + 1
-        ld bc, __DRIVER_BSS_size - 1
+        ld hl, __KERNEL_DATA_head
+        ld de, __DRIVER_DATA_head + 1
+        ld bc, __DRIVER_DATA_size - 1
         ld (hl), 0
         ldir
 

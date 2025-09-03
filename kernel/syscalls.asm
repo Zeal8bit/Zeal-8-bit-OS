@@ -21,10 +21,6 @@
         ; Initializer called at system startup, BSS is cleaned when called.
         PUBLIC zos_sys_init
 zos_sys_init:
-        ; Set up the beginning of the JP SYSCALL instruction, we have the high byte of SYSCALL address
-        ; and the jp opcode: 0xC3.
-        ld a, 0xc3
-        ld (_zos_sys_jump), a
         ret
 
         ; Map a physical memory address to the virtual address space.
@@ -274,6 +270,12 @@ zos_sys_restore_pages:
         ret
 
 
+        SECTION KERNEL_DATA
+
+        ; Store jp nnnn instruction (3 bytes)
+_zos_sys_jump: DEFB 0xc3
+               DEFw 0x00
+
         SECTION KERNEL_BSS
 
         PUBLIC _zos_user_sp
@@ -284,7 +286,6 @@ _zos_user_page_2: DEFS 1
 _zos_user_page_3: DEFS 1
         ; SP address MUST follow the pages (check loader.asm)
 _zos_user_sp: DEFS 2
-_zos_sys_jump: DEFS 3   ; Store jp nnnn instruction (3 bytes)
 
         SECTION SYSCALL_TABLE
         PUBLIC zos_syscalls_table

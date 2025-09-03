@@ -24,14 +24,6 @@
 
         PUBLIC zos_log_init
 zos_log_init:
-        ; Initialize the prefix buffer with '( ) '
-        ld hl, _log_prefix
-        ld (hl), '('
-        inc hl
-        inc hl
-        ld (hl), ')'
-        inc hl
-        ld (hl), ' '
         ret
 
 
@@ -185,13 +177,15 @@ _zos_log_call_write:
         jp (hl)
 
 
+        SECTION KERNEL_DATA
+_log_prefix:        DEFM "( ) "
+_log_prefix_end:
+
+
         SECTION KERNEL_BSS
 _log_plate_printed: DEFS 1
 _log_write_fun:     DEFS 2
 _log_ioctl_fun:     DEFS 2
-_log_prefix:        DEFS 4 ; RAM for '(W) '
-_log_prefix_end:
-
 
         IF CONFIG_LOG_BUFFER_SIZE > 0
 _log_index:  DEFS 2
