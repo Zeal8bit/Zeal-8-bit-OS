@@ -34,4 +34,5 @@ if(CONFIG_ENABLE_EMULATION_HOSTFS)
     list(APPEND KERNEL_SRCS fs/hostfs.asm)
 endif()
 
-zos_kernel_add(SRCS ${KERNEL_SRCS})
+zos_kernel_add(SRCS ${KERNEL_SRCS}
+               LINKFLAGS "-m")

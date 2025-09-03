@@ -33,9 +33,10 @@ add_subdirectory("target/${CONFIG_TARGET}")
 get_property(linkerscript GLOBAL PROPERTY LINKERSCRIPT)
 get_property(kernel_srcs GLOBAL PROPERTY KERNEL_SRCS)
 get_property(kernel_includes GLOBAL PROPERTY KERNEL_INCLUDES)
+get_property(kernel_link_flags GLOBAL PROPERTY KERNEL_LINKFLAGS)
 get_property(target_srcs GLOBAL PROPERTY TARGET_SRCS)
 get_property(target_flags GLOBAL PROPERTY TARGET_FLAGS)
-get_property(target_link_flags GLOBAL PROPERTY TARGET_LINK_FLAGS)
+get_property(target_link_flags GLOBAL PROPERTY TARGET_LINKFLAGS)
 get_property(target_includes GLOBAL PROPERTY TARGET_INCLUDES)
 
 # Make sure a linker script was provided
@@ -49,6 +50,9 @@ target_include_directories(${OS_TARGET} PUBLIC
                            "${CMAKE_SOURCE_DIR}/include/"
                            ${kernel_includes}
                            ${target_includes})
+
+target_compile_options(${OS_TARGET} PUBLIC ${target_flags})
+target_link_options(${OS_TARGET} PUBLIC ${kernel_link_flags} ${target_link_flags})
 
 # Optional menuconfig integration
 add_custom_target(menuconfig
