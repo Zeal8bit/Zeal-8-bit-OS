@@ -112,6 +112,8 @@ LINKERFILE_PATH=target/$(TARGET)/$(LINKERFILE)
 LINKERFILE_OBJ=$(patsubst %.asm,%.o,$(LINKERFILE_PATH))
 LINKERFILE_BUILT=$(BINDIR)/$(LINKERFILE_OBJ)
 
+KERNEL_VERSION:=$(or $(shell git -C $(ZDE_PATH)/home/Zeal-8-bit-OS describe --tags 2>/dev/null),$(ZEAL_KERNEL_VERSION),unversioned)
+
 .PHONY: check menuconfig $(SUBDIRS) version asmconf
 
 all:$(KCONFIG_CONFIG) asmconf version precmd $(LINKERFILE_OBJ) $(OBJS)
@@ -128,7 +130,7 @@ all:$(KCONFIG_CONFIG) asmconf version precmd $(LINKERFILE_OBJ) $(OBJS)
 # We add the build time to the file only if reproducible build is not enabled
 version:
 	@echo -n "Zeal 8-bit OS " > version.txt
-	@{ git describe --tags 2>/dev/null || echo "unknown"; } >> version.txt
+	@echo ${KERNEL_VERSION} >> version.txt
 	@[ -z "$(CONFIG_KERNEL_REPRODUCIBLE_BUILD)" ]  && \
 		echo Build time: `date +"%Y-%m-%d %H:%M"` >> version.txt || true
 
