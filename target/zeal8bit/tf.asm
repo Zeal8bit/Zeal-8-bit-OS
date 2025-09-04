@@ -10,6 +10,7 @@
     INCLUDE "tf_h.asm"
     INCLUDE "log_h.asm"
     INCLUDE "fs/mbr_h.asm"
+    INCLUDE "fs/zealfs_h.asm"
 
     INCLUDE "strutils_h.asm"
 

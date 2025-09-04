@@ -2,18 +2,12 @@
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
-        IFNDEF RAWTABLE_H
-        DEFINE RAWTABLE_H
+    INCLUDE "fs/fs_h.asm"
 
-        ; Public routines. The descriptions are given in the implementation file.
-        EXTERN zos_fs_rawtable_open
-        EXTERN zos_fs_rawtable_stat
-        EXTERN zos_fs_rawtable_read
-        EXTERN zos_fs_rawtable_write
-        EXTERN zos_fs_rawtable_close
-        EXTERN zos_fs_rawtable_opendir
-        EXTERN zos_fs_rawtable_readdir
-        EXTERN zos_fs_rawtable_mkdir
-        EXTERN zos_fs_rawtable_rm
+    IFNDEF RAWTABLE_H
+    DEFINE RAWTABLE_H
 
-        ENDIF ; RAWTABLE_H
+    EXTERN rawtable_struct
+    DEFC FS_RAWTABLE = (rawtable_struct - __FS_VECTORS_head) / FS_STRUCT_SIZE
+
+    ENDIF ; RAWTABLE_H

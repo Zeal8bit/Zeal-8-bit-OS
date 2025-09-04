@@ -10,6 +10,7 @@
     INCLUDE "utils_h.asm"
     INCLUDE "strutils_h.asm"
     INCLUDE "fs/hostfs_h.asm"
+    INCLUDE "fs/fs_h.asm"
 
     SECTION KERNEL_TEXT
 
@@ -316,3 +317,21 @@ zos_fs_hostfs_rm:
     ld a, OP_RM
     out (IO_OPERATION), a
     jp wait_for_completion
+
+
+        SECTION FS_VECTORS
+
+    PUBLIC hostfs_struct
+hostfs_struct:
+
+NEW_FS_STRUCT("HOST",                \
+              zos_fs_hostfs_open,    \
+              zos_fs_hostfs_stat,    \
+              zos_fs_hostfs_read,    \
+              zos_fs_hostfs_write,   \
+              zos_fs_hostfs_close,   \
+              zos_fs_hostfs_opendir, \
+              zos_fs_hostfs_readdir, \
+              zos_fs_hostfs_mkdir,   \
+              zos_fs_hostfs_rm       \
+)

@@ -1705,3 +1705,21 @@ free_page:
     add 0x86
     ld (RAM_EXE_PAGE_0 + 1), a
     jp RAM_EXE_PAGE_0
+
+
+    SECTION FS_VECTORS
+
+    PUBLIC zealfs_struct
+zealfs_struct:
+
+NEW_FS_STRUCT("ZFS",              \
+              zos_zealfs_open,    \
+              zos_zealfs_stat,    \
+              zos_zealfs_read,    \
+              zos_zealfs_write,   \
+              zos_zealfs_close,   \
+              zos_zealfs_opendir, \
+              zos_zealfs_readdir, \
+              zos_zealfs_mkdir,   \
+              zos_zealfs_rm       \
+)

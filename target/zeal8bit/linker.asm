@@ -12,6 +12,8 @@
         SECTION KERNEL_TEXT
         SECTION KERNEL_STRLIB
         SECTION KERNEL_RODATA
+        ; File systems related
+        SECTION FS_VECTORS
         ; Target specific sections
         SECTION KERNEL_DRV_TEXT
         SECTION KERNEL_DRV_VECTORS

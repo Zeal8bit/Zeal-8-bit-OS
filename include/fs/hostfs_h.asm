@@ -3,22 +3,15 @@
 ; SPDX-License-Identifier: Apache-2.0
 
     INCLUDE "osconfig.asm"
+    INCLUDE "fs/fs_h.asm"
 
     IFNDEF HOSTFS_H
     DEFINE HOSTFS_H
 
     IF CONFIG_ENABLE_EMULATION_HOSTFS
 
-    ; Public routines. The descriptions are given in the implementation file.
-    EXTERN zos_fs_hostfs_open
-    EXTERN zos_fs_hostfs_read
-    EXTERN zos_fs_hostfs_write
-    EXTERN zos_fs_hostfs_opendir
-    EXTERN zos_fs_hostfs_readdir
-    EXTERN zos_fs_hostfs_stat
-    EXTERN zos_fs_hostfs_close
-    EXTERN zos_fs_hostfs_mkdir
-    EXTERN zos_fs_hostfs_rm
+    EXTERN hostfs_struct
+    DEFC FS_HOSTFS   = (hostfs_struct - __FS_VECTORS_head) / FS_STRUCT_SIZE
 
     ; Private defines
     DEFC IO_ARG0_REG  = 0xC0

@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023-2025 Zeal 8-bit Computer <contact@zeal8bit.com>
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -14,6 +14,7 @@
         INCLUDE "disks_h.asm"
         INCLUDE "utils_h.asm"
         INCLUDE "strutils_h.asm"
+        INCLUDE "fs/rawtable_h.asm"
 
         ; The rawtable structure is as follow:
         DEFVARS 0 {
@@ -773,3 +774,20 @@ _fast_strncmp_compare:
 _fast_strncmp_end:
         pop bc
         ret
+
+        SECTION FS_VECTORS
+
+    PUBLIC rawtable_struct
+rawtable_struct:
+
+NEW_FS_STRUCT("RAWT",                  \
+              zos_fs_rawtable_open,    \
+              zos_fs_rawtable_stat,    \
+              zos_fs_rawtable_read,    \
+              zos_fs_rawtable_write,   \
+              zos_fs_rawtable_close,   \
+              zos_fs_rawtable_opendir, \
+              zos_fs_rawtable_readdir, \
+              zos_fs_rawtable_mkdir,   \
+              zos_fs_rawtable_rm       \
+)
