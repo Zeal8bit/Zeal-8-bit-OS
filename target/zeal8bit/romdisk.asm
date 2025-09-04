@@ -9,6 +9,7 @@
         INCLUDE "vfs_h.asm"
         INCLUDE "disks_h.asm"
         INCLUDE "interrupt_h.asm"
+        INCLUDE "fs/rawtable_h.asm"
     IF CONFIG_ENABLE_EMULATION_HOSTFS
         INCLUDE "fs/hostfs_h.asm"
     ENDIF

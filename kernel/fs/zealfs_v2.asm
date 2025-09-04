@@ -2378,6 +2378,7 @@ _zealfs_clear_buffer:
     ret
 
     ; ZealFS function called to initialize the functions in RAM
+    PUBLIC zos_zealfs_init
 zos_zealfs_init:
     ld hl, zos_zealfs_trampoline_start
     ; We will need to copy it twice
@@ -2505,6 +2506,23 @@ _allocate_page_bit_found:
     ld (hl), a
     ; A is not 0 for sure
     ret
+
+    SECTION FS_VECTORS
+
+    PUBLIC zealfs_struct
+zealfs_struct:
+
+NEW_FS_STRUCT("ZFS",              \
+              zos_zealfs_open,    \
+              zos_zealfs_stat,    \
+              zos_zealfs_read,    \
+              zos_zealfs_write,   \
+              zos_zealfs_close,   \
+              zos_zealfs_opendir, \
+              zos_zealfs_readdir, \
+              zos_zealfs_mkdir,   \
+              zos_zealfs_rm       \
+)
 
 
     SECTION KERNEL_BSS

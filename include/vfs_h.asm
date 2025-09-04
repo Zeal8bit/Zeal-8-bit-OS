@@ -8,18 +8,6 @@
         INCLUDE "osconfig.asm"
         INCLUDE "time_h.asm"
 
-        ; Filesystem list, useful when mounting a disk
-        ; We can have at most 16 filesystems at the moment
-        DEFGROUP {
-                FS_RAWTABLE = 0,    ; Check fs/rawtable.asm for more info
-                FS_ZEALFS,
-                FS_FAT16,
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-                FS_HOSTFS,
-    ENDIF
-                FS_END,
-        }
-
         ; Standard index in the opened devs table
         DEFC STANDARD_OUTPUT = 0
         DEFC STANDARD_INPUT = 1

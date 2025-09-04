@@ -9,6 +9,7 @@
     INCLUDE "vfs_h.asm"
     INCLUDE "disks_h.asm"
     INCLUDE "compactflash_h.asm"
+    INCLUDE "fs/rawtable_h.asm"
     INCLUDE "log_h.asm"
 
     EXTERN byte_to_ascii

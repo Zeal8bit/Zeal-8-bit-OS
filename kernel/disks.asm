@@ -8,7 +8,6 @@
         INCLUDE "utils_h.asm"
         INCLUDE "vfs_h.asm"
         INCLUDE "strutils_h.asm"
-        INCLUDE "fs/rawtable_h.asm"
         INCLUDE "fs/zealfs_h.asm"
         INCLUDE "fs/hostfs_h.asm"
         INCLUDE "log_h.asm"
@@ -42,7 +41,8 @@ _zos_disks_init_opened_files:
         ; Mount a disk (driver) to the given letter
         ; Parameters:
         ;       A  - Letter to mount the disk on
-        ;       E  - File system (taken from vfs_h.asm)
+        ;       E  - File system, which is the index of the FS structure, taken from the
+        ;            FS_VECTORS section (must be valid!)
         ;       HL - Pointer to the driver structure. Guaranteed valid by the caller.
         ; Returns:
         ;       A - ERR_SUCCESS on success
@@ -233,6 +233,63 @@ zos_disks_get_driver_and_fs:
         pop hl
         ret
 
+
+        ; Get the function from the FS structure which index is in C
+        ; Parameters:
+        ;   C - Filesytem index
+        ;   A - Function offset
+        ; Returns:
+        ;   HL - Pointer to that function
+        ; Alters:
+        ;   A, HL
+zos_fs_get_function_ptr:
+        push bc
+        ; HL = C * (16 + 8)
+        ld l, c
+        ld h, 0
+        add hl, hl  ; x2
+        add hl, hl  ; x4
+        add hl, hl  ; x8
+        ld b, h
+        ld c, l
+        add hl, hl  ; x16
+        add hl, bc  ; x16 + x8
+        ; Add the start of the FS vector structure
+        ld bc, __FS_VECTORS_head
+        add hl, bc
+        pop bc
+        ; Add the function offset to HL
+        ADD_HL_A()
+        ; Dereference HL into ... HL
+        ld a, (hl)
+        inc hl
+        ld h, (hl)
+        ld l, a
+        ret
+
+        ; Call the function from the FS structure which index is in C.
+        ; The goal of this routine is to be called.
+        ; Parameters:
+        ;   C - Filesytem index
+        ;   A - Function offset
+        ; Returns/Alters:
+        ;   Same as the function pointed by the offset
+zos_fs_call_function_ptr:
+        push hl
+        ; Jump the function from the FS structure which index is in C.
+        ; The goal of this routine is to be jumped to (tail-call).
+        ; Parameters:
+        ;   C - Filesytem index
+        ;   A - Function offset
+        ;   [HL] - Parameter to pop before jumping to the function pointer
+        ; Returns/Alters:
+        ;   Same as the function pointed by the offset
+zos_fs_jump_function_ptr:
+        call zos_fs_get_function_ptr
+        ex (sp), hl
+        ; Not really a `ret` per-se, it will jump to the routine we jump got
+        ret
+
         ; Open a file on a disk with the given flags
         ; Parameters:
         ;       B - Flags, can be O_RDWR, O_RDONLY, O_WRONLY, O_NONBLOCK, O_CREAT, O_APPEND, etc...
@@ -251,23 +308,14 @@ zos_disk_open_file:
         ; DE contains the potential driver, A must be a success here
         or a
         ret nz
-        ; Put the absolute path back in HL
-        ; Put the filesystem number in A
-        ld a, c
-        ; We have a very few filesystems, no need for a lookup table AT THE MOMENT
-        cp FS_RAWTABLE
-        jp z, zos_fs_rawtable_open
-        cp FS_ZEALFS
-        jp z, zos_fs_zealfs_open
-        cp FS_FAT16
-        jp z, zos_fs_fat16_open
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-        cp FS_HOSTFS
-        jp z, zos_fs_hostfs_open
-    ENDIF
-        ; The filesystem has not been found, memory corruption?
-        ld a, ERR_INVALID_FILESYSTEM
-        ret
+        ; Get the routine to call in HL
+        ; C - Filesystem
+        ; A - Function offset
+        ; Save original HL on the stack
+        push hl
+        ld a, FS_OFF_OPEN
+        jp zos_fs_jump_function_ptr
+
 
         ; Get the stats of a given opened file. The structure passed in DE will be
         ; filled in accordingly. The definition of that structure must follow
@@ -325,20 +373,17 @@ _zos_disk_stat_dir:
 _zos_disk_continue:
         ; Get the file system back in A
         pop af
-        ; We have a very few file systems, no need for a lookup table AT THE MOMENT
-        cp FS_RAWTABLE
-        jp z, zos_fs_rawtable_stat
-        cp FS_ZEALFS
-        jp z, zos_fs_zealfs_stat
-        cp FS_FAT16
-        jp z, zos_fs_fat16_stat
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-        cp FS_HOSTFS
-        jp z, zos_fs_hostfs_stat
-    ENDIF
-        ; The filesystem has not been found, memory corruption?
-        ld a, ERR_INVALID_FILESYSTEM
+        ; BC, DE and HL have parameters to be kept!
+        push hl ; Put is first since it will be exchanged with the function address
+        push bc
+        ld c, a
+        ld a, FS_OFF_STAT
+        call zos_fs_get_function_ptr
+        ; Restore BC and jump to HL while getting the parameter
+        pop bc
+        ex (sp), hl
         ret
+
 
         ; Check whether the opened device that is getting `stat` is a directory or a file
         ; Parameters:
@@ -472,33 +517,9 @@ _zos_disk_read_add_min_is_bc_no_pop:
         pop af
         pop hl
         push hl ; Save HL on the stack again
-        ; TODO: Optimize with a table?
-        cp FS_RAWTABLE
-        jr z, _zos_disk_read_rawtable
-        cp FS_ZEALFS
-        jp z, _zos_disk_read_zealfs
-        cp FS_FAT16
-        jp z, _zos_disk_read_fat16
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-        cp FS_HOSTFS
-        jr nz, _zos_disk_read_invalid
-        call zos_fs_hostfs_read
-        jr _zos_disk_read_epilogue
-_zos_disk_read_invalid:
-    ENDIF
-        ; The filesystem has not been found, memory corruption?
-        pop hl
-        ld a, ERR_INVALID_FILESYSTEM
-        ret
-_zos_disk_read_zealfs:
-        call zos_fs_zealfs_read
-        jp _zos_disk_read_epilogue
-_zos_disk_read_fat16:
-        call zos_fs_fat16_read
-        jp _zos_disk_read_epilogue
-_zos_disk_read_rawtable:
-        call zos_fs_rawtable_read
-_zos_disk_read_epilogue:
+        ; Call a trampoline that will call READ function from the
+        ; current FS with the current BC, DE, and HL values.
+        call _zos_disk_read_trampoline
         ; Get the original HL, the one pointing to the opened file
         pop hl
         ; Check the return value
@@ -524,6 +545,24 @@ _zos_disk_read_early_success:
         ret
 _zos_disk_bad_mode:
         ld a, ERR_BAD_MODE
+        ret
+        ; Return address is on the stack, we have to call the READ function
+        ; of the FS (index) pointed by A.
+        ; We must NOT alter any register
+        ; Parameters:
+        ;   A - FS index
+_zos_disk_read_trampoline:
+        push hl
+        push bc
+        ld c, a
+        ld a, FS_OFF_READ
+_zos_disk_rw_trampoline:
+        call zos_fs_get_function_ptr
+        ; Restore BC and jump to HL while getting the parameter
+        pop bc
+        ex (sp), hl
+        ; Despite the name of the instruction, this will jump to
+        ; the function dereferences from the structure.
         ret
 
 
@@ -590,32 +629,9 @@ _zos_disk_write_no_append:
         ; to the beginning of the structure
         dec hl
         push hl
-        cp FS_RAWTABLE
-        jr z, _zos_disk_write_rawtable
-        cp FS_ZEALFS
-        jp z, _zos_disk_write_zealfs
-        cp FS_FAT16
-        jp z, _zos_disk_write_fat16
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-        cp FS_HOSTFS
-        jr nz, _zos_disk_write_invalid
-        call zos_fs_hostfs_write
-        jr _zos_disk_write_epilogue
-_zos_disk_write_invalid:
-    ENDIF
-        ; The filesystem has not been found, memory corruption?
-        pop hl
-        ld a, ERR_INVALID_FILESYSTEM
-        ret
-_zos_disk_write_rawtable:
-        call zos_fs_rawtable_write
-        jp _zos_disk_write_epilogue
-_zos_disk_write_zealfs:
-        call zos_fs_zealfs_write
-        jp _zos_disk_write_epilogue
-_zos_disk_write_fat16:
-        call zos_fs_fat16_write
-_zos_disk_write_epilogue:
+        ; Call a trampoline that will call WRITE function from the
+        ; current FS with the current BC, DE, and HL values.
+        call _zos_disk_write_trampoline
         pop hl
         ; Check if an error occurred, stack is clean, we can ret at any time
         or a
@@ -689,15 +705,13 @@ _zos_disk_write_set_size_1:
         inc bc
         xor a
         ret
-
-
-        ; Perform the same operation on the offset, it will return ERR_SUCCESS
-        ; in all cases, we can do a tail-call here
-        ex de, hl
-        ld de, opn_file_off_t - opn_file_size_t
-        add hl, de
-        jp zos_disk_add_offset_bc
-
+        ; Similar to the read trampoline but for WRITE operation
+_zos_disk_write_trampoline:
+        push hl
+        push bc
+        ld c, a
+        ld a, FS_OFF_WRITE
+        jp _zos_disk_rw_trampoline
 
         ; Move the cursor of an opened file or an opened driver.
         ; In case of a driver, the implementation is driver-dependent.
@@ -977,34 +991,12 @@ zos_disk_close:
         ; Point to the user field. HL is pointing to the size field - 1.
         ld bc, opn_file_usr_t - opn_file_size_t + 1
         add hl, bc
-        ; Call the filesystem now
-        ; FIXME: Use a vector table?
-        cp FS_RAWTABLE
-        jp z, _zos_disk_close_rawtable
-        cp FS_ZEALFS
-        jp z, _zos_disk_close_zealfs
-        cp FS_FAT16
-        jp z, _zos_disk_close_fat16
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-        cp FS_HOSTFS
-        jr nz, _zos_disk_close_invalid
-        call zos_fs_hostfs_close
-        jr _zos_disk_close_epilogue
-_zos_disk_close_invalid:
-    ENDIF
-        ; The filesystem has not been found, memory corruption?
-        pop hl
-        ld a, ERR_INVALID_FILESYSTEM
-        ret
-_zos_disk_close_rawtable:
-        call zos_fs_rawtable_close
-        jr _zos_disk_close_epilogue
-_zos_disk_close_zealfs:
-        call zos_fs_zealfs_close
-        jr _zos_disk_close_epilogue
-_zos_disk_close_fat16:
-        call zos_fs_fat16_close
-_zos_disk_close_epilogue:
+        ; BC can be altered, it won't be given to the FS anyway.
+        ; Call a trampoline that will call CLOSE function from the
+        ; current FS with the current HL value
+        ld c, a
+        ld a, FS_OFF_CLOSE
+        call zos_fs_call_function_ptr
         pop hl
         ; Decrement reference counter in all cases
         dec (hl)
@@ -1023,7 +1015,14 @@ _zos_disk_close_dir:
         ld bc, opn_file_size_t - 1
         add hl, bc
         cp FS_HOSTFS
-        call z, zos_fs_hostfs_close
+        jr nz, @not_hostfs
+        ; Call the HostFS close routine
+        ld c, a
+        ld a, FS_OFF_CLOSE
+        ; In theory we should use zos_fs_jmp_function_ptr, but by using this one instead,
+        ; we save one instruction: push hl
+        jp zos_fs_call_function_ptr
+@not_hostfs:
     ENDIF
         xor a
         ret
@@ -1166,22 +1165,10 @@ zos_disk_opendir:
         ; DE contains the potential driver, A must be a success here
         or a
         ret nz
-        ; Put the filesystem number in A
-        ld a, c
-        ; We have a very few filesystems, no need for a lookup table AT THE MOMENT
-        cp FS_RAWTABLE
-        jp z, zos_fs_rawtable_opendir
-        cp FS_ZEALFS
-        jp z, zos_fs_zealfs_opendir
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-        cp FS_HOSTFS
-        jp z, zos_fs_hostfs_opendir
-    ENDIF
-        cp FS_FAT16
-        jp z, zos_fs_fat16_opendir
-        ; The filesystem has not been found, memory corruption?
-        ld a, ERR_INVALID_FILESYSTEM
-        ret
+        ; Save original HL on the stack
+        push hl
+        ld a, FS_OFF_OPENDIR
+        jp zos_fs_jump_function_ptr
 
 
         ; Create a directory on a disk.
@@ -1201,22 +1188,10 @@ zos_disk_mkdir:
         ; DE contains the potential driver, A must be a success here
         or a
         ret nz
-        ; Put the filesystem number in A
-        ld a, c
-        ; We have a very few filesystems, no need for a lookup table AT THE MOMENT
-        cp FS_RAWTABLE
-        jp z, zos_fs_rawtable_mkdir
-        cp FS_ZEALFS
-        jp z, zos_fs_zealfs_mkdir
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-        cp FS_HOSTFS
-        jp z, zos_fs_hostfs_mkdir
-    ENDIF
-        cp FS_FAT16
-        jp z, zos_fs_fat16_mkdir
-        ; The filesystem has not been found, memory corruption?
-        ld a, ERR_INVALID_FILESYSTEM
-        ret
+        ; Call the function from the FS structure
+        push hl
+        ld a, FS_OFF_MKDIR
+        jp zos_fs_jump_function_ptr
 
 
         ; Routine checking if the opened dev address passed is an opened directory.
@@ -1325,19 +1300,11 @@ zos_disk_readdir:
         inc hl
         inc hl
         inc hl
-        cp FS_RAWTABLE
-        jp z, zos_fs_rawtable_readdir
-        cp FS_ZEALFS
-        jp z, zos_fs_zealfs_readdir
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-        cp FS_HOSTFS
-        jp z, zos_fs_hostfs_readdir
-    ENDIF
-        cp FS_FAT16
-        jp z, zos_fs_fat16_readdir
-        ; The filesystem has not been found, memory corruption?
-        ld a, ERR_INVALID_FILESYSTEM
-        ret
+        ; Save original HL on the stack
+        push hl
+        ld c, a
+        ld a, FS_OFF_READDIR
+        jp zos_fs_jump_function_ptr
 
 
         ; Remove a file or a(n empty) directory from a disk
@@ -1356,41 +1323,18 @@ zos_disk_rm:
         ; DE contains the potential driver, A must be a success here
         or a
         ret nz
-        ; Put the filesystem number in A
-        ld a, c
-        cp FS_RAWTABLE
-        jp z, zos_fs_rawtable_rm
-        cp FS_ZEALFS
-        jp z, zos_fs_zealfs_rm
-    IF CONFIG_ENABLE_EMULATION_HOSTFS
-        cp FS_HOSTFS
-        jp z, zos_fs_hostfs_rm
-    ENDIF
-        cp FS_FAT16
-        jp z, zos_fs_fat16_rm
-        ; The filesystem has not been found, memory corruption?
-        ld a, ERR_INVALID_FILESYSTEM
-        ret
+        ; Get the routine to call in HL
+        ; C - Filesystem
+        ; A - Function offset
+        ; Save original HL on the stack
+        push hl
+        ld a, FS_OFF_RM
+        jp zos_fs_jump_function_ptr
 
 
         ;======================================================================;
         ;================= P R I V A T E   R O U T I N E S ====================;
         ;======================================================================;
-
-
-        ; Private stub used when a file system is disabled from the menuconfig
-zos_fs_fat16_open:
-zos_fs_fat16_stat:
-zos_fs_fat16_read:
-zos_fs_fat16_close:
-zos_fs_fat16_write:
-zos_fs_fat16_opendir:
-zos_fs_fat16_readdir:
-zos_fs_fat16_mkdir:
-zos_fs_fat16_rm:
-zos_disk_fs_not_supported:
-        ld a, ERR_NOT_SUPPORTED
-        ret
 
         ; Perform a addition of an unsigned 32-bit value pointed by HL with the
         ; unsigned 16-bit value in BC.
