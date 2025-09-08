@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include "zos_errors.h"
 #include "zos_time.h"
+#include "zos_sys.h"
 
 /**
  * Define the calling convention for all the routines
@@ -105,14 +106,6 @@ typedef enum {
     SEEK_END
 } zos_whence_t;
 
-
-/**
- * @brief Enumeration regrouping all the filesystems supported on Zeal 8-bit OS
- */
-typedef enum {
-    FS_RAWTABLE = 0,
-    FS_ZEALFS   = 1,
-} zos_fs_t;
 
 /**
  * @note In the functions below, any pointer, buffer or structure address
@@ -331,11 +324,11 @@ zos_err_t rm(const char* path) CALL_CONV;
  * @param dev Driver's opened dev number that will act as a disk. The dev can be
  *            closed after mounting, this will not affect the mounted disk.
  * @param letter Letter to assign to the new disk (A-Z), not sensitive to case.
- * @param fs File system of the new disk to mount.
+ * @param fs File system index, returned by `zos_search_fs` function.
  *
  * @returns ERR_SUCCESS on success, error code else.
  */
-zos_err_t mount(zos_dev_t dev, char letter, zos_fs_t fs) CALL_CONV;
+zos_err_t mount(zos_dev_t dev, char letter, uint8_t fs_index) CALL_CONV;
 
 
 /**

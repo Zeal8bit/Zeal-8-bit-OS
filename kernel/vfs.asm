@@ -885,7 +885,7 @@ zos_vfs_rm:
         ;       H - Dev number. It must be an opened driver, not a file. The dev can be closed after
         ;           mounting, this will not affect the mounted disk.
         ;       D - ASCII letter to assign to the disk (upper or lower)
-        ;       E - File system, taken from `vfs_h.asm`
+        ;       E - File system index in the FS_VECTORS section
         ; Returns:
         ;       A - ERR_SUCCESS on success, error code else
         PUBLIC zos_vfs_mount

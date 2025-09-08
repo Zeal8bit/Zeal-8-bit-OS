@@ -1,4 +1,4 @@
-/* SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+/* SPDX-FileCopyrightText: 2023-2025 Zeal 8-bit Computer <contact@zeal8bit.com>
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -30,19 +30,32 @@ typedef enum {
     TARGET_COUNT
 } zos_target_t;
 
+
+/**
+ * @brief Structure of available file systems names
+ */
+typedef struct {
+    char    fs_name[4];
+    uint8_t fs_padding[20];
+} zos_fs_t;
+
+_Static_assert(sizeof(zos_fs_t) == 24, "File system structure must be 24 bytes big");
+
 /**
  * @brief Kernel configuration structure
  */
 typedef struct {
     zos_target_t c_target; // Machine number the OS is running on, 0 means UNKNOWN
-    uint8_t  c_mmu;        // 0 if the MMU-less kernel is running, 1 else
-    char     c_def_disk;   // Upper case letter for the default disk
-    uint8_t  c_max_driver; // Maximum number of driver loadable in the kernel
-    uint8_t  c_max_dev;    // Maximum number of opened devices in the kernel
-    uint8_t  c_max_files;  // Maximum number of opened files in the kernel
-    uint16_t c_max_path;   // Maximum path length
-    void*    c_prog_addr;  // Virtual address where user programs are loaded
-    void*    c_custom;     // Custom area, target-specific, can be NULL
+    uint8_t      c_mmu;        // 0 if the MMU-less kernel is running, 1 else
+    char         c_def_disk;   // Upper case letter for the default disk
+    uint8_t      c_max_driver; // Maximum number of driver loadable in the kernel
+    uint8_t      c_max_dev;    // Maximum number of opened devices in the kernel
+    uint8_t      c_max_files;  // Maximum number of opened files in the kernel
+    uint16_t     c_max_path;   // Maximum path length
+    void*        c_prog_addr;  // Virtual address where user programs are loaded
+    void*        c_custom;     // Custom area, target-specific, can be NULL
+    uint8_t      c_fs_count;   // Number of file systems entries in the array
+    zos_fs_t*    c_fs;         // Supported file systems array
 } zos_config_t;
 
 /**
@@ -168,3 +181,15 @@ static inline const zos_config_t* kernel_config(void)
 {
     return *((zos_config_t**) 0x0004);
 }
+
+
+/**
+ * @brief Search for a file system index given a name
+ *
+ * @param name File system name to look for, valid values are:
+ *              - RAWT (Rawtable)
+ *              - ZFS (ZealFS, version depends on the kernel)
+ *              - HOST (HostFS)
+ * @param fs_index Pointer to the index to return
+ */
+zos_err_t zos_search_fs(const char* name, uint8_t* fs_index);

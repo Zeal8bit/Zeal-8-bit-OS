@@ -6,6 +6,7 @@
     INCLUDE "osconfig.asm"
     INCLUDE "disks_h.asm"
     INCLUDE "target_h.asm"
+    INCLUDE "fs/fs_h.asm"
 
     ; If the kernel is compiled without MMU support, set the macro to 0
     ; so that it can still be placed in the configuration structure.
@@ -123,6 +124,10 @@ kernel_config_t:
   ELSE
     DEFW 0
   ENDIF
+    ; Number of items in the FS_VECTORS array
+    DEFB __FS_VECTORS_size / FS_STRUCT_SIZE
+    ; Start address of the file systems vector
+    DEFW __FS_VECTORS_head
 
     ; Assert that these reset vectors are at the right place
     IF 0

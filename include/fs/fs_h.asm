@@ -34,5 +34,7 @@
     DEFC FS_OFF_RM      = 20
 
     EXTERN __FS_VECTORS_head
+    EXTERN __FS_VECTORS_tail
+    EXTERN __FS_VECTORS_size
 
     ENDIF

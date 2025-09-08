@@ -1,4 +1,4 @@
-; SPDX-FileCopyrightText: 2023 Zeal 8-bit Computer <contact@zeal8bit.com>
+; SPDX-FileCopyrightText: 2023-2025 Zeal 8-bit Computer <contact@zeal8bit.com>
 ;
 ; SPDX-License-Identifier: Apache-2.0
 
@@ -6,6 +6,10 @@
         ld l, #number
         rst 8
     .endm
+
+    ; Error code
+    .equ ERR_NO_SUCH_ENTRY, 4
+
 
     ; Size of the buffers used for getchar and putchar
     .equ STD_BUFFER_SIZE, 80
@@ -694,6 +698,93 @@ _fflush_stdout:
     ld d, a
     ld e, a
     jr _putchar_flush
+
+
+    ; zos_err_t zos_search_fs(const char* name, uint8_t* fs_index);
+    ; Search for a file system in the configuration
+    ; Parameters:
+    ;   HL - Name
+    ;   DE - FS Index
+    ; Returns:
+    ;   A - ERR_SUCCESS on success, error code else
+    ; Alters:
+    ;   A, BC, DE, HL
+    .globl _zos_search_fs
+_zos_search_fs:
+    push de
+    ; Put name in DE
+    ex de, hl
+    ; Configuration structure address in HL
+    ld hl, (#0x0004)
+    ; `c_fs_count` field is at offset 12, `c_fs` at offset 13
+    ld bc, #12
+    add hl, bc
+    ld b, (hl)
+    ; Check if the count is 0
+    ld a, b
+    or a
+    jr z, _zos_search_fs_not_found
+    ; Keep the total on the stack
+    push bc
+    inc hl
+    ld a, (hl)
+    inc hl
+    ld h, (hl)
+    ld l, a
+    ; HL points to the list of file systems array
+    ; Compare each string with the one in DE
+_zos_search_loop:
+    push de
+    push hl
+    ld c, #4
+_zos_search_strcmp:
+    ld a, (de)
+    cp (hl)
+    jr nz, _zos_search_next
+    ; If A is 0, it's the end of the string (we accept names < 4)
+    or a
+    jr z, _zos_search_found
+    inc hl
+    inc de
+    dec c
+    jr nz, _zos_search_strcmp
+    ; C is 0, we found a match, check if DE ends
+    ld a, (de)
+    or a
+    ; If DE is longer than 4 chars, skip
+    jr nz, _zos_search_next
+_zos_search_found:
+    ; We found a match, the index is `total - B`, total being on the stack, above the char*
+    pop hl
+    pop de
+    ; Remaining FS to check in A
+    ld a, b
+    pop bc
+    ; Total number of FS in B, perform B - A = -(A - B)
+    sub b
+    neg
+    ; Store the result in FS index pointer
+    pop de
+    ld (de), a
+    ; Success
+    xor a
+    ret
+_zos_search_next:
+    pop hl
+    ; Go to the next structure
+    ld de, #24
+    add hl, de
+    ; Pop the original name from the stack
+    pop de
+    djnz _zos_search_loop
+    ; Pop the total FS count
+    pop bc
+    ; Fall-through
+_zos_search_fs_not_found:
+    ; Pop the FS index
+    pop de
+    ld a, #ERR_NO_SUCH_ENTRY
+    ret
 
 
     .area _BSS
