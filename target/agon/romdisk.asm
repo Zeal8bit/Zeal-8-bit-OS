@@ -23,10 +23,6 @@ romdisk_init:
         ; A has the status, return it if error
 
         or a
-
-        ; This is the last driver, enable interrupts here
-        INTERRUPTS_ENABLE()
-
         ret nz
         ; Else, return ERR_DRIVER_HIDDEN as we don't want this driver to be
         ; directly used by users.
