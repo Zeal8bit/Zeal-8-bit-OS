@@ -42,7 +42,11 @@ interrupt_default_handler:
         ei
         reti
 
-
+        ; Routine called after all drivers have been initialized
+        PUBLIC target_drivers_hook
+target_drivers_hook:
+        INTERRUPTS_ENABLE()
+        ret
 
         ; No exit action at this point. Consider undoing the interrupt changes from boot?
 pio_deinit:
