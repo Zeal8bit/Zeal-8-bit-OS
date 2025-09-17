@@ -9,4 +9,8 @@ menu "Agon Light Configuration"
         bool
         default n
 
+    config TARGET_HAS_DRIVERS_HOOK
+        bool
+        default y
+
 endmenu
