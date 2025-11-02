@@ -5,11 +5,16 @@ if(NOT DEFINED ZOS_TOOLCHAIN)
 	message(WARNING "ZOS_TOOLCHAIN is not defined, defaulting to SDCC.")
 endif()
 
+# Fallback to build dir if CMAKE_RUNTIME_OUTPUT_DIRECTORY is empty
+if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+endif()
+
 set(CMAKE_TOOLCHAIN_FILE $ENV{ZOS_PATH}/cmake/${ZOS_TOOLCHAIN}_toolchain.cmake)
 
 # Helper to convert an ELF file to a raw binary
 function(elf_to_bin target)
-    set(bin_file "${CMAKE_CURRENT_BINARY_DIR}/${target}.bin")
+    set(bin_file "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target}.bin")
     add_custom_target(${target}_bin ALL
         COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${target}> ${bin_file}
         DEPENDS $<TARGET_FILE:${target}>
@@ -21,7 +26,7 @@ endfunction()
 
 # Helper to convert an IHX file to a raw binary
 function(ihx_to_bin target)
-    set(bin_file "${CMAKE_CURRENT_BINARY_DIR}/${target}.bin")
+    set(bin_file "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target}.bin")
 
     add_custom_target(${target}_bin ALL
         COMMAND ${CMAKE_OBJCOPY} --input-target=ihex --output-target=binary $<TARGET_FILE:${target}> ${bin_file}
