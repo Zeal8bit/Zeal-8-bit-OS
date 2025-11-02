@@ -775,11 +775,6 @@ zos_zealfs_stat:
     or (hl)
     pop hl
     jp z, zos_disk_stat_fill_root
-    ; Stat structure is pointing to size, make it point to the date
-    inc de
-    inc de
-    inc de
-    inc de
 _zos_stat_file:
     ; Start by setting up the read function for the driver. Driver address must
     ; be in HL
@@ -804,6 +799,14 @@ _zos_stat_file:
     pop de
     or a
     ret nz
+    ld a, (RAM_BUFFER + zealfs_entry_flags)
+    and 1
+    jr z, _zealfs_skip_dir_size
+    ; In case of a directory we need to fill the size too.
+    ld hl, RAM_BUFFER + zealfs_entry_size
+    ld bc, 4
+    ldir
+_zealfs_skip_dir_size:
     ; We can optimize since we know that date structure follows the size
     ld hl, RAM_BUFFER + zealfs_entry_date
     ld bc, DATE_STRUCT_SIZE
@@ -813,12 +816,9 @@ _zos_stat_file:
     ASSERT(STAT_STRUCT_NAME_LEN == FS_NAME_LENGTH)
     ld bc, FS_NAME_LENGTH
     ldir
-    ; Check if we just read a directory, if yes, set the size to a page size
-    ld a, (RAM_BUFFER + zealfs_entry_flags)
-    and 1
-    ; If A is 0, the entry was a file, we can return success (= 0)
-    ret z
-
+    ; Success!
+    xor a
+    ret
 
     ; Close an opened file. On ZealFS this doesn't do anything special apart from
     ; calling the driver's close routine.
