@@ -48,6 +48,19 @@ zos_fs_hostfs_open:
     out (IO_OPERATION), a
     call wait_for_completion
     ret nz
+    ; Check if we have to allocate a file or a directory
+    in a, (IO_ARG5_REG)
+    or a
+    jr z, _open_file
+    ; Open a directory, put driver address in BC
+    ld b, d
+    ld c, e
+    ld a, FS_HOSTFS
+    call zos_disk_allocate_opndir
+    or a
+    ret nz ; check for errors
+    jr open_end
+_open_file:
     ; Allocate the file descriptor in which we store an abstract context
     ld a, b
     and 0xf
@@ -73,6 +86,7 @@ zos_fs_hostfs_open:
     call zos_disk_allocate_opnfile
     or a
     ret nz  ; If error, return directly
+open_end:
     ; Fill the user field with the abstract value got from the host
     in a, (IO_ARG4_REG)
     ld (de), a
