@@ -54,10 +54,20 @@ zos_target_add(SRCS ${srcs}
                LINKERSCRIPT "linker.asm"
                INCLUDE "./" "./include")
 
-# Calculate the offset of the ROMDISK relatively to the kernel physical address
-math(EXPR ROMDISK_OFFSET "${CONFIG_ROMDISK_ADDRESS} - ${CONFIG_KERNEL_PHYS_ADDRESS}")
+# Calculate the offset of the ROMDISK given the 16KB-block distance configuration
+math(EXPR ROMDISK_OFFSET "${CONFIG_ROMDISK_OFFSET_PAGES} * 0x4000")
 
-# Create a ROM image that will contain the OS binary with the romdisk
-zos_create_rom_image(OUTPUT "${CMAKE_BINARY_DIR}/os_with_romdisk.img"
-                     EXTRA_FILES "$ENV{EXTRA_ROMDISK_FILES}"
-                     DISK_OFFSET "${ROMDISK_OFFSET}")
+if(CONFIG_ROMDISK_OFFSET_PAGES LESS 0)
+    # Only values that put the romdisk AFTER the kernel for now
+    message(WARNING "Generating an image where the romdisk is before the kernel is currently not supported.\n"
+                    "Only the OS binary will be generated.")
+else()
+    if(CONFIG_ROMDISK_OFFSET_PAGES EQUAL 0)
+        message(WARNING "ROMDISK page offset cannot be 0! Automatically setting it to 1.")
+        set(ROMDISK_OFFSET "16384")
+    endif()
+    # Create a ROM image that will contain the OS binary with the romdisk
+    zos_create_rom_image(OUTPUT      "${CMAKE_BINARY_DIR}/os_with_romdisk.img"
+                         EXTRA_FILES "$ENV{EXTRA_ROMDISK_FILES}"
+                         DISK_OFFSET "${ROMDISK_OFFSET}")
+endif()
