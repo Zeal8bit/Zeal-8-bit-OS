@@ -101,9 +101,9 @@ romdisk_read:
         rlca
         and 3
         dec a
-        jp z, _romdisk_read_to_page1
+        jr z, _romdisk_read_to_page1
         dec a
-        jp z, _romdisk_read_to_page2
+        jr z, _romdisk_read_to_page2
         dec a
         ; In the case where the destination buffer is in the last page,
         ; we assume this call has been performed by the kernel, and so,
@@ -143,9 +143,9 @@ _romdisk_read_to_page1:
         rlc h
         rla
         ; Now A contains bits 0,0,0,18,17,16,15,14
-        ; However, ROMDISK doesn't start at page 0 of flash,
-        ; thus, we have to add to A the start page index
-        add CONFIG_ROMDISK_ADDRESS / KERN_MMU_VIRT_PAGES_SIZE
+        ; However, ROMDISK doesn't start at page 0 of flash. The page where romdisk sits is given
+        ; by the osconfig, relatively to the kernel page.
+        call _romdisk_absolute_page
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ; Page is mapped! Restore HL to an actual address between 0 and 16KB
         ld a, h
@@ -193,7 +193,7 @@ _romdisk_read_to_page2:
         rla
         rlc h
         rla
-        add CONFIG_ROMDISK_ADDRESS / KERN_MMU_VIRT_PAGES_SIZE
+        call _romdisk_absolute_page
         MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
         ld a, h
         rrca
@@ -220,6 +220,28 @@ _romdisk_read_offset_error:
         ; Clean stack
         pop hl
         ld a, ERR_INVALID_OFFSET
+        ret
+
+
+        ; Get the absolute romdisk page from a relative page.
+        ; This routine will use the kernel address and the configuration ROMDISK page offset
+        ; to get the absolute physical address of the ROM.
+        ; Parameters:
+        ;       A - Relative ROM page to map
+        ; Returns:
+        ;       A - Absolute ROM page to map
+        ; Alters:
+        ;       A
+_romdisk_absolute_page:
+        push hl
+        ld h, a
+        ; Get the page where the kernel sits
+        MMU_GET_PAGE_NUMBER(MMU_PAGE_0)
+        ; Add the offset where the romdisk sits
+        add CONFIG_ROMDISK_OFFSET_PAGES
+        ; Add the calculated address offset above
+        add h
+        pop hl
         ret
 
         ; Function performing a first copy of HL into DE if HL + BC is crossing the 16KB boundary

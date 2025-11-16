@@ -73,6 +73,6 @@ POSTCMD := @echo "RAM used by kernel: $$($(STAT_BYTES)  $(BINDIR)/*KERNEL_BSS*.b
            rm $(BINDIR)/*KERNEL_BSS*.bin && \
            echo "OS size: $$($(STAT_BYTES)  $(FULLBIN)) bytes" && \
            cp $(FULLBIN) $(FULLBIN_W_ROMDISK) && \
-           truncate -s $$(( $(CONFIG_ROMDISK_ADDRESS) - $(CONFIG_KERNEL_PHYS_ADDRESS) )) $(FULLBIN_W_ROMDISK) && \
+           truncate -s $$(( $(CONFIG_ROMDISK_OFFSET_PAGES) * 0x4000 )) $(FULLBIN_W_ROMDISK) && \
            cat $(ZOS_PATH)/romdisk/disk.img >> $(FULLBIN_W_ROMDISK) && \
            echo "Image size: $$($(STAT_BYTES) $(FULLBIN_W_ROMDISK)) bytes"
