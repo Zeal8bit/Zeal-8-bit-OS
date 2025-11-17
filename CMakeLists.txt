@@ -44,6 +44,8 @@ if(linkerscript STREQUAL "")
     message(FATAL_ERROR "A linker script must be defined and given to target_add_srcs")
 endif()
 target_sources(${OS_TARGET} PUBLIC ${linkerscript} ${kernel_srcs} ${target_srcs})
+set_source_files_properties(${linkerscript} ${kernel_srcs} ${target_srcs}
+                            OBJECT_DEPENDS ${CMAKE_SOURCE_DIR}/${CONFIG_ASM})
 
 # Set the include directories
 target_include_directories(${OS_TARGET} PUBLIC
@@ -62,11 +64,21 @@ add_custom_target(menuconfig
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Launch menuconfig"
 )
-
+# Add a target for alldefconfig so that `make alldefconfig` is valid and executes the proper command
 add_custom_target(alldefconfig
-    COMMAND ${PYTHON_PATH}/alldefconfig
+    COMMAND env KCONFIG_CONFIG=${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${PYTHON_PATH}/alldefconfig
+    COMMAND ${PYTHON} ${CMAKE_SOURCE_DIR}/tools/config_to_asm.py ${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${CMAKE_SOURCE_DIR}/${CONFIG_ASM}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Set default config"
+    COMMENT "Generate default osconfig.asm"
+)
+# Also make `alldefconfig` a command so that the asm config is linked to it. If `make` is launched without
+# having the config asm file, this command will be used
+add_custom_command(
+    OUTPUT ${CMAKE_SOURCE_DIR}/${CONFIG_ASM}
+    COMMAND env KCONFIG_CONFIG=${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${PYTHON_PATH}/alldefconfig
+    COMMAND ${PYTHON} ${CMAKE_SOURCE_DIR}/tools/config_to_asm.py ${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${CMAKE_SOURCE_DIR}/${CONFIG_ASM}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Generate default osconfig.asm"
 )
 
 # Copy the real binary into the output name we want
