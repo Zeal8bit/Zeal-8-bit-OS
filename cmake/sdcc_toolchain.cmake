@@ -52,3 +52,57 @@ set(CMAKE_C_LINK_EXECUTABLE
 set(CMAKE_ASM_LINK_EXECUTABLE
     "<CMAKE_LINKER> <LINK_FLAGS> <LINK_LIBRARIES> <TARGET> ${SDCC_REL0} <OBJECTS>")
 
+# Link CMake target libraries with sdlz
+function(zos_link_libraries target visibility)
+    # Parse arguments, skipping visibility keywords
+    set(libs ${ARGN})
+
+    foreach(lib ${libs})
+        # Skip visibility keywords if they appear in the list
+        if(lib STREQUAL "PRIVATE" OR lib STREQUAL "PUBLIC" OR lib STREQUAL "INTERFACE")
+            continue()
+        endif()
+
+        # Check if it's a target AND if it's a library we're building (not imported)
+        if(TARGET ${lib})
+            get_target_property(lib_type ${lib} TYPE)
+            get_target_property(is_imported ${lib} IMPORTED)
+
+            # Only use special SDCC handling for our own static libraries
+            if(lib_type STREQUAL "STATIC_LIBRARY" AND NOT is_imported)
+                # Get the library output directory
+                get_target_property(lib_dir ${lib} ARCHIVE_OUTPUT_DIRECTORY)
+                if(NOT lib_dir)
+                    set(lib_dir ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+                endif()
+
+                # Get library name
+                get_target_property(lib_name ${lib} OUTPUT_NAME)
+                if(NOT lib_name)
+                    set(lib_name ${lib})
+                endif()
+
+                # Add each library with its own -k and -l flags
+                target_link_options(${target} ${visibility}
+                    "SHELL:-k ${lib_dir}"
+                    "SHELL:-l ${lib_name}.lib"
+                )
+
+                # Add include directories from the library
+                get_target_property(lib_includes ${lib} INTERFACE_INCLUDE_DIRECTORIES)
+                if(lib_includes)
+                    target_include_directories(${target} ${visibility} ${lib_includes})
+                endif()
+
+                # Add dependency
+                add_dependencies(${target} ${lib})
+            else()
+                # Use the ORIGINAL command, not the macro
+                target_link_libraries(${target} ${visibility} ${lib})
+            endif()
+        else()
+            # Use the ORIGINAL command, not the macro
+            target_link_libraries(${target} ${visibility} ${lib})
+        endif()
+    endforeach()
+endfunction()
