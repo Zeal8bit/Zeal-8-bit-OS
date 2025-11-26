@@ -82,6 +82,8 @@ function(zos_link_libraries target visibility)
                     set(lib_name ${lib})
                 endif()
 
+                set(lib_path "${lib_dir}/${lib_name}.lib")
+
                 # Add each library with its own -k and -l flags
                 target_link_options(${target} ${visibility}
                     "SHELL:-k ${lib_dir}"
@@ -96,6 +98,9 @@ function(zos_link_libraries target visibility)
 
                 # Add dependency
                 add_dependencies(${target} ${lib})
+                set_source_files_properties(${lib_path} PROPERTIES EXTERNAL_OBJECT true)
+                target_sources(${target} PRIVATE ${lib_path})
+
             else()
                 # Use the ORIGINAL command, not the macro
                 target_link_libraries(${target} ${visibility} ${lib})
