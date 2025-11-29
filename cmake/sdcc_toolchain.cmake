@@ -52,7 +52,7 @@ set(CMAKE_C_LINK_EXECUTABLE
 set(CMAKE_ASM_LINK_EXECUTABLE
     "<CMAKE_LINKER> <LINK_FLAGS> <LINK_LIBRARIES> <TARGET> ${SDCC_REL0} <OBJECTS>")
 
-# Link CMake target libraries with sdlz
+# Link CMake target libraries with sdld
 function(zos_link_libraries target visibility)
     # Parse arguments, skipping visibility keywords
     set(libs ${ARGN})

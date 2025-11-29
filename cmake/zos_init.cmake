@@ -86,7 +86,7 @@ function(zos_use_search)
         "" "OUT" "")
 
     if(NOT ZOS_USE_SEARCH_OUT)
-        message(FATAL_ERROR "zos_use_search: OUT <varname> mus tbe provided")
+        message(FATAL_ERROR "zos_use_search: OUT <varname> must be provided")
     endif()
 
     set(result "")
