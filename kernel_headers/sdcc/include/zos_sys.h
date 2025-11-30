@@ -42,6 +42,7 @@ typedef struct {
     uint8_t  c_max_files;  // Maximum number of opened files in the kernel
     uint16_t c_max_path;   // Maximum path length
     void*    c_prog_addr;  // Virtual address where user programs are loaded
+    char*    c_prog_path;  // Path to where user prog
     void*    c_custom;     // Custom area, target-specific, can be NULL
 } zos_config_t;
 

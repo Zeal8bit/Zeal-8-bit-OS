@@ -16,6 +16,7 @@
     ; Reference the OS entry point
     EXTERN zos_entry
     EXTERN zos_sys_perform_syscall
+    EXTERN _zos_default_init
 
     ; Make the implemented vectors public
     PUBLIC zos_software_reset
@@ -117,6 +118,7 @@ kernel_config_t:
     DEFB CONFIG_KERNEL_MAX_OPENED_FILES
     DEFW CONFIG_KERNEL_PATH_MAX
     DEFW CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
+    DEFW _zos_default_init
     ; Target specific pointer, check if any was provided
   IF CONFIG_TARGET_CUSTOM_CONFIG
     DEFW target_custom_area_addr
