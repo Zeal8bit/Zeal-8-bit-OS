@@ -99,9 +99,10 @@
     ;     uint8_t c_max_files;  // Maximum number of opened files in the kernel
     ;     uint16_t c_max_path;  // Maximum path length
     ;     void*    c_prog_addr; // Virtual address where user programs are loaded
+    ;     char*    c_prog_path;  // Path to where user prog
     ;     void*    c_custom;    // Custom area, target-specific
     ; } zos_config_t;
-    .equ ZOS_CONFIG_SIZE, 12
+    .equ ZOS_CONFIG_SIZE, 14
 
     ; @brief Override caller program when invoking `exec`
     .equ EXEC_OVERRIDE_PROGRAM, 0
