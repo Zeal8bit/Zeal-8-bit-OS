@@ -51,3 +51,4 @@ mainmenu "Zeal 8-bit OS Configuration"
     endif
 
     source "kernel/Kconfig"
+    source "romdisk/Kconfig"
