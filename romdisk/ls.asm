@@ -17,6 +17,7 @@
         ; Routine to parse the options given in the command line
         EXTERN get_options
         EXTERN error_print
+        EXTERN open_error
 
         ; A static buffer that can be used across the commands implementation
         EXTERN init_static_buffer
@@ -276,17 +277,6 @@ str_usage: DEFM "usage: ls <-options>\n"
            DEFM " 1 - 1 entry per line\n"
            DEFM " x - hex output\n"
 str_usage_end:
-
-        PUBLIC open_error
-open_error:
-        neg
-        ld de, str_open_err
-        ld bc, str_open_err_end - str_open_err
-        call error_print
-        ld a, 1
-        ret
-str_open_err: DEFM "open error: "
-str_open_err_end:
 
 readdir_error:
         ld de, str_rddir_err

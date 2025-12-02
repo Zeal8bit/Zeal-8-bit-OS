@@ -67,6 +67,16 @@ _error_print_no_default:
     ld (hl), 0
     ret
 
+        PUBLIC open_error
+open_error:
+        neg
+        ld de, str_open_err
+        ld bc, str_open_err_end - str_open_err
+        call error_print
+        ld a, 1
+        ret
+str_open_err: DEFM "open error: "
+str_open_err_end:
 
     ; Get the string associated to the given error code
     ; The returned address must NOT be altered.

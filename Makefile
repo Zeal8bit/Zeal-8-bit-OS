@@ -31,6 +31,9 @@ else
         export KCONFIG_CONFIG = $(ZOS_CONFIG)
 	endif
 endif
+# Convert to absolute path
+override KCONFIG_CONFIG := $(abspath $(KCONFIG_CONFIG))
+export KCONFIG_CONFIG
 
 export MENUCONFIG_STYLE = aquatic
 export OSCONFIG_ASM = include/osconfig.asm
@@ -52,7 +55,7 @@ INCLUDEDIRS:=
 PRECMD :=
 POSTCMD :=
 
-# Before including the Makefiles, include the configuration one if it exists
+# Before including the Makefiles, include the configuration once if it exists
 -include $(KCONFIG_CONFIG)
 
 # Define the TARGET as a make variable. In other words, remove the quotes which surround

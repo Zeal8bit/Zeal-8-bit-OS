@@ -520,6 +520,19 @@ help_msg_end:
 
         SECTION DATA
 system_commands_begin:
+    IF CONFIG_ENABLE_COREUTILS
+        NEW_COMMAND("cd", cd_main)
+        NEW_COMMAND("clear", clear_main)
+        NEW_COMMAND("date", date_main)
+        NEW_COMMAND("exec", exec_main)
+        NEW_COMMAND("expr", expr_main)
+        NEW_COMMAND("help", help_main)
+        NEW_COMMAND("load", load_main)
+        NEW_COMMAND("reset", reset_main)
+        NEW_COMMAND("sleep", sleep_main)
+        NEW_COMMAND("uartrcv", uartrcv_main)
+        NEW_COMMAND("uartsnd", uartsnd_main)
+    ELSE
         NEW_COMMAND("cat", cat_main)
         NEW_COMMAND("cd", cd_main)
         NEW_COMMAND("clear", clear_main)
@@ -541,6 +554,7 @@ system_commands_begin:
         NEW_COMMAND("uartrcv", uartrcv_main)
         NEW_COMMAND("uartsnd", uartsnd_main)
         NEW_COMMAND("xfer", xfer_main)
+    ENDIF
         ; Commands related to I2C
 ;        DEFS MAX_COMMAND_NAME, "i2cdetect"
 ;        DEFW i2cdetect_main

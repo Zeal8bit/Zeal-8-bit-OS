@@ -115,12 +115,6 @@ menu "Kernel configuration"
                         Maximum length of a single absolute file path. Incrementing this value will make
                         the kernel use more RAM.
 
-        config KERNEL_INIT_EXECUTABLE
-                string "Executable to launch on boot"
-                default "A:/init.bin"
-                help
-                        Executable to load and execute on after system boot
-
         config KERNEL_INIT_EXECUTABLE_ADDR
                 hex "Virtual address to load the initial program in"
                 range 0x4000 0xFF00
