@@ -1,51 +1,55 @@
-menu "Romdisk"
+menu "Romdisk configuration"
 
-config KERNEL_INIT_EXECUTABLE
-    string "Executable to launch on boot"
-    default "A:/init.bin"
-    help
-        Executable to load and execute on after system boot
+    config KERNEL_INIT_EXECUTABLE
+        string "Executable to launch on boot"
+        default "A:/init.bin"
+        help
+            Executable to load and execute on after system boot
 
-config ROMDISK_EXTRA_FILES
-    string "Paths to extra files (space-separated)"
-    default ""
-    help
-        Space-separated list of paths to additional files to include in the ROM disk.
-        Example: "path/to/file1.bin path/to/file2.txt ../another/file.dat"
+    config ROMDISK_OFFSET_PAGES
+        int "ROMDISK offset from kernel (in 16KB pages)"
+        default 1
+        range -32 31
+        help
+            Defines the number of 16KB pages between the kernel base address
+            and the ROMDISK image. The final ROMDISK physical address is computed as:
 
-config ROMDISK_INCLUDE_INIT_BIN
-    bool
-    prompt "Include init.bin"
-    default n
-    help
-        Boolean to mark whether to include init.bin in the romdisk.
-        If this option is selected, "init.bin" will be included on A:/
+                ROMDISK_ADDRESS = kernel_phys_address + (ROMDISK_OFFSET_PAGES * 0x4000)
 
-config INITBIN_ENABLE_COREUTILS
-    bool
-    prompt "Enable zeal-coreutils"
-    depends on ROMDISK_INCLUDE_INIT_BIN
-    default n
-    help
-        Boolean to mark whether the user is including zeal-coreutils.
-        If this option is selected, the "coreutils" commands will be ommited from
-        the init.bin shell (ie; ls, cp, mkdir, rm, etc)
+            A positive value places the ROMDISK *after* the kernel in flash (recommended!), while a negative value places it
+            *before*.
 
+    config ROMDISK_EXTRA_FILES
+        string "Paths to extra files (space-separated)"
+        default ""
+        help
+            Space-separated list of paths to additional files to include in the ROM disk.
+            Example: "path/to/file1.bin path/to/file2.txt ../another/file.dat"
 
-config ROMDISK_INCLUDE_SIMPLE_TXT
-    bool
-    prompt "Include simple.txt"
-    default n
-    help
-        Boolean to mark whether to include simple.txt on A:/
-        If this option is selected, "simple.txt" will be included on A:/
+    config ROMDISK_INCLUDE_INIT_BIN
+        bool
+        prompt "Include init.bin"
+        default y
+        help
+            Boolean to mark whether to include init.bin in the romdisk.
+            If this option is selected, "init.bin" will be included on A:/
 
-config ROMDISK_IGNORE_HIDDEN
-    bool
-    prompt "Ignore hidden and dot files"
-    default y
-    help
-        Boolean to mark whether to include hidden and dot files in the romdisk.
-        If this option is selected, hidden and dot files will be omitted from A:/
+    config INITBIN_ENABLE_COREUTILS
+        bool
+        prompt "Enable zeal-coreutils"
+        depends on ROMDISK_INCLUDE_INIT_BIN
+        default n
+        help
+            Boolean to mark whether the user is including zeal-coreutils.
+            If this option is selected, the "coreutils" commands will be ommited from
+            the init.bin shell (ie; ls, cp, mkdir, rm, etc)
+
+    config ROMDISK_IGNORE_HIDDEN
+        bool
+        prompt "Ignore hidden and dot files"
+        default y
+        help
+            Boolean to mark whether to include hidden and dot files in the romdisk.
+            If this option is selected, hidden and dot files will be omitted from A:/
 
 endmenu

@@ -51,4 +51,14 @@ mainmenu "Zeal 8-bit OS Configuration"
     endif
 
     source "kernel/Kconfig"
-    source "romdisk/Kconfig"
+
+    config ENABLE_ROMDISK
+        bool
+        prompt "Enable romdisk generation"
+        default y
+        help
+            When enabled, a romdisk will be generated after compilation. It will contain the OS binary and any other specified file.
+
+    if ENABLE_ROMDISK
+        source "romdisk/Kconfig"
+    endif

@@ -28,6 +28,9 @@ add_executable("${OS_TARGET}")
 add_subdirectory(kernel)
 # Target sources
 add_subdirectory("target/${CONFIG_TARGET}")
+# Romdisk project
+add_subdirectory(romdisk)
+
 
 # Retrieve all the properties and make them variables, let's keep the local variables in lower case.
 get_property(linkerscript GLOBAL PROPERTY LINKERSCRIPT)

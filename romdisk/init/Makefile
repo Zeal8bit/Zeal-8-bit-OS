@@ -13,21 +13,7 @@ SRCS += cd.asm sleep.asm expr.asm
 # Output directory to place binaries in
 BUILDIR=build
 
-# Name of the image file to make
-IMG=disk.img
-# Files to pack inside the image file
-FILES_IN_IMG=
-
-ifdef CONFIG_ROMDISK_INCLUDE_INIT_BIN
-    FILES_IN_IMG += $(BUILDIR)/$(BIN)
-endif
-
-ifdef CONFIG_ROMDISK_INCLUDE_SIMPLE_TXT
-    FILES_IN_IMG += simple.txt
-endif
-
 EXTRA_ROMDISK_FILES := $(wildcard $(EXTRA_ROMDISK_FILES))
-
 
 # If z88dk has been install through snap, the binary may be prefixed with "z88dk"
 # So choose any of z88dk-* or z88dk.z88dk-*, as long as one exists
@@ -51,7 +37,6 @@ endif
 .PHONY: all clean
 
 all: clean
-ifdef CONFIG_ROMDISK_INCLUDE_INIT_BIN
 	@mkdir -p $(BUILDIR)
 	@echo "Creating romdisk"
 	$(CC) $(ASMFLAGS) $(SRCS)
@@ -59,12 +44,6 @@ ifdef CONFIG_ROMDISK_INCLUDE_INIT_BIN
 	mv *.o ./$(BUILDIR) && mv *.map ./$(BUILDIR) && mv $(basename $(BIN))*.bin ./$(BUILDIR)
 	@# For some reasons, z88dk-z80asm will create an empty `init.bin` file, remove it
 	@rm -f $(BUILDIR)/$(BIN) && mv $(BUILDIR)/*_TEXT.bin $(BUILDIR)/$(BIN)
-else
-	@echo "Skipping init.bin build (CONFIG_ROMDISK_INCLUDE_INIT_BIN not set)"
-endif
-
-with_image: all
-	${ZOS_PATH}/tools/pack.py ${IMG} ${FILES_IN_IMG}
 
 clean:
-	rm -rf build/ $(IMG)
+	rm -rf build/

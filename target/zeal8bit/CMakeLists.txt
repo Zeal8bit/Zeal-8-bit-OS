@@ -12,11 +12,15 @@ set(srcs
     pio.asm
     i2c.asm
     keyboard.asm
-    romdisk.asm
     ${mmu_file}
     interrupt_vect.asm
     eeprom.asm
 )
+
+# Only include the romdisk driver if enabled in the menuconfig
+if (CONFIG_ENABLE_ROMDISK)
+    list(APPEND srcs romdisk.asm)
+endif()
 
 # Conditional keyboard source
 if(CONFIG_TARGET_KEYBOARD_PS2)
@@ -53,21 +57,3 @@ endif()
 zos_target_add(SRCS ${srcs}
                LINKERSCRIPT "linker.asm"
                INCLUDE "./" "./include")
-
-# Calculate the offset of the ROMDISK given the 16KB-block distance configuration
-math(EXPR ROMDISK_OFFSET "${CONFIG_ROMDISK_OFFSET_PAGES} * 0x4000")
-
-if(CONFIG_ROMDISK_OFFSET_PAGES LESS 0)
-    # Only values that put the romdisk AFTER the kernel for now
-    message(WARNING "Generating an image where the romdisk is before the kernel is currently not supported.\n"
-                    "Only the OS binary will be generated.")
-else()
-    if(CONFIG_ROMDISK_OFFSET_PAGES EQUAL 0)
-        message(WARNING "ROMDISK page offset cannot be 0! Automatically setting it to 1.")
-        set(ROMDISK_OFFSET "16384")
-    endif()
-    # Create a ROM image that will contain the OS binary with the romdisk
-    zos_create_rom_image(OUTPUT      "${CMAKE_BINARY_DIR}/os_with_romdisk.img"
-                         EXTRA_FILES "$ENV{EXTRA_ROMDISK_FILES}"
-                         DISK_OFFSET "${ROMDISK_OFFSET}")
-endif()
