@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "zos_errors.h"
 #include <stdint.h>
 
 /**
