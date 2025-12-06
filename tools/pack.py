@@ -4,6 +4,7 @@ import os
 import sys
 import struct
 import time
+import argparse
 
 
 # In C, the equivalent entry structure would be:
@@ -78,33 +79,12 @@ def is_hidden_file(filepath):
     return False
 
 
-def get_files(command_line_paths):
-    """Get all files from command line and config, expanding directories."""
-
-    config_path = os.environ.get("KCONFIG_CONFIG", False)
-    if config_path == False:
-        zos_path = os.path.relpath(os.environ.get("ZOS_PATH", "."))
-        config_path = os.path.join(zos_path, "os.conf")
-    if VERBOSE: print("Config File: ", os.path.relpath(config_path))
-    config = load_kconfig(config_path)
-    config_files = []
-    if "CONFIG_ROMDISK_EXTRA_FILES" in config and config["CONFIG_ROMDISK_EXTRA_FILES"]:
-        config_files = [os.path.abspath(p) for p in config["CONFIG_ROMDISK_EXTRA_FILES"].split()]
-
-    # Get files from environment variable
-    env_files = []
-    if "EXTRA_ROMDISK_FILES" in os.environ and os.environ["EXTRA_ROMDISK_FILES"]:
-        env_files = [os.path.abspath(p) for p in os.environ["EXTRA_ROMDISK_FILES"].split()]
-
-    # Check if we should ignore hidden files
-    ignore_hidden = config.get("CONFIG_ROMDISK_IGNORE_HIDDEN", False)
+def get_files(ignore_hidden, command_line_paths):
+    """Get all files from command line, expanding directories."""
 
     # Merge and deduplicate using set (all paths are now absolute)
-    all_paths = list(set(command_line_paths + config_files + env_files))
+    all_paths = list(set(command_line_paths))
 
-    if DEBUG: print("Arg: ", [os.path.relpath(p) for p in command_line_paths])
-    if DEBUG: print("Env: ", [os.path.relpath(p) for p in env_files])
-    if DEBUG: print("Config: ", [os.path.relpath(p) for p in config_files])
     if VERBOSE: print("Paths: ", [os.path.relpath(p) for p in all_paths])
 
     # Expand directories to their files
@@ -219,25 +199,49 @@ def pack_rom(output_file, input_files):
 
 if __name__ == "__main__":
     print("Preparing romdisk")
+    skip_hidden = False
+    parser = argparse.ArgumentParser(
+        description="Pack files into a ROM disk image"
+    )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output"
+    )
+    parser.add_argument(
+        "-d", "--debug",
+        action="store_true",
+        help="Enable debug output (implies verbose)"
+    )
+    parser.add_argument(
+        "-s", "--skip-hidden",
+        action="store_true",
+        help="Skip hidden files"
+    )
+    parser.add_argument(
+        "output",
+        help="Output ROM file"
+    )
+    parser.add_argument(
+        "inputs",
+        nargs="*",
+        help="Input files or directories"
+    )
 
-    args = sys.argv[1:]
-    if "-v" in args or "--verbose" in args:
-        VERBOSE = True
-        args = [arg for arg in args if arg not in ["-v", "--verbose"]]
+    parsed = parser.parse_args()
 
-    if "-d" in args or "--debug" in args:
-        DEBUG = True
-        VERBOSE = True
-        args = [arg for arg in args if arg not in ["-d", "--debug"]]
+    VERBOSE = parsed.verbose or parsed.debug
+    DEBUG = parsed.debug
+    skip_hidden = parsed.skip_hidden
 
-    if len(args) < 1:
-        print(f"Usage: {sys.argv[0]} [-v] [-d] output.rom [input1 input2 ...]")
+    if len(parsed.inputs) < 1 or not parsed.output:
+        parser.print_help()
         sys.exit(1)
 
-    all_files = get_files(args[1:])
+    all_files = get_files(skip_hidden, parsed.inputs)
 
     if len(all_files) < 1:
         print(f"{sys.argv[0]}: Error: No input files specified (via command line or CONFIG_ROMDISK_EXTRA_FILES).")
         sys.exit(1)
 
-    pack_rom(args[0], all_files)
+    pack_rom(parsed.output, all_files)

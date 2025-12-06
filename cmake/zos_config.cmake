@@ -39,8 +39,8 @@ function(zos_load_config CONFIG_FILE CONFIG_ASM)
 
         # Extract key and value
         string(REGEX REPLACE "^([^=]+)=(.*)" "\\1" name "${match}")
-        # Get rid fo the quotes if any
-        string(REGEX REPLACE "^([^=]+)=\"?([^\"]+)\"?" "\\2" value "${match}")
+        # Get rid of the quotes if any
+        string(REGEX REPLACE "^([^=]+)=\"?([^\"]*)\"?" "\\2" value "${match}")
 
         # Define the variable
         set(${name} "${value}" PARENT_SCOPE)

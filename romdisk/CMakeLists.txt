@@ -10,7 +10,7 @@ endif()
 #
 # Arguments: name of the file ROM image to flash
 function(zos_create_rom_image)
-    cmake_parse_arguments(ARG "" "OUTPUT;DISK_OFFSET" "FILES" ${ARGN})
+    cmake_parse_arguments(ARG "IGNORE_HIDDEN" "OUTPUT;DISK_OFFSET" "FILES" ${ARGN})
 
     if(NOT ARG_OUTPUT OR NOT ARG_DISK_OFFSET)
         message(FATAL_ERROR "Parameters OUTPUT and DISK_OFFSET and must be provided to zos_create_rom_image.")
@@ -19,11 +19,15 @@ function(zos_create_rom_image)
     # Create a custom target for the romdisk
     set(ROMDISKFILE "${CMAKE_BINARY_DIR}/disk.img")
 
+    if (ARG_IGNORE_HIDDEN)
+        set(SKIP_HIDDEN "--skip-hidden")
+    endif()
+
     # Pack the romdisk with the init.bin binary and the extra files
     add_custom_command(
         OUTPUT "${ROMDISKFILE}"
         COMMAND ${CMAKE_COMMAND} -E echo "Packing ${ARG_FILES}"
-        COMMAND ${PYTHON} ${TOOLS_PATH}/pack.py ${ROMDISKFILE} ${ARG_FILES}
+        COMMAND ${PYTHON} ${TOOLS_PATH}/pack.py ${SKIP_HIDDEN} ${ROMDISKFILE} ${ARG_FILES}
         DEPENDS ${ARG_FILES}
         COMMENT "Pack the romdisk"
     )
@@ -76,8 +80,31 @@ else()
         set(ROMDISK_OFFSET "16384")
     endif()
 
+    set(files_to_include_str "")
+    if (ENV{EXTRA_ROMDISK_FILES})
+        string(APPEND files_to_include_str
+                      "\n      From environment variable: $ENV{EXTRA_ROMDISK_FILES}")
+    endif()
+    if (CONFIG_EXTRA_ROMDISK_FILES)
+        string(APPEND files_to_include_str
+                      "\n      From configuration: ${CONFIG_EXTRA_ROMDISK_FILES}")
+    endif()
+
+    message(STATUS "From configuration: ${CONFIG_EXTRA_ROMDISK_FILES}")
+
+    if (NOT files_to_include_str STREQUAL "")
+        message(STATUS "Files to include in the romdisk:${files_to_include_str}")
+    endif()
+
+    # Pass the parameter IGNORE_HIDDEN if the CONFIG_ROMDISK_IGNORE_HIDDEN is set
+    if (CONFIG_ROMDISK_IGNORE_HIDDEN)
+        set(IGNORE_HIDDEN "IGNORE_HIDDEN")
+    endif()
+
     # Create a ROM image that will contain the OS binary with the romdisk
     zos_create_rom_image(OUTPUT      "${CMAKE_BINARY_DIR}/os_with_romdisk.img"
-                         FILES       ${INITBINFILE} $ENV{EXTRA_ROMDISK_FILES}
-                         DISK_OFFSET "${ROMDISK_OFFSET}")
+                         FILES       ${INITBINFILE} $ENV{EXTRA_ROMDISK_FILES} ${CONFIG_EXTRA_ROMDISK_FILES}
+                         DISK_OFFSET "${ROMDISK_OFFSET}"
+                         ${IGNORE_HIDDEN}
+    )
 endif()
