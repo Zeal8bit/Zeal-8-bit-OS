@@ -29,6 +29,7 @@ function(zos_create_rom_image)
         COMMAND ${CMAKE_COMMAND} -E echo "Packing ${ARG_FILES}"
         COMMAND ${PYTHON} ${TOOLS_PATH}/pack.py ${SKIP_HIDDEN} ${ROMDISKFILE} ${ARG_FILES}
         DEPENDS ${ARG_FILES}
+        COMMAND_EXPAND_LISTS
         COMMENT "Pack the romdisk"
     )
     add_custom_target(romdisk DEPENDS "${ROMDISKFILE}")
