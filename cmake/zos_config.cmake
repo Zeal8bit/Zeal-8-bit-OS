@@ -14,7 +14,7 @@ function(zos_get_tools_path TOOLS_PATH)
 endfunction()
 
 
-function(zos_load_config CONFIG_FILE CONFIG_ASM)
+function(zos_load_config CONFIG_FILE)
     # If the configuration file doesn't exist, we need to force the user to create it
     if(NOT EXISTS "${CONFIG_FILE}")
         message(STATUS "Configuration file not found, generating a default configuration")

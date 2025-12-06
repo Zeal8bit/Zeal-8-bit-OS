@@ -18,7 +18,7 @@ find_program(PYTHON NAMES python3 REQUIRED)
 
 zos_get_python_path(PYTHON_PATH)
 zos_get_tools_path(TOOLS_PATH)
-zos_load_config(${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${CMAKE_SOURCE_DIR}/${CONFIG_ASM})
+zos_load_config(${CMAKE_SOURCE_DIR}/${CONFIG_FILE})
 zos_generate_version(${VERSION_FILE})
 
 # Create the final executable, sources will be populated later
@@ -62,26 +62,23 @@ target_link_options(${OS_TARGET} PUBLIC ${kernel_link_flags} ${target_link_flags
 # Optional menuconfig integration
 add_custom_target(menuconfig
     COMMAND env MENUCONFIG_STYLE=aquatic KCONFIG_CONFIG=${CONFIG_FILE} ${PYTHON_PATH}/menuconfig
-    COMMAND echo "Converting ${CONFIG_FILE} to ${CONFIG_ASM}..."
-    COMMAND ${PYTHON} ${CMAKE_SOURCE_DIR}/tools/config_to_asm.py ${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${CMAKE_SOURCE_DIR}/${CONFIG_ASM}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Launch menuconfig"
 )
 # Add a target for alldefconfig so that `make alldefconfig` is valid and executes the proper command
 add_custom_target(alldefconfig
     COMMAND env KCONFIG_CONFIG=${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${PYTHON_PATH}/alldefconfig
-    COMMAND ${PYTHON} ${CMAKE_SOURCE_DIR}/tools/config_to_asm.py ${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${CMAKE_SOURCE_DIR}/${CONFIG_ASM}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Generate default osconfig.asm"
+    COMMENT "Generating default configuration"
 )
 # Also make `alldefconfig` a command so that the asm config is linked to it. If `make` is launched without
 # having the config asm file, this command will be used
 add_custom_command(
     OUTPUT ${CMAKE_SOURCE_DIR}/${CONFIG_ASM}
-    COMMAND env KCONFIG_CONFIG=${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${PYTHON_PATH}/alldefconfig
     COMMAND ${PYTHON} ${CMAKE_SOURCE_DIR}/tools/config_to_asm.py ${CMAKE_SOURCE_DIR}/${CONFIG_FILE} ${CMAKE_SOURCE_DIR}/${CONFIG_ASM}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Generate default osconfig.asm"
+    DEPENDS ${CMAKE_SOURCE_DIR}/${CONFIG_FILE}
+    COMMENT "Generate osconfig.asm"
 )
 
 # Copy the real binary into the output name we want
