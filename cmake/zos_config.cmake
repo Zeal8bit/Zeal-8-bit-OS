@@ -56,6 +56,7 @@ function(zos_generate_version file)
         OUTPUT_VARIABLE GIT_DESC
         OUTPUT_STRIP_TRAILING_WHITESPACE
         RESULT_VARIABLE GIT_RESULT
+        ERROR_QUIET
     )
 
     if(NOT GIT_RESULT EQUAL 0)

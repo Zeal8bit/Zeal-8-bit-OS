@@ -9,9 +9,19 @@ SRCS := uart.asm pio.asm romdisk.asm ram1disk.asm interrupt_vect.asm
 # Add the suffix "_romdisk" to the full binary name
 FULLBIN_W_ROMDISK = $(basename $(FULLBIN))_with_romdisk.img
 
+DISK_PATH := $(ZOS_PATH)/romdisk/init/disk.img
+INIT_PATH := $(if $(CONFIG_ROMDISK_INCLUDE_INIT_BIN),$(ZOS_PATH)/romdisk/init/build/init.bin,)
+
+# Undefine CONFIG_ROMDISK_EXTRA_FILES if it is empty
+ifeq ($(CONFIG_ROMDISK_EXTRA_FILES),"")
+    undefine CONFIG_ROMDISK_EXTRA_FILES
+endif
+
 # Command to be executed before compiling the whole OS.
+ifdef CONFIG_ENABLE_ROMDISK
 PRECMD := @echo "Compiling for Agon Light!" && \
-          (cd $(ZOS_PATH)/romdisk && make) && \
+          $(if $(CONFIG_ROMDISK_INCLUDE_INIT_BIN),(cd $(ZOS_PATH)/romdisk/init && make) &&) \
+		  ${ZOS_PATH}/tools/pack.py $(DISK_PATH) $(INIT_PATH) $(CONFIG_ROMDISK_EXTRA_FILES) $(EXTRA_ROMDISK_FILES) $(EXTRA_ROMDISK_FILES) && \
           SIZE=$$(stat -c %s $(ZOS_PATH)/romdisk/disk.img) && \
           (echo -e "IFNDEF ROMDISK_H\nDEFINE ROMDISK_H\nDEFC ROMDISK_SIZE=$$SIZE\nENDIF" > $(PWD)/include/romdisk_info_h.asm) && \
           unset SIZE
@@ -30,6 +40,6 @@ POSTCMD := @echo "RAM used by kernel: $$(du -bs $(BINDIR)/*KERNEL_BSS*.bin | cut
            echo "OS size: $$(du -bs $(FULLBIN) | cut -f1) bytes" && \
            cp $(FULLBIN) $(FULLBIN_W_ROMDISK) && \
            truncate -s 64K $(FULLBIN_W_ROMDISK) && \
-           cat $(ZOS_PATH)/romdisk/disk.img >> $(FULLBIN_W_ROMDISK) && \
+           cat $(DISK_PATH) >> $(FULLBIN_W_ROMDISK) && \
            echo "Image size: $$(du -bs $(FULLBIN_W_ROMDISK) | cut -f1) bytes"
-
+endif

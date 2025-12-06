@@ -19,7 +19,7 @@ menu "Romdisk configuration"
             A positive value places the ROMDISK *after* the kernel in flash (recommended!), while a negative value places it
             *before*.
 
-    config EXTRA_ROMDISK_FILES
+    config ROMDISK_EXTRA_FILES
         string "Paths to extra files (space-separated)"
         default ""
         help

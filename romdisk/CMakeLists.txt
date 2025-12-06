@@ -85,12 +85,10 @@ else()
         string(APPEND files_to_include_str
                       "\n      From environment variable: $ENV{EXTRA_ROMDISK_FILES}")
     endif()
-    if (CONFIG_EXTRA_ROMDISK_FILES)
+    if (CONFIG_ROMDISK_EXTRA_FILES)
         string(APPEND files_to_include_str
-                      "\n      From configuration: ${CONFIG_EXTRA_ROMDISK_FILES}")
+                      "\n      From configuration: ${CONFIG_ROMDISK_EXTRA_FILES}")
     endif()
-
-    message(STATUS "From configuration: ${CONFIG_EXTRA_ROMDISK_FILES}")
 
     if (NOT files_to_include_str STREQUAL "")
         message(STATUS "Files to include in the romdisk:${files_to_include_str}")
@@ -103,7 +101,7 @@ else()
 
     # Create a ROM image that will contain the OS binary with the romdisk
     zos_create_rom_image(OUTPUT      "${CMAKE_BINARY_DIR}/os_with_romdisk.img"
-                         FILES       ${INITBINFILE} $ENV{EXTRA_ROMDISK_FILES} ${CONFIG_EXTRA_ROMDISK_FILES}
+                         FILES       ${INITBINFILE} $ENV{EXTRA_ROMDISK_FILES} ${CONFIG_ROMDISK_EXTRA_FILES}
                          DISK_OFFSET "${ROMDISK_OFFSET}"
                          ${IGNORE_HIDDEN}
     )
