@@ -55,6 +55,8 @@ CONFIG_KERNEL_ZEALFS_V2=y
 CONFIG_KERNEL_ENABLE_MBR_SUPPORT=y
 # end of Kernel configuration
 
+CONFIG_ENABLE_ROMDISK=y
+
 #
 # Romdisk
 #
