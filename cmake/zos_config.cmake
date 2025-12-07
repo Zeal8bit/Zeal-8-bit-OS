@@ -59,7 +59,6 @@ function(zos_generate_version file)
         COMMAND git describe --tags
         OUTPUT_VARIABLE GIT_DESC
         OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
         RESULT_VARIABLE GIT_RESULT
         ERROR_QUIET
     )
