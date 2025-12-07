@@ -32,7 +32,7 @@ menu "Zeal 8-bit Computer configuration"
 
     config TARGET_ENABLE_TFCARD
         bool
-        prompt "Enable TF/microSD card driver [EXPERIMENTAL]"
+        prompt "Enable TF/microSD card driver"
         default n
         depends on KERNEL_ENABLE_MBR_SUPPORT && KERNEL_ZEALFS_V2
         help
@@ -43,7 +43,7 @@ menu "Zeal 8-bit Computer configuration"
 
     config TARGET_ENABLE_COMPACTFLASH
         bool
-        prompt "Enable CompactFlash driver (EXPERIMENTAL)"
+        prompt "Enable CompactFlash driver"
         default y
         help
             Import the CompactFlash driver in the kernel compilation. If this option is enabled, the CompactFlash will be seen

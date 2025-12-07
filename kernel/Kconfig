@@ -148,7 +148,7 @@ menu "Kernel configuration"
         choice
             prompt "ZealFS version"
             depends on KERNEL_ENABLE_ZEALFS_SUPPORT
-            default KERNEL_ZEALFS_V1
+            default KERNEL_ZEALFS_V2
             help
                 Select the version of ZealFS to use in the kernel. ZealFS v1 supports
                 a maximum file system size of 64KB, while ZealFS v2 (experimental)
@@ -160,15 +160,14 @@ menu "Kernel configuration"
                     Use ZealFS version 1, which supports file systems up to 64KB in size.
 
             config KERNEL_ZEALFS_V2
-                bool "ZealFS v2 [EXPERIMENTAL]"
+                bool "ZealFS v2"
                 help
                     Use ZealFS version 2, which supports file systems up to 4GB in size.
-                    Note: This version is experimental and may not be stable.
         endchoice
 
         config KERNEL_ENABLE_MBR_SUPPORT
             bool "Enable MBR support"
-            default n
+            default y
             help
                 If this option is enabled, the kernel will include support for reading and
                 parsing Master Boot Record (MBR) partition tables. Disable this option if

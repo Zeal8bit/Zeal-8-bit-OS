@@ -1,6 +1,9 @@
 # Set the binaries
 SHELL := /bin/bash
 
+# Print deprecation warning in yellow
+$(warning $(shell printf '\033[33mDeprecation warning: Please update your configuration\033[0m'))
+
 ifeq '$(findstring ;,$(PATH))' ';'
     detected_OS := Windows
 else
