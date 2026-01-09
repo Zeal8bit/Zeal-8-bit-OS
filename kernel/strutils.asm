@@ -509,6 +509,7 @@ strtoupper:
     push hl
 _strtoupper_loop:
     ld a, (hl)
+    or a
     jr z, _strtoupper_end
     call to_upper
     ld (hl), a
