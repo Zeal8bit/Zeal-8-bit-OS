@@ -24,15 +24,13 @@ function(zos_create_rom_image)
     endif()
 
     # Pack the romdisk with the init.bin binary and the extra files
-    add_custom_command(
-        OUTPUT "${ROMDISKFILE}"
+    add_custom_target(romdisk ALL
         COMMAND ${CMAKE_COMMAND} -E echo "Packing ${ARG_FILES}"
         COMMAND ${PYTHON} ${TOOLS_PATH}/pack.py ${SKIP_HIDDEN} ${ROMDISKFILE} ${ARG_FILES}
         DEPENDS ${ARG_FILES}
         COMMAND_EXPAND_LISTS
         COMMENT "Pack the romdisk"
     )
-    add_custom_target(romdisk DEPENDS "${ROMDISKFILE}")
 
     # Create a custom target for the final ROM image
     add_custom_command(
