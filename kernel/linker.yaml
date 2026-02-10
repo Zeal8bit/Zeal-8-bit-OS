@@ -1,0 +1,45 @@
+include:
+  - osconfig.asm
+
+# List all valid memory segments
+memory:
+  ROM:
+    origin: 0x0000
+
+  RAM:
+    origin: CONFIG_KERNEL_RAM_START
+
+sections:
+  - name: RST_VECTORS
+    segment: ROM
+
+  - name: SYSCALL_ROUTINES
+    segment: ROM
+
+  - name: SYSCALL_TABLE
+    segment: ROM
+    align: 256
+
+  - name: KERNEL_TEXT
+    segment: ROM
+
+  - name: KERNEL_STRLIB
+    segment: ROM
+
+  - name: KERNEL_RODATA
+    segment: ROM
+
+  - name: KERNEL_DRV_TEXT
+    segment: ROM
+  
+  - name: KERNEL_DRV_VECTORS
+    segment: ROM
+    # The section must not be followed by a padding since it's a statically generated
+    # table. Padding inserted after it would generate a wrong 'end address' for it.
+    nopad: true
+
+  - name: KERNEL_BSS
+    segment: RAM
+  
+  - name: DRIVER_BSS
+    segment: RAM

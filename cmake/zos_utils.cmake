@@ -14,7 +14,7 @@ endfunction()
 #
 # This function can also be used to define a linkerscript, which must be set.
 function(zos_target_add)
-    cmake_parse_arguments(ARG "" "LINKERSCRIPT" "SRCS;INCLUDE;FLAGS;LINKFLAGS" ${ARGN})
+    cmake_parse_arguments(ARG "" "" "SRCS;INCLUDE;FLAGS;LINKFLAGS;LINKERSCRIPT" ${ARGN})
 
     if(ARG_SRCS)
         set(result "")
@@ -40,16 +40,19 @@ function(zos_target_add)
         zos_append_property("TARGET_LINKFLAGS" "${ARG_LINKFLAGS}")
     endif()
 
-    if (ARG_LINKERSCRIPT)
-        set_property(GLOBAL PROPERTY LINKERSCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_LINKERSCRIPT}")
-        # set(LINKERSCRIPT "${ARG_LINKERSCRIPT}" CACHE INTERNAL "Target LinkerScript" FORCE)
+    if(ARG_LINKERSCRIPT)
+        set(result "")
+        foreach(ld ${ARG_LINKERSCRIPT})
+            list(APPEND result "${CMAKE_CURRENT_SOURCE_DIR}/${ld}")
+        endforeach()
+        zos_append_property("TARGET_LINKERSCRIPTS" "${result}")
     endif()
 endfunction()
 
 
 # Adds sources and include directories to the kernel build.
 function(zos_kernel_add)
-    cmake_parse_arguments(ARG "" "" "SRCS;INCLUDE;LINKFLAGS" ${ARGN})
+    cmake_parse_arguments(ARG "" "" "SRCS;INCLUDE;LINKFLAGS;LINKERSCRIPT" ${ARGN})
 
     if(ARG_SRCS)
         set(result "")
@@ -69,6 +72,14 @@ function(zos_kernel_add)
 
     if (ARG_LINKFLAGS)
         zos_append_property("KERNEL_LINKFLAGS" "${ARG_LINKFLAGS}")
+    endif()
+
+    if(ARG_LINKERSCRIPT)
+        set(result "")
+        foreach(ld ${ARG_LINKERSCRIPT})
+            list(APPEND result "${CMAKE_CURRENT_SOURCE_DIR}/${ld}")
+        endforeach()
+        zos_append_property("KERNEL_LINKERSCRIPTS" "${result}")
     endif()
 
 endfunction()

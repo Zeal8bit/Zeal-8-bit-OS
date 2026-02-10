@@ -35,4 +35,5 @@ if(CONFIG_ENABLE_EMULATION_HOSTFS)
 endif()
 
 zos_kernel_add(SRCS ${KERNEL_SRCS}
+               LINKERSCRIPT "linker.yaml"
                LINKFLAGS "-m")

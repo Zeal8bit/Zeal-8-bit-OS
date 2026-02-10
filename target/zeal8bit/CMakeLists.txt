@@ -55,5 +55,5 @@ endif()
 
 # Register all the files and the include directories
 zos_target_add(SRCS ${srcs}
-               LINKERSCRIPT "linker.asm"
+               LINKERSCRIPT "linker.yaml"
                INCLUDE "./" "./include")

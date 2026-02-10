@@ -39,7 +39,7 @@ add_subdirectory(romdisk)
 
 
 # Retrieve all the properties and make them variables, let's keep the local variables in lower case.
-get_property(linkerscript GLOBAL PROPERTY LINKERSCRIPT)
+get_property(kernel_ldscripts GLOBAL PROPERTY KERNEL_LINKERSCRIPTS)
 get_property(kernel_srcs GLOBAL PROPERTY KERNEL_SRCS)
 get_property(kernel_includes GLOBAL PROPERTY KERNEL_INCLUDES)
 get_property(kernel_link_flags GLOBAL PROPERTY KERNEL_LINKFLAGS)
@@ -47,13 +47,28 @@ get_property(target_srcs GLOBAL PROPERTY TARGET_SRCS)
 get_property(target_flags GLOBAL PROPERTY TARGET_FLAGS)
 get_property(target_link_flags GLOBAL PROPERTY TARGET_LINKFLAGS)
 get_property(target_includes GLOBAL PROPERTY TARGET_INCLUDES)
+get_property(target_ldscripts GLOBAL PROPERTY TARGET_LINKERSCRIPTS)
 
 # Make sure a linker script was provided
-if(linkerscript STREQUAL "")
-    message(FATAL_ERROR "A linker script must be defined and given to target_add_srcs")
+if(kernel_ldscripts STREQUAL "" AND target_ldscripts STREQUAL "")
+    message(FATAL_ERROR "At least one linker script must be provided")
 endif()
-target_sources(${OS_TARGET} PUBLIC ${linkerscript} ${kernel_srcs} ${target_srcs})
-set_source_files_properties(${linkerscript} ${kernel_srcs} ${target_srcs}
+
+# Generate the ASM linker script file
+set(GENERATED_LINKER_ASM ${CMAKE_BINARY_DIR}/linker.asm)
+
+add_custom_command(
+    OUTPUT ${GENERATED_LINKER_ASM}
+    COMMAND ${PYTHON} ${TOOLS_PATH}/zld.py
+            ${kernel_ldscripts} ${target_ldscripts}
+            -o ${GENERATED_LINKER_ASM}
+    DEPENDS ${TOOLS_PATH}/zld.py ${kernel_ldscripts} ${target_ldscripts}
+    COMMENT "Generating Zeal linker script"
+    VERBATIM
+)
+
+target_sources(${OS_TARGET} PUBLIC ${GENERATED_LINKER_ASM} ${kernel_srcs} ${target_srcs})
+set_source_files_properties(${GENERATED_LINKER_ASM} ${kernel_srcs} ${target_srcs}
                             OBJECT_DEPENDS ${CMAKE_SOURCE_DIR}/${CONFIG_ASM})
 
 # Set the include directories

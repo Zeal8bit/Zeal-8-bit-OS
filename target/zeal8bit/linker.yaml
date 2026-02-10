@@ -1,0 +1,15 @@
+sections:
+  - name: INTERRUPT_VECTOR
+    segment: ROM
+    align: 256
+
+  - name: DRIVER_BSS_ALIGN16
+    segment: RAM
+    align: 16
+
+  # MMU is initialized before the kernel erases the BSS, thus we cannot
+  # store MMU data inside the BSS, create a new section that won't be erased
+  # by the kernel.
+  - name: NOINIT_DATA
+    segment: RAM
+    align: 4
