@@ -65,8 +65,12 @@ function(zos_generate_version file)
 
     if(NOT GIT_RESULT EQUAL 0)
         string(ASCII 27 Esc)
-        message(STATUS "${Esc}[33mCannot get version, not in a git repository${Esc}[0m")
-        set(GIT_DESC "unversioned")
+        if(DEFINED ENV{ZEAL_KERNEL_VERSION} AND NOT "$ENV{ZEAL_KERNEL_VERSION}" STREQUAL "")
+            set(GIT_DESC "$ENV{ZEAL_KERNEL_VERSION}")
+        else()
+            message(STATUS "${Esc}[33mCannot get version, using 'unversioned'${Esc}[0m")
+            set(GIT_DESC "unversioned")
+        endif()
     endif()
 
 
