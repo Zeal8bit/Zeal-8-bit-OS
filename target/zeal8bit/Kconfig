@@ -153,6 +153,15 @@ menu "Zeal 8-bit Computer configuration"
     endchoice
 
 
+    config TARGET_SCROLL_RESET
+        bool
+        prompt "Reset on Scroll key pressed"
+        depends on TARGET_KEYBOARD_PS2
+        default n
+        help
+            Trigger a software reset when the SCROLL key is released on the keyboard
+
+
     config TARGET_UART_SET_MONITOR_SIZE
         bool
         prompt "Resize host monitor to 80x40"

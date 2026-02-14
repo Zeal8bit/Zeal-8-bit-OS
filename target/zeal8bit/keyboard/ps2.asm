@@ -4,6 +4,7 @@
 
 ; Driver for the PS/2 keyboard protocol on Zeal 8-bit Computer motherboard
 
+    INCLUDE "osconfig.asm"
     INCLUDE "utils_h.asm"
     INCLUDE "keyboard_h.asm"
 
@@ -237,12 +238,30 @@ extended_scan:
 keyboard_ps2_int_handler:
     ; Enqueue the PS/2 scan code we just received
     in a, (KB_IO_ADDRESS)
+  IF CONFIG_TARGET_SCROLL_RESET
+    ; ScrollLock keycode is 0x7e
+    cp 0x7e
+    jr nz, store_and_enqueue
+    ; Scroll lock pressed, check if it's the release event
+    ld a, (kb_prev)
+    cp 0xf0
+    ; Restore the 0x7e code in A
+    ld a, 0x7e
+    jr nz, store_and_enqueue
+    rst 0
+store_and_enqueue:
+    ld (kb_prev), a
     jp keyboard_enqueue
-
-
+  ELSE
+    jp keyboard_enqueue
+  ENDIF
 
 
     SECTION DRIVER_BSS
 
     ; State that will be updated according to the keys received in non-blocking mode
 kb_next_step: DEFS 2
+  IF CONFIG_TARGET_SCROLL_RESET
+    ; Previous code received
+kb_prev: DEFS 1
+  ENDIF
