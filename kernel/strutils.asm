@@ -525,6 +525,7 @@ _strtoupper_end:
     ;       HL - Memory address to initialize
     ;       BC - Size of the memory to initialize
     ;       E  - Byte to initialize the memory with
+    PUBLIC memset
 memset:
     ; Test that BC is not null
     ld a, b
