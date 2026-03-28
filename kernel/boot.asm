@@ -141,8 +141,6 @@ zos_date_warning: DEFM "Date unavailable\n", 0
 zos_kernel_ready:
         DEFM "Kernel ready.\nLoading "
         CONFIG_KERNEL_INIT_EXECUTABLE
-        DEFM " @"
-        STR(CONFIG_KERNEL_INIT_EXECUTABLE_ADDR)
         DEFM "\n\n", 0
 
 

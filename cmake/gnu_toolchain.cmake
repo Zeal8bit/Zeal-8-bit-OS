@@ -20,5 +20,7 @@ set(CMAKE_ASM_FLAGS_INIT "-I${ZOS_GNU_SYSROOT}/ -I${ZOS_GNU_SYSROOT}/include")
 link_directories("${ZOS_GNU_SYSROOT}/lib")
 
 # Using CMAKE_EXE_LINKER_FLAGS_INIT has no effect...
-set(CMAKE_EXE_LINKER_FLAGS "-Ttext=0x4000")
+# Passing -N will tell LD that we don't need to align the program headers in the file,
+# resulting is a more compact ELF (no padding in the file)
+set(CMAKE_EXE_LINKER_FLAGS "-Ttext=0x4000 -N")
 

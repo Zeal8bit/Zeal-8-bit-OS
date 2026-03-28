@@ -545,7 +545,7 @@ _zos_vfs_ioctl_ret:
         ; is positive, the cursor won't move further than the end of
         ; the file.
         ; Parameters:
-        ;       H - Dev number, must refer to an opened driver (not a file)
+        ;       H - Dev number
         ;       BCDE - 32-bit offset, signed if whence is SEEK_CUR/SEEK_END.
         ;              Unsigned if SEEK_SET.
         ;       A - Whence. Can be SEEK_CUR, SEEK_END, SEEK_SET.

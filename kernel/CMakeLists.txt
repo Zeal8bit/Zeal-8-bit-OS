@@ -12,6 +12,9 @@ set(KERNEL_SRCS
 
 if(CONFIG_KERNEL_TARGET_HAS_MMU)
     list(APPEND KERNEL_SRCS syscalls.asm loader.asm)
+    if(CONFIG_KERNEL_ENABLE_ELF_BINARY)
+        list(APPEND KERNEL_SRCS loader_elf.asm)
+    endif()
 else()
     list(APPEND KERNEL_SRCS syscalls_nommu.asm loader_nommu.asm)
 endif()

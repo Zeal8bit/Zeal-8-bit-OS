@@ -42,6 +42,11 @@
         ; able to retrieve its program. (useful for block drivers
         ; for example or target's routines needed to be executed at
         ; boot)
+
+        ; Executable file format related
+        ERR_EXEC_INVALID_FORMAT      = 40,
+        ERR_EXEC_OUT_OF_BOUNDS       = 41,
+
         ERR_DRIVER_HIDDEN = 255
     }
 
