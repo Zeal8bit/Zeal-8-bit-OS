@@ -22,6 +22,7 @@
     EXTERN strchrnul
     EXTERN strncmp
     EXTERN memsep
+    EXTERN memset
     EXTERN strsep
     EXTERN strlen
     EXTERN strcpy
