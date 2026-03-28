@@ -157,12 +157,12 @@ menu "Kernel configuration"
             config KERNEL_ZEALFS_V1
                 bool "ZealFS v1"
                 help
-                    Use ZealFS version 1, which supports file systems up to 64KB in size.
+                    Use ZealFS version 1, which supports partitions up to 64KB in size.
 
             config KERNEL_ZEALFS_V2
                 bool "ZealFS v2"
                 help
-                    Use ZealFS version 2, which supports file systems up to 4GB in size.
+                    Use ZealFS version 2, which supports partitions up to 4GB in size.
         endchoice
 
         config KERNEL_ENABLE_MBR_SUPPORT
@@ -172,5 +172,16 @@ menu "Kernel configuration"
                 If this option is enabled, the kernel will include support for reading and
                 parsing Master Boot Record (MBR) partition tables. Disable this option if
                 MBR support is not required to reduce kernel size.
+
+
+        config KERNEL_ENABLE_ELF_BINARY
+            bool "Enable ELF executable loading [EXPERIMENTAL]"
+            depends on KERNEL_TARGET_HAS_MMU
+            default n
+            help
+                    When enabled, the kernel can recognize and load ELF executables in addition
+                    to raw flat binaries.
+                    Disable this option if only raw binaries are used and you want to reduce the
+                    kernel size (~500 bytes)
 
 endmenu

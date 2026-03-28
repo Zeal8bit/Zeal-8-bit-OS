@@ -12,7 +12,7 @@ endif()
 
 set(CMAKE_TOOLCHAIN_FILE $ENV{ZOS_PATH}/cmake/${ZOS_TOOLCHAIN}_toolchain.cmake)
 
-# Helper to convert an ELF file to a raw binary
+# Helper to convert an ELF file to a raw binary and a minimal ELF
 function(elf_to_bin target)
     set(bin_file "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target}.bin")
     add_custom_target(${target}_bin ALL
@@ -22,6 +22,15 @@ function(elf_to_bin target)
         VERBATIM
     )
     set_property(TARGET ${target}_bin PROPERTY RAW_BINARY ${bin_file})
+    # Generate a minimal ELF with only the program headers and no sections
+    set(minimal_elf_file "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target}.min.elf")
+    add_custom_target(${target}_minimal_elf ALL
+        COMMAND ${CMAKE_OBJCOPY} -S --strip-section-headers $<TARGET_FILE:${target}> ${minimal_elf_file}
+        DEPENDS $<TARGET_FILE:${target}>
+        COMMENT "Generating minimal ELF with only program headers"
+        VERBATIM
+    )
+    set_property(TARGET ${target}_minimal_elf PROPERTY MINIMAL_ELF ${minimal_elf_file})
 endfunction()
 
 # Helper to convert an IHX file to a raw binary

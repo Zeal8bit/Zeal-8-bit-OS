@@ -10,6 +10,7 @@
         INCLUDE "vfs_h.asm"
         INCLUDE "log_h.asm"
         INCLUDE "target_h.asm"
+        INCLUDE "loader_h.asm"
 
         EXTERN zos_vfs_open_internal
         EXTERN zos_vfs_read_internal
@@ -89,17 +90,21 @@ zos_load_allocate_page_to_de:
         ;   A - 0 on success, error code else
         ;   Z flag - Set on success
         ;   BC - Size of the file
-        ;   D - Dev of the opened file
+        ;   H - File format on success (if enabled in the config)
+        ;  [g_load_dev] - Opened file descriptor on success (no file opened on error)
 _zos_load_open_and_check_size:
+        ld (g_load_filename), bc
         ; Set flags to read-only
         ld h, O_RDONLY
         call zos_vfs_open_internal
         ; File descriptor in A, error if the descriptor is less than 0
         or a
         jp m, zos_load_and_open_error
+        ; Statically save the opened dev to simplify the code
+        ld (g_load_dev), a
         ; No error, let's check the file size, it must not exceed 48KB
         ; (the system is in the first bank, so we have 3 free banks)
-        ld de, _file_stats
+        ld de, _load_buffer
         ld h, a
         push hl
         call zos_vfs_dstat_internal
@@ -108,13 +113,36 @@ _zos_load_open_and_check_size:
         ; Check if an error occurred while getting the info
         or a
         jr nz, _zos_load_failed
+  IF CONFIG_KERNEL_ENABLE_ELF_BINARY
+        ; Check the file header to determine its max size (no max for ELF)
+        call zos_elf_read_header
+        jp nz, _zos_load_failed
+        ; In case the format is ELF, no need to check the size.
+        ; The format is returned in H, check if it's an ELF
+        ld a, h
+        sub BIN_ELF
+        ; Return success (A is 0) if the file is indeed an ELF
+        ret z
+        ; Not an ELF, put the descriptor back in H
+        ld a, (g_load_dev)
+        ld h, a
+        ; Raw file, rewind it at the beginning, BCDE = 0
+        ld b, 0
+        ld c, b
+        ld d, b
+        ld e, b
+        ld a, SEEK_SET
+        call zos_vfs_seek
+        or a
+        jr nz, _zos_load_failed
+  ENDIF
         ; A is 0 if we reached here. The size is in little-endian!
         ; Make sure it doesn't exceed 48KB
-        ld hl, (_file_stats + file_size_t + 2)
+        ld hl, (_load_buffer + file_size_t + 2)
         ld a, h
         or l
         jr nz, _zos_load_too_big
-        ld hl, (_file_stats + file_size_t)
+        ld hl, (_load_buffer + file_size_t)
         ; Optimize by only comparing the highest byte
         ld a, h
         cp LOADER_BIN_MAX_SIZE >> 8
@@ -125,6 +153,10 @@ _zos_load_open_and_check_size:
         ; Size is valid, store it in BC and return 0
         ld b, h
         ld c, l
+  IF CONFIG_KERNEL_ENABLE_ELF_BINARY
+        ; Return value
+        ld h, BIN_RAW
+  ENDIF
         xor a
         ret
 zos_load_and_open_error:
@@ -132,20 +164,114 @@ zos_load_and_open_error:
         ret
 _zos_load_too_big:
         ld e, ERR_NO_MORE_MEMORY
-        jr _zos_load_failed_close
+        jr _zos_load_close_ret_e
 _zos_load_size_0:
         ld e, ERR_ENTRY_CORRUPTED
-        jr _zos_load_failed_close
+        jr _zos_load_close_ret_e
 _zos_load_failed:
-        ld e, ERR_FAILURE
-_zos_load_failed_close:
-        ; Close the opened dev (in D register)
-        ld h, d
+        ld e, a
+_zos_load_close_ret_e:
+        ; Close the opened dev (DE is saved)
+        ld a, (g_load_dev)
+        ld h, a
         call zos_vfs_close
         ld a, e
         or a
         ret
 
+        ; Load a file in chunks into virtual memory, remapping user pages as needed.
+        ; Parameters:
+        ;   A  - Opened file dev
+        ;   DE - Destination virtual address
+        ;   BC - Size to load
+        ; Returns:
+        ;   A - ERR_SUCCESS on success, error code else
+        ;   Z flag - Set on success
+        ;   DE - Virtual address following the loaded bytes
+        ; Alters:
+        ;   A, BC, DE, HL
+        PUBLIC zos_load_file_chunks
+zos_load_file_chunks:
+        ld (s_load_chunks_dev), a
+_zos_load_file_chunks_loop:
+        ld a, b
+        or c
+        ; A is zero, return
+        ret z
+        KERNEL_MMU_PAGE_OF_VIRT_ADDR d
+        or a
+        jr z, _zos_load_file_chunks_invalid_param
+        dec a
+        ; Get the allocated page for that page
+        ld hl, _allocate_pages
+        ADD_HL_A ()
+        ld a, (hl)
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
+        ; Convert DE into an address that starts from 0x4000
+        res 7, d
+        set 6, d
+        ; Chunk size is min(remaining, bytes until the end of this 16KB page).
+        ; Calculate remaining in this page = 0x8000 - ADDR
+        ; Remaining in file = BC
+        push bc
+        ld hl, KERN_MMU_PAGE2_VIRT_ADDR
+        or a
+        sbc hl, de
+        push hl
+        or a
+        sbc hl, bc
+        ; If no carry, BC <= HL (remaining in page)
+        jr nc, _zos_load_file_chunks_use_remaining
+        ; Put the minimum (remaining in page) in BC
+        pop bc
+        jr _zos_load_file_chunks_read
+_zos_load_file_chunks_use_remaining:
+        ; BC is the minimum, do not alter it, restore the stack
+        pop hl
+_zos_load_file_chunks_read:
+        ld a, (s_load_chunks_dev)
+        ; If A is 0xff, perform a memset to 0 (BSS)
+        cp 0xff
+        jr nz, _zos_load_file_non_memset
+        ; memset DE with byte 0
+        ex de, hl
+        ld e, 0
+        call memset
+        ex de, hl
+        jr _zos_load_file_advance
+_zos_load_file_non_memset:
+        ld h, a
+        call zos_vfs_read_internal
+        jr z, _zos_load_file_chunks_pop_fail
+        ; Let's be safe and check that some bytes were read
+        ld a, b
+        or c
+        jr z, _zos_load_file_chunks_short_read
+_zos_load_file_advance:
+        ; Advance the virtual address (DE)
+        ex de, hl
+        add hl, bc
+        ex de, hl
+        ; Subtract BC bytes from remaining size ([SP])
+        pop hl
+        or a
+        sbc hl, bc
+        ; Keep the remaining size in BC
+        ld b, h
+        ld c, l
+        jr _zos_load_file_chunks_loop
+_zos_load_file_chunks_pop_fail:
+        pop bc
+        or a
+        ret
+_zos_load_file_chunks_short_read:
+        ld a, ERR_FAILURE
+        or a
+        ret
+_zos_load_file_chunks_invalid_param:
+        ld a, ERR_INVALID_PARAMETER
+        or a
+        ret
 
         ; Load binary file which is pointed by HL
         ; Parameters:
@@ -160,76 +286,78 @@ zos_load_file:
 zos_load_file_bc:
         call _zos_load_open_and_check_size
         ret nz
+  IF CONFIG_KERNEL_ENABLE_ELF_BINARY
+        ; Save binary type in A
+        ld a, h
+  ENDIF
         ; Reuse stat structure to fill the program parameters
         ld hl, CONFIG_KERNEL_STACK_ADDR
-        ld (_file_stats), hl
+        ld (_load_buffer), hl
         ld hl, 0
-        ld (_file_stats + 2), hl
+        ld (_load_buffer + 2), hl
+  IF CONFIG_KERNEL_ENABLE_ELF_BINARY
+        ; Continue the normal execution in case the binary format is RAW
+        cp BIN_ELF
+        jp z, zos_elf_load
+  ENDIF
+        ; Load and execute a RAW format binary file
         ; Parameters:
-        ;   D - Opened dev
         ;   BC - Size of the file
-_zos_load_file_checked:
+        ;   [g_load_dev] - Opened file dev
+_zos_load_raw_file:
         ; BC contains the size of the file to copy, D contains the dev number.
+        push de
         ; Only support program loading on 0x4000 at the moment
         ASSERT(CONFIG_KERNEL_INIT_EXECUTABLE_ADDR == 0x4000)
-        ASSERT(KERN_MMU_PAGE1_VIRT_ADDR == 0x4000)
-        ; Calculate the number of loops to do: (BC + 0x3FFF) / 0x4000
-        ld hl, KERN_MMU_VIRT_PAGES_SIZE - 1
-        add hl, bc
-        ld a, h
-        rlca
-        rlca
-        and 0x3
-        ld b, a
-        ; Prepare the file descriptor and destination buffer
-        ld h, d
-        ; DE will point to the allocated pages. All the pages will be
-        ; allocated in virtual page 1 to simplify the code below.
-        ld de, _allocate_pages
-_zos_load_file_loop:
-        ; Map the next page, the allocated pages are stored in DE
-        ld a, (de)
-        inc de
-        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
-        push bc
-        push de
-        push hl
-        ld bc, KERN_MMU_VIRT_PAGES_SIZE
-        ld de, KERN_MMU_PAGE1_VIRT_ADDR
-        call zos_vfs_read_internal
+        ld a, (g_load_dev)
+        push af ; Save opened dev
+        ld de, CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
+        call zos_load_file_chunks
+        ; Pop opened dev in H, and close it, keeping the current return value
         pop hl
-        pop de
-        pop bc
-        ; Check A for any error
-        or a
-        jr nz, _zos_load_failed_h_dev
-        djnz _zos_load_file_loop
+        ld b, a
+        ; Close the file 
+        jr nz, _zos_load_failed_A
         ; The program is ready, close the file as we don't need it anymore
         call zos_vfs_close
+        ; Put the program entry adress in DE
+        ld de, CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
+        ; Fall-through
+
+        ; Load the user program's virtual pages and jump to it.
+        ; Parameters:
+        ;    [_load_buffer] - Parameters address (argv)
+        ;    [_load_buffer + 2] - Parameters size (argc)
+        ;    DE - Program entry point
+        PUBLIC zos_loader_map_jump_entry
+zos_loader_map_jump_entry:
         ; Get the parameters out of the stack before mapping the user program stack
-        ld hl, (_file_stats)
+        ld hl, (_load_buffer)
         ld sp, hl
         ; Put HL in DE
         ex de, hl
-        ld bc, (_file_stats + 2)
+        ld bc, (_load_buffer + 2)
         ; The stack may not be clean, but there is no need to pop the value as it won't be used:
         ; we are going to set the user stack and jump to the program.
         ; User program is loaded in RAM, allocate one last page for stack.
-        ; Map the user memory
-        ld hl, (_allocate_pages)
-        ld a, l
+        ; Map the user memory and jump to the entry point.
+        ; Here, DE and BC are taken, they have the parameters to pass to the program, HL contains
+        ; the address to jump to. We only have A to map the user program's virtual pages.
+        ld a, (_allocate_pages)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
-        ld a, h
+        ld a, (_allocate_pages + 1)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
         ld a, (_allocate_pages + 2)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
         ; ============================================================================== ;
         ; KERNEL STACK CANNOT BE ACCESSED ANYMORE FROM NOW ON, JUST JUMP TO THE USER CODE!
         ; ============================================================================== ;
-        jp CONFIG_KERNEL_INIT_EXECUTABLE_ADDR
-_zos_load_failed_h_dev:
+        jp (hl)
+_zos_load_failed_A:
         ; Save the error value, DE and BC will be preserved
         ld d, a
+        ld a, (g_load_dev)
+        ld h, a
         call zos_vfs_close
         ld a, d
         ret
@@ -292,12 +420,11 @@ zos_loader_exec_internal:
         push de
         ; Check if the file is reachable and the size is correct
         call _zos_load_open_and_check_size
-        ; Get back DE parameter but in HL
+        ; Get back DE parameter but in HL. The opened dev has been saved in
+        ; the global variable `g_load_dev`.
         pop hl
         ret nz
         ; Parameter was given, we have to copy it to the program stack
-        ; D contains the opened dev, we should not alter it
-        push de
         ; Save the size of the binary as we will need it later
         push bc
         ex de, hl
@@ -314,8 +441,8 @@ zos_loader_exec_internal:
         sbc hl, bc
         ex de, hl
         ; Re-use the file stat RAM area to store the parameters before remapping the last page
-        ld (_file_stats), de
-        ld (_file_stats + 2), bc
+        ld (_load_buffer), de
+        ld (_load_buffer + 2), bc
         ; Map the program at the same location as the Kernel RAM, DO NOT ACCESS RAM NOW
         ld a, (_allocate_pages + 2)
         MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
@@ -325,8 +452,7 @@ zos_loader_exec_internal:
         ; The parameters to send to the program have already been saved,
         ; Clean our stack and execute the program
         pop bc  ; Program size in BC
-        pop de  ; D contains the opened dev
-        jp _zos_load_file_checked
+        jp _zos_load_raw_file
 
 
         ; Exit the current process and load back the init.bin file
@@ -569,6 +695,7 @@ _page_owners: DEFS MMU_RAM_PHYS_PAGES
         ; Small array to store freshly allocated user pages
         ; _allocate_pages[i] represents is page i + 1
         ; (page 0 is always the kernel)
+        PUBLIC _allocate_pages
 _allocate_pages: DEFS KERNEL_PAGES_PER_PROGRAM
 
         ; Stack storing the pages allocated for the user programs that are waiting for
@@ -580,5 +707,20 @@ _stack_head: DEFS 2
         ; Number of programs pushed to the stack ((_stack_head - _stack_user_pages) / KERNEL_STACK_ENTRY_SIZE)
 _stack_entries: DEFS 1
 
-        ; Buffer used to get the stats of the file to load.
-_file_stats: DEFS STAT_STRUCT_SIZE
+        PUBLIC g_load_dev
+g_load_dev: DEFS 1
+
+        PUBLIC g_load_filename
+        ; Path to the file being loaded
+g_load_filename: DEFS 2
+
+        ; Opened dev for load_chunks routine
+s_load_chunks_dev: DEFS 1
+
+        ; Buffer used to get the stats of the file to load and/or read the file header.
+        ; The first 5 bytes are used for the file size, the remaining bytes for the ELF header.
+        PUBLIC _load_buffer
+_load_buffer: DEFS 5
+        PUBLIC _load_buffer_header
+_load_buffer_header: DEFS LOADER_BUF_SIZE
+_load_buffer_end:
