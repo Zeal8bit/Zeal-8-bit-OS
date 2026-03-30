@@ -48,10 +48,29 @@ menu "Zeal 8-bit Computer configuration"
         help
             Import the CompactFlash driver in the kernel compilation. If this option is enabled, the CompactFlash will be seen
             as a disk by the kernel. The address and and the initialization timeout can be configured.
-            NOTE: At the moment, only reads are supported and the CompactFlash must be using `rawtable` filesystem.
 
     menu "CompactFlash driver configuration"
         depends on TARGET_ENABLE_COMPACTFLASH
+
+        choice TARGET_COMPACTFLASH_FILESYSTEM
+            prompt "CompactFlash file system"
+            default TARGET_COMPACTFLASH_RAWTABLE
+            help
+                Select the file system used by the CompactFlash driver.
+
+            config TARGET_COMPACTFLASH_RAWTABLE
+                bool "Rawtable"
+                default y
+                help
+                    Mount the CompactFlash as a rawtable disk (READ-ONLY!).
+
+            config TARGET_COMPACTFLASH_ZEALFS
+                bool "ZealFSv2"
+                default n
+                depends on KERNEL_ZEALFS_V2
+                help
+                    Mount the CompactFlash as a ZealFSv2 disk (R/W).
+        endchoice
 
         config TARGET_COMPACTFLASH_ADDRESS
             hex "CompactFlash I/O address"
