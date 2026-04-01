@@ -630,9 +630,9 @@ _putchar:
     ld c, a ; Backup A
     ld hl, #_putchar_buffer
     ; ADD HL, A
-    add l
+    add a, l
     ld l, a
-    adc h
+    adc a, h
     sub l
     ld h, a
     ; Store the byte to print
@@ -647,7 +647,7 @@ _putchar:
     jr z, _putchar_flush
     ; Check if the character is \n
     ld a, e
-    sub #'\n'
+    sub 0xa
     ; Return if we have nothing to flush
     ret nz
 _putchar_flush:
