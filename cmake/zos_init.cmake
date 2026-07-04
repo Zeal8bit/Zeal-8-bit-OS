@@ -78,7 +78,7 @@ function(zos_add_asset target asset_file)
 
     add_custom_command(
         OUTPUT "${asm_file_path}"
-        COMMAND ${CMAKE_COMMAND} -E echo "\t.area .rodata"                >  "${asm_file_path}"
+        COMMAND ${CMAKE_COMMAND} -E echo "\t.area _RODATA"                >  "${asm_file_path}"
         COMMAND ${CMAKE_COMMAND} -E echo "\t.globl __${asset_name}_start" >> "${asm_file_path}"
         COMMAND ${CMAKE_COMMAND} -E echo "\t.globl __${asset_name}_end"   >> "${asm_file_path}"
         COMMAND ${CMAKE_COMMAND} -E echo "__${asset_name}_start:"         >> "${asm_file_path}"

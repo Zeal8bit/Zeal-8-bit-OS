@@ -116,6 +116,7 @@ _init_end:
     ; as the first section. We don't want this behavior, we cannot override it, so let's work
     ; around it.
     .area _TEXT
+    .area _RODATA
 
     ; ============ END OF CODE ============ ;
 
