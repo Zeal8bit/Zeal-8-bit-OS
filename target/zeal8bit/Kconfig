@@ -156,6 +156,12 @@ menu "Zeal 8-bit Computer configuration"
             prompt "Dvorak"
             help
                 Use Dvorak layout.
+
+        config TARGET_KEYBOARD_COLEMAK
+            bool
+            prompt "Colemak"
+            help
+                Use Colemak layout.
     endchoice
 
     config LAYOUT_USE_EXTENDED_ASCII

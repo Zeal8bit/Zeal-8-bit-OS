@@ -249,6 +249,8 @@ deref_table:
         INCLUDE "ps2_scan_azerty.asm"
     ELIF CONFIG_TARGET_KEYBOARD_DVORAK
         INCLUDE "ps2_scan_dvorak.asm"
+    ELIF CONFIG_TARGET_KEYBOARD_COLEMAK
+        INCLUDE "ps2_scan_colemak.asm"
     ELSE
         INCLUDE "ps2_scan_qwerty.asm"
     ENDIF
