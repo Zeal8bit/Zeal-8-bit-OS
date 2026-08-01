@@ -26,30 +26,21 @@ jobs:
       matrix:
         include:
           - target: zeal8bit
-            config-path: configs/zeal8bit/os.conf
             artifact-name: zos_target_zeal8bit_hw
-            romdisk: true
           - target: zeal8bit/emu
-            config-path: configs/zeal8bit/emu.conf
             artifact-name: zos_target_zeal8bit_emulator
-            romdisk: true
           - target: zeal8bit/uart
-            config-path: configs/zeal8bit/uart.conf
             artifact-name: zos_target_zeal8bit_hw_uart
-            romdisk: true
           - target: agon
-            config-path: configs/agon/os.conf
             artifact-name: zos_target_agon
-            romdisk: false
+            skip-romdisk: true
           - target: trs80
-            config-path: configs/trs80/os.conf
             artifact-name: zos_target_trs80
-            romdisk: false
+            skip-romdisk: true
     with:
       target: ${{ matrix.target }}
-      config-path: ${{ matrix.config-path }}
       artifact-name: ${{ matrix.artifact-name }}
-      romdisk: ${{ matrix.romdisk }}
+      romdisk: ${{ !matrix['skip-romdisk'] }}
 
   create-release:
     name: Create Draft Release
@@ -58,7 +49,7 @@ jobs:
 
     steps:
       - name: Download Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: ./artifacts
 
@@ -89,7 +80,7 @@ jobs:
           gh release delete "latest"  --repo ${{ github.repository }} --yes || true
 
       - name: Create or Update Latest Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           draft: true
           generate_release_notes: true
@@ -106,5 +97,3 @@ jobs:
             artifacts/zos_target_zeal8bit_hw_uart.zip
             artifacts/zos_target_agon.zip
             artifacts/zos_target_trs80.zip
-
-          

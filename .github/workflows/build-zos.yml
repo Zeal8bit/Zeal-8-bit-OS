@@ -1,25 +1,25 @@
 name: Build with ZDE
 
 on:
-  workflow_dispatch:
   workflow_call:
     inputs:
       target:
-        required: true
-        type: string
-      config-path:
         required: true
         type: string
       artifact-name:
         required: true
         type: string
       romdisk:
-        required: true
+        required: false
         type: boolean
+        default: true
 
 jobs:
   build-zos:
     runs-on: ubuntu-latest
+    env:
+      ZDE_DIR: zeal-dev-environment
+      ZDE_PATH: ${{ github.workspace }}/zeal-dev-environment
 
     services:
       docker:
@@ -27,11 +27,6 @@ jobs:
         options: --privileged
 
     steps:
-      - name: Checkout Zeal 8-bit OS
-        uses: actions/checkout@v4
-        with:
-          path: zos
-
       - name: Set up prerequisites
         run: |
           sudo apt-get update
@@ -44,16 +39,18 @@ jobs:
       - name: Setup ZDE
         uses: zoul0813/zeal-dev-environment/github/setup-zde@main
 
+      - name: Checkout Zeal 8-bit OS
+        uses: actions/checkout@v6
+        with:
+          path: ${{ env.ZDE_DIR }}/home/Zeal-8-bit-OS
+
       - name: Build OS for ${{ inputs.target }}
         run: |
-          cd ${{ github.workspace }}/zos
-          cp ${{ inputs.config-path }} os.conf
-          zde cmake
-          cp os.conf build
+          zde kernel "${{ inputs.target }}"
 
       - name: Verify build artifacts
         run: |
-          cd ${{ github.workspace }}/zos
+          cd "${ZDE_PATH}/home/Zeal-8-bit-OS"
 
           if [ -f "build/os.bin" ]; then
             echo "✓ OS binary created"
@@ -70,25 +67,13 @@ jobs:
             echo "⚠ OS with romdisk not found (optional)"
           fi
 
-      - name: Upload build artifacts (with romdisk)
-        if: ${{ inputs.romdisk }}
-        uses: actions/upload-artifact@v4
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-name }}
           path: |
-            zos/build/os.bin
-            zos/build/os.map
-            zos/build/os_with_romdisk.img
-            zos/build/os.conf
-          retention-days: 60
-
-      - name: Upload build artifacts (without romdisk)
-        if: ${{ !inputs.romdisk }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.artifact-name }}
-          path: |
-            zos/build/os.bin
-            zos/build/os.map
-            zos/build/os.conf
+            ${{ env.ZDE_PATH }}/home/Zeal-8-bit-OS/build/os.bin
+            ${{ env.ZDE_PATH }}/home/Zeal-8-bit-OS/build/os.map
+            ${{ inputs.romdisk && format('{0}/home/Zeal-8-bit-OS/build/os_with_romdisk.img', env.ZDE_PATH) || '' }}
+            ${{ env.ZDE_PATH }}/home/Zeal-8-bit-OS/build/os.conf
           retention-days: 60
