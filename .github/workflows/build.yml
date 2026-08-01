@@ -72,6 +72,31 @@ jobs:
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           echo "release_date=$(date -u +"%Y-%m-%d %H:%M UTC")" >> $GITHUB_OUTPUT
 
+      - name: Move latest tag to main
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          main_sha="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+            --jq '.object.sha')"
+
+          if gh api --silent "repos/${GITHUB_REPOSITORY}/git/ref/tags/latest"; then
+            gh api \
+              --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/git/refs/tags/latest" \
+              -f sha="$main_sha" \
+              -F force=true
+          else
+            gh api \
+              --method POST \
+              "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/latest" \
+              -f sha="$main_sha"
+          fi
+
+          echo "sha=$main_sha" >> "$GITHUB_OUTPUT"
+
       - name: Delete Existing Draft Releases
         env:
           GH_TOKEN: ${{ github.token }}
@@ -90,6 +115,7 @@ jobs:
             Branch: ${{ github.ref_name }}
             Date: ${{ steps.tag.outputs.release_date }}
           tag_name: latest
+          target_commitish: ${{ steps.latest.outputs.sha }}
           preserve_order: true
           files: |
             artifacts/zos_target_zeal8bit_hw.zip
