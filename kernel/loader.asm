@@ -365,9 +365,8 @@ zos_loader_exit:
 zos_loader_exit_from_first:
         call zos_vfs_clean
     IF CONFIG_KERNEL_STALL_ON_INIT_EXIT
-        ; The init program has exited: do not reload it, stall the kernel
-        ; forever instead. This avoids re-running init in an infinite loop
-        ; (useful for tests and headless runs).
+        ; Init program exited, don't reload it: halt the CPU forever instead,
+        ; to avoid re-running init in an infinite loop (tests, headless runs).
         di
 _stall_after_init_exit:
         jr _stall_after_init_exit
