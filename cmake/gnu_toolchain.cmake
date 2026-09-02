@@ -15,7 +15,7 @@ set(CMAKE_NM z80-elf-nm)
 set(CMAKE_ASM_COMPILE_OBJECT "<CMAKE_ASM_COMPILER> <DEFINES> <FLAGS> <INCLUDES> <SOURCE> -o <OBJECT>")
 
 # Zeal 8-bit OS libraries for GNU-AS toolchain
-set(ZOS_GNU_SYSROOT $ENV{ZOS_PATH}/kernel_headers/gnu-as)
+set(ZOS_GNU_SYSROOT $ENV{ZOS_PATH}/sdk/gnu-as)
 set(CMAKE_ASM_FLAGS_INIT "-I${ZOS_GNU_SYSROOT}/ -I${ZOS_GNU_SYSROOT}/include")
 link_directories("${ZOS_GNU_SYSROOT}/lib")
 

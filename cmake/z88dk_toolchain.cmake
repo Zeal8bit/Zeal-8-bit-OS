@@ -15,4 +15,4 @@ set(CMAKE_ASM_COMPILER_ID Z88DK)
 # Disable dependency generation
 set(CMAKE_DEPENDS_USE_COMPILER FALSE)
 
-set(CMAKE_ASM_FLAGS_INIT "-I$ENV{ZOS_PATH}/kernel_headers/z88dk-z80asm/")
+set(CMAKE_ASM_FLAGS_INIT "-I$ENV{ZOS_PATH}/sdk/z88dk-z80asm/")

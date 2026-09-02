@@ -25,23 +25,23 @@ set(CMAKE_OBJCOPY sdobjcopy)
 
 # Compilation and linking commands
 # By default, provide kernel headers for SDCC and put the code in `TEXT` section
-set(CMAKE_C_FLAGS_INIT "-mz80 -I$ENV{ZOS_PATH}/kernel_headers/sdcc/include/ --codeseg TEXT")
+set(CMAKE_C_FLAGS_INIT "-mz80 -I$ENV{ZOS_PATH}/sdk/sdcc/include/ --codeseg TEXT")
 
 # Default linking options
-set(SDCC_REL0 "$ENV{ZOS_PATH}/kernel_headers/sdcc/bin/zos_crt0.rel")
+set(SDCC_REL0 "$ENV{ZOS_PATH}/sdk/sdcc/bin/zos_crt0.rel")
 set(ZOS_LINK_FLAGS  "-n" # No echo of commands to STDOUT
                     "-b _HEADER=0x4000"
                     "-i" # Intel Hex output
                     # "-y" # SDCDB Debug output
                     "-m" # Output map
                     "-w" # Wide Map Format
-                    "-k $ENV{ZOS_PATH}/kernel_headers/sdcc/lib" # Library path
+                    "-k $ENV{ZOS_PATH}/sdk/sdcc/lib" # Library path
                     "-l z80" # Link the Z80 library
     )
 # Concatenate the variable above since CMake wants a single string as init flags
 string(REPLACE ";" " " CMAKE_EXE_LINKER_FLAGS_INIT "${ZOS_LINK_FLAGS}")
 
-set(CMAKE_ASM_FLAGS_INIT "-I$ENV{ZOS_PATH}/kernel_headers/sdcc/include/")
+set(CMAKE_ASM_FLAGS_INIT "-I$ENV{ZOS_PATH}/sdk/sdcc/include/")
 
 # Default linker variables, can be overriden by the assembler
 set(CMAKE_ASM_SOURCE_FILE_EXTENSIONS asm)

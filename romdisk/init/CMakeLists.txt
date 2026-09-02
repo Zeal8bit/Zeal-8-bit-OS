@@ -18,8 +18,8 @@ else()
 endif()
 
 # Provide the path for libstrutils
-target_include_directories(init PRIVATE $ENV{ZOS_PATH}/kernel_headers/z88dk-z80asm/include)
-target_link_directories(init PRIVATE $ENV{ZOS_PATH}/kernel_headers/z88dk-z80asm/lib)
+target_include_directories(init PRIVATE $ENV{ZOS_PATH}/sdk/z88dk-z80asm/include)
+target_link_directories(init PRIVATE $ENV{ZOS_PATH}/sdk/z88dk-z80asm/lib)
 target_link_libraries(init PRIVATE strutils.lib)
 
 # We need to generate a .map file, to ease debugging

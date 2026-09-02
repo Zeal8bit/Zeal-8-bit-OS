@@ -1,0 +1,16 @@
+cmake_minimum_required(VERSION 3.16)
+
+set(ZOS_TOOLCHAIN gnu)
+include($ENV{ZOS_PATH}/cmake/zos_init.cmake)
+
+project(echo ASM)
+add_executable(main "src/main.asm")
+
+# If the project needs to override the default LINKER_FLAGS, uncomment this line:
+# set(CMAKE_EXE_LINKER_FLAGS "")
+
+# Then it's possible to set a linker script for example
+# target_link_options(main PUBLIC "-TPath_to_file.ld")
+
+# Add ZOS output, i.e. generate a raw binary out of the compiled ELF
+zos_add_outputs(main)
