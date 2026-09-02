@@ -1,0 +1,9 @@
+# Build output directories and artifacts
+bin/
+build/
+*.bin
+*.elf
+*.o
+*.rel
+*.ihx
+*.map

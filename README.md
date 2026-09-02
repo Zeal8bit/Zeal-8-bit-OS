@@ -493,7 +493,7 @@ This also means that when invoking the `exec` syscall in an assembly program, on
 
 ### Syscall documentation
 
-The syscalls are all documented in the header files provided for both assembly and C, you will find these header file in the `kernel_headers/` directory, check its [README file for more information](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/kernel_headers/README.md).
+The syscalls are all documented in the header files provided for both assembly and C, you will find these header file in the `sdk/` directory, check its [README file for more information](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/sdk/README.md).
 
 ## Drivers
 
@@ -698,7 +698,7 @@ If your target is compatible, follow the instructions:
 
 Like any other OS, Zeal 8-bit OS allows developers to write programs that execute in user space.
 
-To interface these user programs with the kernel, public kernel headers are provided in the kernel_headers directory. These headers allow user programs to be written in:
+To interface these user programs with the kernel, public kernel headers are provided in the `sdk/` directory. These headers allow user programs to be written in:
 
 * **Assembly language**
     * z88dk-z80asm
@@ -733,7 +733,7 @@ zos_add_outputs(hello)
 
 The command `zos_add_outputs(hello)` post-processes the final executable to produce a raw binary (without metadata), which is the format accepted by the Zeal 8-bit OS kernel.
 
-You can find working examples using CMake for all supported toolchains in [kernel_headers/examples](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/kernel_headers/examples).
+You can find working examples for all supported toolchains in [examples](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/examples), one folder per example. They are built (and optionally run) by a [pytest suite](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/tests) that is also used in CI.
 
 # Version History
 
