@@ -364,9 +364,18 @@ zos_loader_exit:
         ret
 zos_loader_exit_from_first:
         call zos_vfs_clean
+    IF CONFIG_KERNEL_STALL_ON_INIT_EXIT
+        ; The init program has exited: do not reload it, stall the kernel
+        ; forever instead. This avoids re-running init in an infinite loop
+        ; (useful for tests and headless runs).
+        di
+_stall_after_init_exit:
+        jr _stall_after_init_exit
+    ELSE
         ; Load the init file name again
         ld hl, _zos_default_init
         jp zos_load_file
+    ENDIF
 
 
         ; Push the current pages to the stack and allocate new pages to _allocate_pages

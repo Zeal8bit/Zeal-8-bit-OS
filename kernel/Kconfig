@@ -82,6 +82,17 @@ menu "Kernel configuration"
                         For example, if this value is set to 1, no program can be saved in RAM when performing an exec.
                         If this value is set to 2, A can exec B, but B cannot exec without being overwritten/covered.
 
+        config KERNEL_STALL_ON_INIT_EXIT
+                bool "Stall the kernel when the init program exits"
+                depends on KERNEL_TARGET_HAS_MMU
+                default n
+                help
+                        When enabled, if the very first program (the init program) exits, the kernel
+                        will not reload it and instead stop forever (disable interrupts and halt).
+                        This prevents the init program from being re-executed in an infinite loop,
+                        which is useful for tests and headless runs.
+                        Only available when the kernel has MMU support.
+
         config KERNEL_MAX_LOADED_DRIVERS
                 int "Maximum number of loaded drivers"
                 default 16
