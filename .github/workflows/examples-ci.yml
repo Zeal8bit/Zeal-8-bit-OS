@@ -1,0 +1,126 @@
+name: Examples CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# Only the latest run per branch/PR is kept: a new push cancels any
+# in-progress run for the same ref, so we don't pay for every commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Build the Zeal 8-bit OS image (with romdisk) that the run tests boot as
+  # the emulator's --rom, from the dedicated `ci.conf` (emulator + UART stdout).
+  build-os:
+    name: Build OS image (ci.conf)
+    runs-on: ubuntu-latest
+    env:
+      ZDE_PATH: ${{ github.workspace }}/zeal-dev-environment
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup ZDE toolchains
+        uses: zoul0813/zeal-dev-environment/github/setup-zde@main
+
+      - name: Build OS from ci.conf
+        run: |
+          # Build inside the ZDE container, where the toolchains live. CMake
+          # configures from os.conf by default, so install the CI config first
+          # (configure and build are two separate cmake invocations).
+          zde exec bash -c "export ZOS_PATH=/src && cd /src && cp configs/zeal8bit/ci.conf os.conf && cmake -S . -B build && cmake --build build"
+
+      - name: Upload OS image
+        uses: actions/upload-artifact@v7
+        with:
+          name: zos_ci_img
+          path: build/os_with_romdisk.img
+          retention-days: 7
+
+  build-and-run:
+    name: Build and run examples
+    needs: [build-os]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # ZDE provides the gnu-as (z80-elf), SDCC and z88dk toolchains, but they
+      # live inside its container: examples are built there (see below).
+      - name: Setup toolchains
+        uses: zoul0813/zeal-dev-environment/github/setup-zde@main
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements.txt
+
+      - name: Download OS image
+        uses: actions/download-artifact@v7
+        with:
+          name: zos_ci_img
+          path: artifacts/os
+
+      - name: Download native emulator
+        run: |
+          curl -fsSL -o zeal-native.tar.gz \
+            https://github.com/Zeal8bit/Zeal-NativeEmulator/releases/download/latest/zeal-native-linux-x64.tar.gz
+          tar -xzf zeal-native.tar.gz
+          rm -f zeal-native.tar.gz
+          chmod +x zeal-native
+
+      # The emulator release is dynamically linked against libraylib.so.550,
+      # which is not present on the runner. Fetch raylib's official Linux
+      # binaries (same 5.5 version) and install the shared library.
+      - name: Install raylib (emulator runtime dependency)
+        run: |
+          curl -fsSL -o raylib.tar.gz \
+            https://github.com/raysan5/raylib/releases/download/5.5/raylib-5.5_linux_amd64.tar.gz
+          tar -xzf raylib.tar.gz
+          sudo cp raylib-5.5_linux_amd64/lib/libraylib.so* /usr/local/lib/
+          sudo ldconfig
+          rm -rf raylib.tar.gz raylib-5.5_linux_amd64
+
+      # Examples are built inside the ZDE container (the toolchains and cmake
+      # are there). The repository is mounted at /src and ZOS_PATH is pointed
+      # at it so the current revision is used as the OS source.
+      - name: Build all examples
+        run: |
+          mkdir -p junit logs
+          zde exec bash -c "export ZOS_PATH=/src && pytest tests/build_all.py -s --junitxml=junit/build.xml > logs/build.log 2>&1"
+
+      # Run the tests on the host: the emulator is a native binary and the OS
+      # image was downloaded above. The example binaries built in the previous
+      # step are visible here (the /src mount is the checkout).
+      - name: Run example tests
+        env:
+          ZOS_EMULATOR: ${{ github.workspace }}/zeal-native
+          ZOS_IMG: ${{ github.workspace }}/artifacts/os/os_with_romdisk.img
+        run: |
+          mkdir -p junit logs
+          set -o pipefail
+          pytest examples -v -k run --junitxml=junit/run.xml 2>&1 | tee logs/run.log
+
+      # Publish the JUnit XML reports to the Checks tab so every test shows up
+      # individually (pass/fail per test). Runs even when a test failed.
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: junit/*.xml
+          check_name: Example test results
+
+      # Upload the pytest logs and JUnit XML so they can be downloaded from the
+      # run page. Runs even when a test failed.
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: example-test-logs
+          path: |
+            junit/*.xml
+            logs/*.log
+          if-no-files-found: ignore
