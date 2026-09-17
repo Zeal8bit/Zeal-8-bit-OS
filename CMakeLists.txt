@@ -71,13 +71,13 @@ add_custom_target(menuconfig
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Launch menuconfig"
 )
-# Add a target for alldefconfig so that `make alldefconfig` is valid and executes the proper command
+# Add a target for alldefconfig so that it can be invoked with `cmake --build build --target alldefconfig`
 add_custom_target(alldefconfig
     COMMAND env KCONFIG_CONFIG="os.conf" ${PYTHON_PATH}/alldefconfig
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Generating default configuration"
 )
-# Also make `alldefconfig` a command so that the asm config is linked to it. If `make` is launched without
+# Also make `alldefconfig` a command so that the asm config is linked to it. If the build is launched without
 # having the config asm file, this command will be used
 add_custom_command(
     OUTPUT ${CMAKE_SOURCE_DIR}/${CONFIG_ASM}

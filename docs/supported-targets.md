@@ -16,7 +16,7 @@ The kernel currently uses the following sections, which must be included in any 
 
 ## Zeal 8-bit Computer
 
-As said previously, *Zeal 8-bit Computer* support is still partial but enough to have a command line program running. The romdisk is created before the kernel builds, this is done in the `script.sh` specified in the `target/zeal8bit/unit.mk`.
+As said previously, *Zeal 8-bit Computer* support is still partial but enough to have a command line program running. The romdisk is created as part of the OS build, by `romdisk/CMakeLists.txt`.
 
 That script will compile the `init.bin` program and embed it inside a romdisk that will be concatenated to the compiled OS binary. The final binary can be directly flashed to the NOR Flash.
 
@@ -72,12 +72,17 @@ If your target is compatible, follow the instructions:
 
 * Open the `Kconfig` file at the root of this repo, and add an entry to the `config TARGET` and `config COMPILATION_TARGET` options. Take the ones already present as examples.
 * Create a new directory in `target/` for your target, the name **must** be the same as the one specified in the new `config TARGET` option.
-* Inside this new directory, create a new `unit.mk` file. This is the file that shall contain all the source files to assemble or the ones to include.
-* Populate your `unit.mk` file, to do so, you can populate the following `make` variables:
+* Inside this new directory, create a `CMakeLists.txt` file. It shall list the source files to assemble and the include directories, by calling the `zos_target_add` function. Check `target/zeal8bit/CMakeLists.txt` for a complete example:
+  ```cmake
+  zos_target_add(SRCS ${srcs}
+                 LINKERSCRIPT "linker.asm"
+                 INCLUDE "./" "./include")
+  ```
+* The `zos_target_add` function accepts the following arguments:
   * `SRCS`: list of the files to be assembled. Typically, these are the drivers (mandatory)
-  * `INCLUDES`: the directories containing header files that can be included
-  * `PRECMD`: a bash command to be executed **before** the kernel starts building
-  * `POSTCMD`: a bash command to be executed **after** the kernel finishes building
+  * `LINKERSCRIPT`: the linker script of the target (mandatory)
+  * `INCLUDE`: the directories containing header files that can be included
+  * `FLAGS` and `LINKFLAGS`: optional compilation and link flags
 * Create the assembly code that implements the drivers for the target
 * Create an `mmu_h.asm` file which will be included by the kernel to configure and use the MMU. Check the file [`target/zeal8bit/include/mmu_h.asm`](https://github.com/Zeal8bit/Zeal-8-bit-OS/tree/main/target/zeal8bit/include/mmu_h.asm) to see how it should look like.
 * Make sure to have at least one driver that mounts a disk, with the routine `zos_disks_mount`, containing an `init.bin` file, loaded and executed by the kernel on boot.
