@@ -102,29 +102,26 @@ At the moment, the project has only been assembled on Linux (Ubuntu 20.04 and 22
 
 * bash
 * git, to clone this repo
-* cmake 3.16+ (**recommended**) or make (GNU Make 4+) (_deprecated_)
+* cmake 3.16+
 * python3 with pip3. Used for the `menuconfig`.
 * z88dk v2.2 (or later). Only its assembler, `z80asm`, is strictly required. The latest version of `z80asm` must be used as earlier versions don't have support for `MACRO`.
 
 On Ubuntu, the following commands can be used to install the dependencies. They must be run as a user, not root!
 ```
 sudo apt update
-sudo apt install git python3 python3-pip
+sudo apt install git python3 python3-pip cmake
 pip3 install --ignore-installed --user kconfiglib
 ```
 
 On MacOS, the following commands can be used to install the dependencies.
 ```
-brew install make
+brew install cmake
 brew install binutils
 ```
 
 For installing Z88DK, please [check out their Github project](https://github.com/z88dk/z88dk).
 
 ### Darwin / MacOS Requirements
-
-> [!IMPORTANT]
-> Use `gmake` instead of `make` whenever instructed to use `make` throughout.
 
 > [!TIP]
 > If you need to configure the path to `python3`, you can set the `PYTHON_BIN` environment variable
@@ -134,28 +131,18 @@ For installing Z88DK, please [check out their Github project](https://github.com
 
 After installing the dependencies listed above and cloning this repository, the first thing to do is to configure the OS.
 
-### Menuconfig using CMake (recommended)
+### Menuconfig
 
 The first thing to do is to setup the project, using the following commands:
 
 ```
-mkdir build
-cd build
-cmake ..
+cmake -B build
 ```
 
 After this succeeds, the project can be configured:
 
 ```
-make menuconfig
-```
-
-### Menuconfig using make (deprecated)
-
-Configuring the project using `make` can be done directly at the root of the project, using:
-
-```
-make menuconfig
+cmake --build build --target menuconfig
 ```
 
 ### Options in the menuconfig
@@ -169,45 +156,26 @@ To exit the menuconfig, press `Q` key.
 Or you can also run following command instead to use the default config:
 
 ```
-make alldefconfig
+cmake --build build --target alldefconfig
 ```
 
-If everything goes well, the following message will be shown:
-
-```
-Converting os.conf to include/osconfig.asm ...
-```
+If everything goes well, an `os.conf` file containing the default configuration is generated. It will be converted into `include/osconfig.asm` when the OS is built.
 
 ## Building the OS
 
-### Using CMake (recommended)
-
-If the project was already configured as described in the section [Menuconfig using CMake](#menuconfig-using-cmake) above, it is possible to directly execute `make` from the `build` directory, else, the following commands can be used:
+If the project was already configured as described in the section [Menuconfig](#menuconfig) above, it can be built directly, else the following commands can be used:
 
 ```
-mkdir build
-cd build
-cmake ..
-make
-```
-
-### Using make (deprecated)
-
-To build the OS, use the command:
-```
-make
+cmake -B build
+cmake --build build
 ```
 
 ### OS binaries and extra romdisk files
 
-After compiling, you should see the line:
-```
-OS binary: build/os.bin
-```
+After compiling, the OS binaries are placed in the `build` directory:
 
-Indicating that the final binary has been created. This binary only includes the kernel code and the drivers.
-
-The file named `os_with_romdisk.img` contains the OS binary with the generated `romdisk` (more about this below)
+* `build/os.bin` contains the kernel code and the drivers only.
+* `build/os_with_romdisk.img` contains the OS binary with the generated `romdisk` (more about this below).
 
 It is possible to embed any file inside the `romdisk` before compiling the OS thanks to the environment variable `EXTRA_ROMDISK_FILES`. This variable must be set with a list of absolute paths to the files to embed, for example, if you want to embed the files `/home/me/documents/file.txt` and `/home/me/dev/mygame.bin` inside the romdisk, you can set the environment variable as follows:
 
@@ -215,12 +183,11 @@ It is possible to embed any file inside the `romdisk` before compiling the OS th
 export EXTRA_ROMDISK_FILES="/home/me/documents/file.txt /home/me/dev/mygame.bin"
 ```
 
-After that, it is required to recompile the OS, with `make`, to build the romdisk image again. The logs will show the files that will be part of the romdisk:
+After that, it is required to recompile the OS, with `cmake --build build`, to build the romdisk image again. The logs will show the files that will be part of the romdisk:
 
 ```
 ...
-Packing the files
-pack disk.img build/init.bin simple.txt /home/me/documents/file.txt /home/me/dev/mygame.bin
+Packing /home/me/documents/file.txt /home/me/dev/mygame.bin
 ```
 
 ## Flashing
@@ -629,7 +596,7 @@ The kernel currently uses the following sections, which must be included in any 
 
 ## Zeal 8-bit Computer
 
-As said previously, *Zeal 8-bit Computer* support is still partial but enough to have a command line program running. The romdisk is created before the kernel builds, this is done in the `script.sh` specified in the `target/zeal8bit/unit.mk`.
+As said previously, *Zeal 8-bit Computer* support is still partial but enough to have a command line program running. The romdisk is created as part of the OS build, by `romdisk/CMakeLists.txt`.
 
 That script will compile the `init.bin` program and embed it inside a romdisk that will be concatenated to the compiled OS binary. The final binary can be directly flashed to the NOR Flash.
 
@@ -681,12 +648,17 @@ To port no-MMU Zeal 8-bit OS, make sure RAM is available from virtual address `0
 If your target is compatible, follow the instructions:
 * Open the `Kconfig` file at the root of this repo, and add an entry to the `config TARGET` and `config COMPILATION_TARGET` options. Take the ones already present as examples.
 * Create a new directory in `target/` for your target, the name **must** be the same as the one specified in the new `config TARGET` option.
-* Inside this new directory, create a new `unit.mk` file. This is the file that shall contain all the source files to assemble or the ones to include.
-* Populate your `unit.mk` file, to do so, you can populate the following `make` variables:
+* Inside this new directory, create a `CMakeLists.txt` file. It shall list the source files to assemble and the include directories, by calling the `zos_target_add` function. Check `target/zeal8bit/CMakeLists.txt` for a complete example:
+  ```cmake
+  zos_target_add(SRCS ${srcs}
+                 LINKERSCRIPT "linker.asm"
+                 INCLUDE "./" "./include")
+  ```
+* The `zos_target_add` function accepts the following arguments:
   * `SRCS`: list of the files to be assembled. Typically, these are the drivers (mandatory)
-  * `INCLUDES`: the directories containing header files that can be included
-  * `PRECMD`: a bash command to be executed **before** the kernel starts building
-  * `POSTCMD`: a bash command to be executed **after** the kernel finishes building
+  * `LINKERSCRIPT`: the linker script of the target (mandatory)
+  * `INCLUDE`: the directories containing header files that can be included
+  * `FLAGS` and `LINKFLAGS`: optional compilation and link flags
 * Create the assembly code that implements the drivers for the target
 * Create an `mmu_h.asm` file which will be included by the kernel to configure and use the MMU. Check the file [`target/zeal8bit/include/mmu_h.asm`](target/zeal8bit/include/mmu_h.asm) to see how it should look like.
 * Make sure to have at least one driver that mounts a disk, with the routine `zos_disks_mount`, containing an `init.bin` file, loaded and executed by the kernel on boot.

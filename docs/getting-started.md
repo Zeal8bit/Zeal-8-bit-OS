@@ -6,14 +6,14 @@ At the moment, the project has only been assembled on Linux (Ubuntu 20.04 and 22
 
 * bash
 * git (to clone this repo)
-* make
+* cmake 3.16+
 * python3 with pip3. Used for the `menuconfig`.
 * z88dk v2.2 (or later). Only its assembler, `z80asm`, is strictly required. The latest version of `z80asm` must be used as earlier versions don't have support for `MACRO`.
 
 On Ubuntu, the following commands can be used to install the dependencies. They must be run as a user, not root!
 ```
 sudo apt update
-sudo apt install git python3 python3-pip
+sudo apt install git python3 python3-pip cmake
 pip3 install --ignore-installed --user kconfiglib
 ```
 
@@ -21,10 +21,11 @@ For installing Z88DK, please [check out their Github project](https://github.com
 
 ## Configuring Zeal 8-bit OS
 
-After installing the dependencies listed above and cloning this repository, the first thing to do is to configure the OS. To do so, simply execute:
+After installing the dependencies listed above and cloning this repository, the first thing to do is to configure the OS. To do so, setup the project and start the configuration menu:
 
 ```
-make menuconfig
+cmake -B build
+cmake --build build --target menuconfig
 ```
 
 From there, it is possible to configure the kernel but also the target computer's options, for example for *Zeal 8-bit computer*, it is possible to configure where the romdisk (more about this below) will be located on the ROM.
@@ -36,30 +37,23 @@ To exit the menuconfig, press `Q` key.
 Or you can also run following command instead to use the default config:
 
 ```
-make alldefconfig
+cmake --build build --target alldefconfig
 ```
 
-If everything goes well, the following message will be shown:
-
-```
-Converting os.conf to include/osconfig.asm ...
-```
+If everything goes well, an `os.conf` file containing the default configuration is generated. It will be converted into `include/osconfig.asm` when the OS is built.
 
 ## Building
 
-To build the OS (kernel + driver + target configuration), use the command:
+To build the OS (kernel + drivers + target configuration), use the commands:
 ```
-make
-```
-
-After compiling, you should see the line:
-```
-OS binary: build/os.bin
+cmake -B build
+cmake --build build
 ```
 
-Indicating that the final binary has been created. This binary only includes the kernel code and the drivers.
+After compiling, the OS binaries are placed in the `build` directory:
 
-The file named `os_with_romdisk.img` contains the OS binary with the generated `romdisk` (more about this below)
+* `build/os.bin` contains the kernel code and the drivers only.
+* `build/os_with_romdisk.img` contains the OS binary with the generated `romdisk` (more about this below).
 
 It is possible to embed any file inside the `romdisk` before compiling the OS thanks to the environment variable `EXTRA_ROMDISK_FILES`. This variable must be set with a list of absolute paths to the files to embed, for example, if you want to embed the files `/home/me/documents/file.txt` and `/home/me/dev/mygame.bin` inside the romdisk, you can set the environment variable as follows:
 
@@ -67,12 +61,11 @@ It is possible to embed any file inside the `romdisk` before compiling the OS th
 export EXTRA_ROMDISK_FILES="/home/me/documents/file.txt /home/me/dev/mygame.bin"
 ```
 
-After that, it is required to recompile the OS, with `make`, to build the romdisk image again. The logs will show the files that will be part of the romdisk:
+After that, it is required to recompile the OS, with `cmake --build build`, to build the romdisk image again. The logs will show the files that will be part of the romdisk:
 
 ```
 ...
-Packing the files
-pack disk.img build/init.bin simple.txt /home/me/documents/file.txt /home/me/dev/mygame.bin
+Packing /home/me/documents/file.txt /home/me/dev/mygame.bin
 ```
 
 ## Flashing
