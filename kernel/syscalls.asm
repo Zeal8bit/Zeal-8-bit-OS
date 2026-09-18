@@ -58,76 +58,38 @@ _zos_sys_map_error:
         ret
 
 
-        ; Routine that shall be called as soon as a syscall has been requested.
-        ; It will map the kernel RAM before operating, then perform the syscall,
-        ; and restore the user's RAM finally.
-        ; Parameters:
-        ;       None
-        ; Alters:
-        ;       A
         PUBLIC zos_sys_perform_syscall
 zos_sys_perform_syscall:
-        ; Here, we cannot use kernel RAM, nor the kernel stack as the kernel RAM has not been
-        ; mapped yet.
-        ; A contains the user's mapped page, we need it when the kernel stack is mapped,
-        ; as it is required to restore the page, so save HL (on the user stack) and
-        ; use HL to store A.
-        ; NOTE: it would have been possible to use alternate register to save the
-        ;       user's RAM page. However, the kernel is interrupt agnostic in the sense
-        ;       that it doesn't need interrupt to work. Moreover, using it would
-        ;       require instructions "di" and "ei", This would give something like:
-        ;       di
-        ;       ex af,af'
-        ;       <Map kernel RAM>
-        ;       ei
-        ;       But what if interrupts where disabled by the user when syscall was called?
-        ;       This snippet of code would re-enable interrupts!
-        push hl ; A may contain a parameter (for seek), use HL to save A
-        ld h, a
-        ; Just before performing the "normal" syscall process, check if the call is MAP
-        ; In fact, MAP must not modify any other MMU page than the ones given as a
-        ; parameter. Then, let's check it now.
+        ex af, af'
+        push af
         ld a, l
         cp SYSCALL_MAP_NUMBER
-        jr z, SYSCALL_MAP_ROUTINE
-        ; Check if the syscall is even correct
+        jp z, SYSCALL_MAP_ROUTINE       ; restores AF and ex
         cp SYSCALL_COUNT
-        jr nc, _zos_sys_invalid_syscall
-        ; The syscall to execute is not MAP, continue the normal process.
-        ; Map the kernel RAM to the kernel RAM to the second page (and not third), as such
-        ; We will have access to both the user's stack and the kernel stack
-        ; TODO: Document the fact that user's stack needs to be in the last page (same as kernel page)
-        ; Get the hardware page MMU_PAGE_2 number in A, save it in L
-        MMU_GET_PAGE_NUMBER(MMU_PAGE_2)
-        ld l, a
-        ; Map the kernel RAM to the second page now.
-        MMU_MAP_KERNEL_RAM(MMU_PAGE_2)
-        ; Both the kernel RAM and the user's RAM (stack) are available. HOWEVER, any kernel RAM operation
-        ; needs to be accompanied by an offset, as it not mapped where it should be (page 3).
-        ld a, h
-        ld (_zos_user_a - KERN_MMU_VIRT_PAGES_SIZE), a       ; Save original A parameter from the user
-        ; Get and save the last page number too as this is where the kernel RAM will be mapped
-        MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
-        ld (_zos_user_page_3 - KERN_MMU_VIRT_PAGES_SIZE), a
-        ; Let's save page 1 here, it may be useful
+        jr nc, _zos_sys_invalid_syscall        ; restores AF and ex
+
+        exx
+        push hl ; User stack
+        push de ; User stack
+        push bc ; User stack
+        ; Put the syscall in B
+        ld b, a
+        ; Get all MMU pages
         MMU_GET_PAGE_NUMBER(MMU_PAGE_1)
-        ld (_zos_user_page_1 - KERN_MMU_VIRT_PAGES_SIZE), a
-        ; Restore the original page 2 (but save it still in kernel RAM)
-        ld a, l
-        ld (_zos_user_page_2 - KERN_MMU_VIRT_PAGES_SIZE), a
-        MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
-        ; Retrieve the original HL, but keep it on the stack. Map the kernel RAM in the last virtual page.
-        pop hl
-        push hl
+        ld e, a
+        MMU_GET_PAGE_NUMBER(MMU_PAGE_2)
+        ld d, a
+        MMU_GET_PAGE_NUMBER(MMU_PAGE_3)
+        ld c, a
+        ; Kernel RAM is available after that!
+        di
         MMU_MAP_KERNEL_RAM(MMU_PAGE_3)
-        ; We still cannot use the stack. The stack pointer register corresponds
-        ; to the user's stack, not the system's.
         ld (_zos_user_sp), sp
-        ; Load the system stack
         ld sp, CONFIG_KERNEL_STACK_ADDR
-        ; Now we can prepare the jp SYSCALL instruction. Use the syscall tables to get the routine we have
-        ; to jump to.
-        push hl
+        ei
+        
+        ; We can freely use the register to calculate the syscall to jump to
+        ld l, b
         sla l
         ld h, zos_syscalls_table >> 8
         ; Put [HL] in HL and save it in the jump instruction code
@@ -136,28 +98,38 @@ zos_sys_perform_syscall:
         ld h, (hl)
         ld l, a
         ld (_zos_sys_jump + 1), hl
-        ; Prepare the parameters before calling the syscall
-        pop hl
-        ld a, (_zos_user_a)
+        ; Swap back the register to setup the parameters
+        ex af, af'
+        exx
+        push hl ; HL is the only caller-saved pair
         call _zos_sys_jump
-        ; Restore the user's stack pointer before setting its page
-        ld sp, (_zos_user_sp)
-        ; Keep the return value in H, we can do this because HL is never a return register
-        ld h, a
-        ; Restore back all the user's virtual pages
-        ld a, (_zos_user_page_1)
-        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
-        ld a, (_zos_user_page_2)
-        MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
-        ld a, (_zos_user_page_3)
-        MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
-        ; Restore return value in A, restore HL and exit
-        ld a, h
         pop hl
+        ; Restore the alternate registers set before returning
+        exx
+        ex af, af'
+        ; Restore user stack pointer
+        ; MMU pages are in DE and C
+        ld a, e
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_1)
+        ld a, d
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_2)
+        ld a, c
+        di
+        ld sp, (_zos_user_sp)
+        MMU_SET_PAGE_NUMBER(MMU_PAGE_3)
+        ei
+        ; User stack is restored
+        pop bc
+        pop de
+        pop hl
+        pop af
+        ex af, af'
+        exx
         ret
 _zos_sys_invalid_syscall:
+        pop af
+        ex af, af'
         ld a, ERR_INVALID_SYSCALL
-        pop hl
         ret
 
         ; Routine to remap a buffer from page 3 to page 2.
