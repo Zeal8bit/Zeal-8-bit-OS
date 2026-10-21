@@ -51,11 +51,12 @@ keyboard_impl_init:
     ; Issue a reset to the keyboard; the response will arrive via interrupt
     ; ld a, PS2_CMD_RESET
     ; out (PS2_EXT_PORT0_FIFO), a
+  ELSE
+    ; Make sure to reset the keyboard state, by simply reading a dummy byte
+    in a, (KB_IO_ADDRESS)
+  ENDIF
     xor a
     ret
-  ELSE
-    ret
-  ENDIF
 
 
     ; Returns the next key pressed on the keyboard. If no key was pressed,
