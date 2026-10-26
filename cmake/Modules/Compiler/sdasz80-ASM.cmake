@@ -18,7 +18,7 @@ endif()
 
 set(CMAKE_ASM_CREATE_STATIC_LIBRARY
     "\"${CMAKE_COMMAND}\" -E remove <TARGET>"
-    "\"${SDASZ80_AR_EXECUTABLE}\" -rcs <TARGET> <LINK_FLAGS> <OBJECTS>"
+    "\"${SDASZ80_AR_EXECUTABLE}\" -rcsD <TARGET> <LINK_FLAGS> <OBJECTS>"
 )
 
 # The way the final binary (C or ASM) is linked highly depends on the assembler.
