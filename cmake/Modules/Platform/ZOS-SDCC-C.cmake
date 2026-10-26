@@ -34,7 +34,7 @@ endif()
 if("${SDCCAR_EXECUTABLE}" MATCHES "sdcclib")
   set(CMAKE_AR_OPTIONS "-a")
 else()
-  set(CMAKE_AR_OPTIONS "-rc")
+  set(CMAKE_AR_OPTIONS "-rcsD")
 endif()
 
 set(CMAKE_C_LINKER_WRAPPER_FLAG "-Wl" ",")
